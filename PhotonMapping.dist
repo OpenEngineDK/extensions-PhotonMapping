@@ -1,0 +1,4 @@
+# Photon mapping dependencies
+
+darcs /extensions/PhotonMapping			http://openengine.dk/code/extensions/PhotonMapping
+darcs /extensions/CUDA				http://openengine.dk/code/extensions/CUDA
