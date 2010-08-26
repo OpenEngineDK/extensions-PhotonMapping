@@ -2,7 +2,9 @@ SET ( EXTENSION_NAME "Extensions_PhotonMapping")
 
 # Create the extension library
 CUDA_ADD_LIBRARY( "CUDA_KERNELS"
-  Utils/CUDA/KDTreeConstruction.cu
+  Utils/CUDA/Photon/KDTreeConstruction.cu
+  Utils/CUDA/Photon/KDPhotonUpperNode.cu
+  Utils/CUDA/AABBVar.cu
 )
 
 TARGET_LINK_LIBRARIES("CUDA_KERNELS"
@@ -23,7 +25,6 @@ TARGET_LINK_LIBRARIES( ${EXTENSION_NAME}
   OpenEngine_Renderers
   OpenEngine_Resources
   Extensions_OpenGLRenderer
-  Extensions_OpenGLSelection
   ${OPENGL_LIBRARY}
   ${GLEW_LIBRARIES}
   ${SDL_LIBRARY}
