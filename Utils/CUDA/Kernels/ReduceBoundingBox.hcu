@@ -1,0 +1,103 @@
+// Reduces photon position to a bounding box
+// -------------------------------------------------------------------
+// Copyright (C) 2010 OpenEngine.dk (See AUTHORS) 
+// 
+// This program is free software; It is covered by the GNU General 
+// Public License version 2 or any later version. 
+// See the GNU General Public License for more details (see LICENSE). 
+//--------------------------------------------------------------------
+
+#include <Meta/CUDA.h>
+#include <Utils/CUDA/SharedMemory.h>
+#include <Utils/CUDA/Utils.h>
+
+namespace OpenEngine {
+namespace Utils {
+namespace CUDA {
+namespace Kernels {
+
+/**
+ * Computes the axis aligned bounding box for the given photon node.
+ *
+ * Could be optimized to work for several nodes to give increased
+ * performance? Pass a list of photon KD nodes and let each thread
+ * compute it's bounds?
+ *
+ * Send precalculated start- and endIndex? Saves every thread to
+ * lookup the same value but is it faster?
+ *
+ * Based on NVIDIA's reduction sample.
+ */
+template <class T, unsigned int blockSize> 
+__global__ void ReduceBoundingBox(PhotonNode photons,	
+                                  KDPhotonUpperNode upperNodes,
+                                  AABBVar aabbVars,
+                                  unsigned int nodeID,	
+                                  unsigned int blockOffset) {
+    // now that we are using warp-synchronous programming (below)
+    // we need to declare our shared memory volatile so that the compiler
+    // doesn't reorder stores to it and induce incorrect behavior.
+    /*volatile*/ T* sdata = SharedMemory<T>();
+
+    unsigned int tid = threadIdx.x;
+    unsigned int i = upperNodes.startIndex[nodeID] + blockIdx.x*blockSize + threadIdx.x;
+    unsigned int gridSize = blockSize*gridDim.x;
+
+    // Do first reduction outside the loop to avoid assigning dummy values.
+    T localMax, localMin;
+    if (false){
+        localMax = localMin = photons.pos[i];
+        i += gridSize;
+    }else{
+        localMax = make_float3(-1.0 * fInfinity);
+        localMin = make_float3(fInfinity);
+    }
+
+    // we reduce multiple elements per thread.  The number is determined by the 
+    // number of active thread blocks (via gridDim).  More blocks will result
+    // in a larger gridSize and therefore fewer elements per thread
+    while (i < upperNodes.startIndex[nodeID] + upperNodes.range[nodeID])
+    {         
+        localMax = max(localMax, photons.pos[i]);
+        localMin = min(localMin, photons.pos[i]);
+        i += gridSize;
+    } 
+
+    // each thread puts its local sum into shared memory 
+    sdata[tid] = localMax;
+    sdata[tid + blockSize] = localMin;
+    __syncthreads();
+    
+    // Do reduction in shared memory.
+
+    // Compiler can't unroll loop, so do this manually for better
+    // performance?
+    // Haven't now because this is easier for development.
+    for (unsigned int i = blockSize; i > 32; i /= 2){
+        unsigned int offset = i / 2;
+        if (tid < offset){
+            sdata[tid] = localMax = max(localMax, sdata[tid + offset]);
+            sdata[tid + blockSize] = localMin = min(localMin, sdata[tid + offset + blockSize]);
+        }
+        __syncthreads();
+    }
+
+    for (unsigned int i = min(32, blockSize); i > 1; i /= 2){
+        unsigned int offset = i / 2;
+        sdata[tid] = localMax = max(localMax, sdata[tid + offset]);
+        sdata[tid + blockSize] = localMin = min(localMin, sdata[tid + offset + blockSize]);
+        __syncthreads(); 
+    }
+
+    // write result for this block to global mem 
+    if (tid == 0) {
+        aabbVars.max[blockIdx.x + blockOffset] = sdata[0];
+        aabbVars.min[blockIdx.x + blockOffset] = sdata[blockSize];
+        aabbVars.owner[blockIdx.x + blockOffset] = nodeID;
+    }
+}
+
+}
+}
+}
+}

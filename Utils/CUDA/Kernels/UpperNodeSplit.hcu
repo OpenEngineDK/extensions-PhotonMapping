@@ -1,0 +1,74 @@
+// Kernels for splitting upper nodes
+// -------------------------------------------------------------------
+// Copyright (C) 2010 OpenEngine.dk (See AUTHORS) 
+// 
+// This program is free software; It is covered by the GNU General 
+// Public License version 2 or any later version. 
+// See the GNU General Public License for more details (see LICENSE). 
+//--------------------------------------------------------------------
+
+#include <Meta/CUDA.h>
+#include <Utils/CUDA/Utils.h>
+
+namespace OpenEngine {
+namespace Utils {
+namespace CUDA {
+namespace Kernels {
+
+/**
+ * Setup splitting planes and link to children.
+ */
+__global__ void SetUpperNodeSplitPlane(KDPhotonUpperNode upperNodes,
+                                  unsigned int activeIndex){
+
+    /**
+     * @TODO extend to handle several blocks.
+     * (global id and while loop)
+     */    
+    unsigned int nodeID = threadIdx.x + activeIndex;
+    
+    // the nodes aabb size
+    float3 bbSize = upperNodes.aabbMax[nodeID] - upperNodes.aabbMin[nodeID];
+    float3 median = bbSize * 0.5 + upperNodes.aabbMin[nodeID];
+
+    // Calculate splitting plane
+    bool yAboveX = bbSize.x < bbSize.y;
+    float max = yAboveX ? bbSize.y : bbSize.x;
+    float split = yAboveX ? median.y : median.x;
+    char axis = yAboveX ? KDPhotonUpperNode::Y : KDPhotonUpperNode::X;
+    bool zHigher = max < bbSize.z;
+    upperNodes.splitPos[nodeID] = zHigher ? median.z : split;
+    upperNodes.info[nodeID] = zHigher ? KDPhotonUpperNode::Z : axis;
+
+    // Set link to parent nodes from child nodes
+    unsigned int leftChild = upperNodes.child[nodeID] = upperNodes.size + 2 * nodeID;
+    upperNodes.parent[leftChild] = upperNodes.parent[leftChild+1] = nodeID;
+}
+
+template<char splitPlane>
+__global__ void CalcSplitSide(SplitVar splitVars, 
+                  KDPhotonUpperNode upperNodes,
+                  PhotonNode photons, unsigned int photonRange,
+                  unsigned int nodeID){
+    unsigned int posStart = upperNodes.startIndex[nodeID];
+    float splitPos = upperNodes.splitPos[nodeID];
+      
+    unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stepSize = gridDim.x * blockDim.x;
+
+    while(id < photonRange){
+        unsigned int index = id + posStart;
+        if (splitPlane == KDPhotonUpperNode::X)
+            splitVars.side[index] = photons.pos[index].x < splitPos;
+        else if (splitPlane == KDPhotonUpperNode::Y)
+            splitVars.side[index] = photons.pos[index].y < splitPos;
+        else if (splitPlane == KDPhotonUpperNode::Z)
+            splitVars.side[index] = photons.pos[index].z < splitPos;
+        id += stepSize;
+    }
+}
+
+}
+}
+}
+}

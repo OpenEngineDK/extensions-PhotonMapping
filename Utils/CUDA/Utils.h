@@ -25,47 +25,10 @@ unsigned int NextPow2(unsigned int x) {
     return ++x;
 }
 
-// Utility class used to avoid linker errors with extern
-// unsized shared memory arrays with templated type
-template<class T>
-struct SharedMemory
-{
-    __device__ inline operator       T*()
-    {
-        extern __shared__ int __smem[];
-        return (T*)__smem;
-    }
-
-    __device__ inline operator const T*() const
-    {
-        extern __shared__ int __smem[];
-        return (T*)__smem;
-    }
-};
-
-// specialize for double to avoid unaligned memory 
-// access compile errors
-template<>
-struct SharedMemory<double>
-{
-    __device__ inline operator       double*()
-    {
-        extern __shared__ double __smem_d[];
-        return (double*)__smem_d;
-    }
-
-    __device__ inline operator const double*() const
-    {
-        extern __shared__ double __smem_d[];
-        return (double*)__smem_d;
-    }
-};
-
-
 void Calc1DKernelDimensions(unsigned int size, 
                             unsigned int &blocks, unsigned int &threads){
-    const unsigned int MAX_THREADS = 256;
-    const unsigned int MAX_BLOCKS = 64;
+    unsigned int MAX_THREADS = activeCudaDevice.maxThreadsDim[0];
+    unsigned int MAX_BLOCKS = activeCudaDevice.maxGridSize[0] / MAX_THREADS;
 
     threads = (size < MAX_THREADS * 2) ? NextPow2((size + 1)/ 2) : MAX_THREADS;
     blocks = (size + (threads * 2 - 1)) / (threads * 2);

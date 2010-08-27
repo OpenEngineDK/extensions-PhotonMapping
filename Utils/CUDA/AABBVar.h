@@ -20,10 +20,10 @@ namespace OpenEngine {
             
             class AABBVar {
             public:
+                unsigned int size;
                 float3 *max;
                 float3 *min;
                 unsigned int *owner;
-                unsigned int size;
 
             public:
                 AABBVar()

@@ -8,11 +8,11 @@
 //--------------------------------------------------------------------
 
 #include <Renderers/OpenGL/PhotonRenderingView.h>
-#include <Utils/CUDA/KDTree.h>
 #include <Meta/CUDA.h>
 #include <Meta/OpenGL.h>
 #include <Geometry/GeometrySet.h>
 #include <Resources/DataBlock.h>
+#include <Scene/PhotonNode.h>
 
 #include <Logging/Logger.h>
 
@@ -21,9 +21,9 @@ namespace OpenEngine {
         namespace OpenGL {
             
             PhotonRenderingView::PhotonRenderingView()
-                : RenderingView(), renderPhotons(true){
+                : RenderingView(), photonTree(NULL), renderPhotons(true){
             }
-
+            
             void PhotonRenderingView::Handle(RenderingEventArg arg){
                 // Send arg to parent
                 RenderingView::Handle(arg);
@@ -36,7 +36,8 @@ namespace OpenEngine {
                     if (renderPhotons){
                         // Copy Photons to OpenGL buffer
                         //logger.info << "Copy photons to buffer" << logger.end;
-                        MapPhotonsToOpenGL(photons->GetVertices().get());
+                        //MapPhotonsToOpenGL(photons->GetVertices().get());
+                        photonTree->photons.MapToDataBlocks(photons->GetVertices().get());
 
                         glColor3f(0.0f, 1.0f, 0.0f);
                         glEnableClientState(GL_VERTEX_ARRAY);
@@ -50,18 +51,19 @@ namespace OpenEngine {
 
             void PhotonRenderingView::Initialize(RenderingEventArg arg) {
                 INITIALIZE_CUDA();
-                unsigned int size = 1<<10;
-                InitPhotons(size);
+                unsigned int size = 1<<6;
+                photonTree = new PhotonKDTree(size);
                 IDataBlockPtr vertices = IDataBlockPtr(new DataBlock<3, float>(size));
                 map<string, IDataBlockPtr> attr;
                 attr["vertex"] = vertices;
                 photons = GeometrySetPtr(new GeometrySet(attr));
-                arg.renderer.BindDataBlock(vertices.get());
+                arg.renderer.BindDataBlock(vertices.get());                
             }
 
             void PhotonRenderingView::ShootPhotons(){
                 logger.info << "Pew pew, photons everywhere" << logger.end;
-                MapPhotons();
+                photonTree->Create();
+                CHECK_FOR_CUDA_ERROR();
             }
             
         }

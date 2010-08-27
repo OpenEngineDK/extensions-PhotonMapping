@@ -11,7 +11,11 @@
 #define _PHOTON_MAPPING_RENDERING_VIEW_H_
 
 #include <Renderers/OpenGL/RenderingView.h>
+#include <Utils/CUDA/PhotonKDTree.h>
+
 #include <boost/shared_ptr.hpp>
+
+using namespace OpenEngine::Utils::CUDA;
 
 namespace OpenEngine {
     namespace Geoemtry {
@@ -23,6 +27,8 @@ namespace OpenEngine {
 
             class PhotonRenderingView : public RenderingView {
             protected:
+                PhotonKDTree* photonTree;
+                
                 bool renderPhotons;
                 GeometrySetPtr photons;
                 

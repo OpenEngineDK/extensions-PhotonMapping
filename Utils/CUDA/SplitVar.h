@@ -8,6 +8,7 @@
 //--------------------------------------------------------------------
 
 #include <Meta/CUDA.h>
+#include <string>
 
 #ifndef _SPLIT_VAR_H_
 #define _SPLIT_VAR_H_
@@ -37,6 +38,8 @@ namespace OpenEngine {
                     cudaMalloc(&prefixSum, s * sizeof(unsigned int));
                     cudaMalloc(&tempPos, s * sizeof(float3));
                 }
+
+                std::string SideToString(unsigned int begin, unsigned int end);
             };
         }
     }
