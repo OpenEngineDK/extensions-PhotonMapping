@@ -35,8 +35,6 @@ namespace OpenEngine {
                     //ShootPhotons();
                     if (renderPhotons){
                         // Copy Photons to OpenGL buffer
-                        //logger.info << "Copy photons to buffer" << logger.end;
-                        //MapPhotonsToOpenGL(photons->GetVertices().get());
                         photonTree->photons.MapToDataBlocks(photons->GetVertices().get());
 
                         glColor3f(0.0f, 1.0f, 0.0f);

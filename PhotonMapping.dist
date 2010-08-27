@@ -1,4 +1,7 @@
 # Photon mapping dependencies
 
+dist /extensions/Cudpp/Cudpp.dist		http://openengine.dk/code/extensions/Cudpp/Cudpp.dist
+
 darcs /extensions/PhotonMapping			http://openengine.dk/code/extensions/PhotonMapping
-darcs /extensions/CUDA				http://openengine.dk/code/extensions/CUDA
+
+darcs-dev /extensions/PhotonMapping		fh.daimi.au.dk:/users/cgd/code/extensions/PhotonMapping

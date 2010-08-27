@@ -10,6 +10,8 @@
 #include <Utils/CUDA/PhotonKDTree.h>
 #include <Math/RandomGenerator.h>
 
+#include <META/CUDPP.h>
+
 // Kernels
 #include <Utils/CUDA/Kernels/ReduceBoundingBox.hcu>
 #include <Utils/CUDA/Kernels/FinalBoundingBox.hcu>
@@ -159,7 +161,7 @@ namespace OpenEngine {
                     }while(blocksUsed < MAX_BLOCKS && nodeID < activeIndex + activeRange);
 
                     // Run segmented reduce ie FinalBoundingBox
-                    unsigned int iterations = log2(blocksUsed * 1.0f);
+                    unsigned int iterations = log2(blocksUsed * 1.0f) - 1;
                     //cutResetTimer(timerID);
                     //cutStartTimer(timerID);
                     FinalBoundingBox1<<<1, blocksUsed>>>(aabbVars, upperNodes, iterations);
