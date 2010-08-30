@@ -49,7 +49,7 @@ namespace OpenEngine {
 
             void PhotonRenderingView::Initialize(RenderingEventArg arg) {
                 INITIALIZE_CUDA();
-                unsigned int size = 1<<6;
+                unsigned int size = 1<<3;
                 photonTree = new PhotonKDTree(size);
                 IDataBlockPtr vertices = IDataBlockPtr(new DataBlock<3, float>(size));
                 map<string, IDataBlockPtr> attr;

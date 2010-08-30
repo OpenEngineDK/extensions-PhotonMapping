@@ -20,7 +20,7 @@ namespace OpenEngine {
             cudaMalloc(&splitPos, maxSize * sizeof(float));
             cudaMalloc(&aabbMin, maxSize * sizeof(float3));
             cudaMalloc(&aabbMax, maxSize * sizeof(float3));
-            cudaMalloc(&startIndex, maxSize * sizeof(unsigned int));
+            cudaMalloc(&photonIndex, maxSize * sizeof(unsigned int));
             cudaMalloc(&range, maxSize * sizeof(unsigned int));
             cudaMalloc(&parent, maxSize * sizeof(unsigned int));
             cudaMalloc(&child, maxSize * sizeof(unsigned int));
@@ -54,6 +54,11 @@ namespace OpenEngine {
                 out << "Is a leaf\n";
                 break;
             }
+
+            unsigned int h_index, h_range;
+            cudaMemcpy(&h_index, photonIndex + i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&h_range, range + i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+            out << "Index " << h_index << " and range " << h_range << "\n";
                     
             float3 h_aabbmin, h_aabbmax;
             cudaMemcpy(&h_aabbmin, aabbMin + i, sizeof(float3), cudaMemcpyDeviceToHost);
@@ -80,14 +85,35 @@ namespace OpenEngine {
             return out.str();
         }
 
+        std::string KDPhotonUpperNode::PhotonsToString(unsigned int i, 
+                                                       PhotonNode photons){
+            std::ostringstream out;
+            
+            unsigned int index,size;
+            cudaMemcpy(&index, photonIndex+i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&size, range+i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+            
+            float3 pos[size];
+            cudaMemcpy(&pos, photons.pos+index, 
+                       size*sizeof(float3), cudaMemcpyDeviceToHost);
+            CHECK_FOR_CUDA_ERROR();
+            
+            out << Utils::CUDA::Convert::ToString(pos[0]);
+            for (unsigned int i = 1; i < size; ++i){
+                out << "\n" << Utils::CUDA::Convert::ToString(pos[i]);
+            }
+
+            return out.str();
+        }
+
         void KDPhotonUpperNode::CheckBoundingBox(unsigned int i, PhotonNode photons){
-            unsigned int photonIndex;
-            cudaMemcpy(&photonIndex, startIndex + i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+            unsigned int photonStart;
+            cudaMemcpy(&photonStart, photonIndex + i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
             unsigned int photonRange;
             cudaMemcpy(&photonRange, range + i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
                     
             float3 positions[photonRange];
-            cudaMemcpy(positions, photons.pos + photonIndex, photonRange * sizeof(float3), cudaMemcpyDeviceToHost);
+            cudaMemcpy(positions, photons.pos + photonStart, photonRange * sizeof(float3), cudaMemcpyDeviceToHost);
             float3 hostMax = positions[0];
             float3 hostMin = positions[0];
             for (unsigned int p = 1; p < photonRange; ++p){

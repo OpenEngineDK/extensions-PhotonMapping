@@ -28,7 +28,7 @@ unsigned int NextPow2(unsigned int x) {
 void Calc1DKernelDimensions(unsigned int size, 
                             unsigned int &blocks, unsigned int &threads){
     unsigned int MAX_THREADS = activeCudaDevice.maxThreadsDim[0];
-    unsigned int MAX_BLOCKS = activeCudaDevice.maxGridSize[0] / MAX_THREADS;
+    unsigned int MAX_BLOCKS = (activeCudaDevice.maxGridSize[0]+1) / MAX_THREADS;
 
     threads = (size < MAX_THREADS * 2) ? NextPow2((size + 1)/ 2) : MAX_THREADS;
     blocks = (size + (threads * 2 - 1)) / (threads * 2);

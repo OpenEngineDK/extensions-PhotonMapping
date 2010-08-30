@@ -9,6 +9,9 @@
 
 #include <Meta/CUDA.h>
 #include <Utils/CUDA/Utils.h>
+#include <Scene/PhotonNode.h>
+
+using namespace OpenEngine::Scene;
 
 namespace OpenEngine {
 namespace Utils {
@@ -41,7 +44,7 @@ __global__ void SetUpperNodeSplitPlane(KDPhotonUpperNode upperNodes,
     upperNodes.info[nodeID] = zHigher ? KDPhotonUpperNode::Z : axis;
 
     // Set link to parent nodes from child nodes
-    unsigned int leftChild = upperNodes.child[nodeID] = upperNodes.size + 2 * nodeID;
+    unsigned int leftChild = upperNodes.child[nodeID] = upperNodes.size + 2 * (nodeID - activeIndex);
     upperNodes.parent[leftChild] = upperNodes.parent[leftChild+1] = nodeID;
 }
 
@@ -50,7 +53,8 @@ __global__ void CalcSplitSide(SplitVar splitVars,
                   KDPhotonUpperNode upperNodes,
                   PhotonNode photons, unsigned int photonRange,
                   unsigned int nodeID){
-    unsigned int posStart = upperNodes.startIndex[nodeID];
+    // @TODO replace with symbols
+    unsigned int posStart = upperNodes.photonIndex[nodeID];
     float splitPos = upperNodes.splitPos[nodeID];
       
     unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -59,11 +63,41 @@ __global__ void CalcSplitSide(SplitVar splitVars,
     while(id < photonRange){
         unsigned int index = id + posStart;
         if (splitPlane == KDPhotonUpperNode::X)
-            splitVars.side[index] = photons.pos[index].x < splitPos;
+            splitVars.side[id] = photons.pos[index].x < splitPos;
         else if (splitPlane == KDPhotonUpperNode::Y)
-            splitVars.side[index] = photons.pos[index].y < splitPos;
+            splitVars.side[id] = photons.pos[index].y < splitPos;
         else if (splitPlane == KDPhotonUpperNode::Z)
-            splitVars.side[index] = photons.pos[index].z < splitPos;
+            splitVars.side[id] = photons.pos[index].z < splitPos;
+        id += stepSize;
+    }
+}
+
+__global__ void SplitPhotons(SplitVar splitVars, 
+                            PhotonNode photons,
+                            KDPhotonUpperNode upperNodes, unsigned int nodeID){
+    // @TODO replace with symbols
+    unsigned int photonStart = upperNodes.photonIndex[nodeID];
+    unsigned int photonRange = upperNodes.range[nodeID];
+    unsigned int totalLeft = splitVars.prefixSum[photonRange - 1] + 
+        splitVars.side[photonRange - 1];
+
+    unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stepSize = gridDim.x * blockDim.x;
+
+    // Set range values for children
+    if (id == 0){
+        unsigned int child = upperNodes.child[nodeID];
+        upperNodes.photonIndex[child] = photonStart;
+        upperNodes.range[child] = totalLeft;
+        upperNodes.photonIndex[child+1] = photonStart + totalLeft;
+        upperNodes.range[child+1] = photonRange - totalLeft;
+    }
+
+    while(id < photonRange){
+        unsigned int left = splitVars.prefixSum[id];
+        unsigned int right = id - left + totalLeft;
+        unsigned int addr = splitVars.side[id] ? left : right;
+        splitVars.tempPos[photonStart + addr] = photons.pos[photonStart + id];
         id += stepSize;
     }
 }

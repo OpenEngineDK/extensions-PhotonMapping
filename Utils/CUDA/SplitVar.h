@@ -19,27 +19,41 @@ namespace OpenEngine {
             
             class SplitVar {
             public:
-                bool *side; // can be replaced by bit fiddling at some point to save
+                unsigned int *side; // can be replaced by bit fiddling at some point to save
                 // memory.
                 unsigned int *prefixSum;     
                 unsigned int totalF; // Sum of false's in f
                 //unsigned int *left; // move left addresses
                 //unsigned int *right; // move right addresses
-                unsigned int *adress; // actual addresses
+                //unsigned int *addr; // actual addresses
                 // the 3 above arrays should be superflues and can just be stored
                 // as variables inside the threads.
+
+                // Temp values for photon splitting
                 float3 *tempPos;
+
+                // Temp values for UpperNode sorting
+                unsigned int *tempParent;
+                unsigned int *tempIndex;
+                unsigned int *tempRange;
+
                 unsigned int size;
                 
             public:
                 void Init(unsigned int s){
                     size = s;
-                    cudaMalloc(&side, s * sizeof(bool));
+                    cudaMalloc(&side, s * sizeof(unsigned int));
                     cudaMalloc(&prefixSum, s * sizeof(unsigned int));
+
                     cudaMalloc(&tempPos, s * sizeof(float3));
+
+                    cudaMalloc(&tempParent, s * sizeof(unsigned int));
+                    cudaMalloc(&tempIndex, s * sizeof(unsigned int));
+                    cudaMalloc(&tempRange, s * sizeof(unsigned int));
                 }
 
                 std::string SideToString(unsigned int begin, unsigned int end);
+                std::string PrefixSumToString(unsigned int begin, unsigned int end);
             };
         }
     }

@@ -40,23 +40,18 @@ __global__ void ReduceBoundingBox(PhotonNode photons,
     /*volatile*/ T* sdata = SharedMemory<T>();
 
     unsigned int tid = threadIdx.x;
-    unsigned int i = upperNodes.startIndex[nodeID] + blockIdx.x*blockSize + threadIdx.x;
+    unsigned int i = upperNodes.photonIndex[nodeID] + blockIdx.x*blockSize + threadIdx.x;
     unsigned int gridSize = blockSize*gridDim.x;
 
     // Do first reduction outside the loop to avoid assigning dummy values.
     T localMax, localMin;
-    if (false){
-        localMax = localMin = photons.pos[i];
-        i += gridSize;
-    }else{
-        localMax = make_float3(-1.0 * fInfinity);
-        localMin = make_float3(fInfinity);
-    }
+    localMax = localMin = photons.pos[i];
+    i += gridSize;
 
     // we reduce multiple elements per thread.  The number is determined by the 
     // number of active thread blocks (via gridDim).  More blocks will result
     // in a larger gridSize and therefore fewer elements per thread
-    while (i < upperNodes.startIndex[nodeID] + upperNodes.range[nodeID])
+    while (i < upperNodes.photonIndex[nodeID] + upperNodes.range[nodeID])
     {         
         localMax = max(localMax, photons.pos[i]);
         localMin = min(localMin, photons.pos[i]);

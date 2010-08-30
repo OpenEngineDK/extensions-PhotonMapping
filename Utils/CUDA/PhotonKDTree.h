@@ -16,6 +16,8 @@
 #include <Utils/CUDA/AABBVar.h>
 #include <Utils/CUDA/SplitVar.h>
 
+#include <Meta/CUDPP.h>
+
 using namespace OpenEngine::Scene;
 
 namespace OpenEngine {
@@ -26,15 +28,15 @@ namespace OpenEngine {
             public:
 
                 // Constants
-                static const unsigned int MAX_THREADS = 256;
-                static const unsigned int MAX_BLOCKS = 64;
-                static const unsigned int BUCKET_SIZE = 32; // size of buckets in lower nodes
+                unsigned int MAX_BLOCKS;
 
                 PhotonNode photons;
                 KDPhotonUpperNode upperNodes;
                 //PhotonLowerKDNode lowerNodes;
                 AABBVar aabbVars;
                 SplitVar splitVars;
+                CUDPPConfiguration scanConfig;
+                CUDPPHandle scanHandle;
                 
             public:
                 PhotonKDTree(unsigned int size);
@@ -54,6 +56,9 @@ namespace OpenEngine {
 
                 void SplitUpperNodes(unsigned int activeIndex,
                                      unsigned int activeRange);
+
+                unsigned int SortChildren(unsigned int activeIndex,
+                                          unsigned int activeRange);
             };
             
         }

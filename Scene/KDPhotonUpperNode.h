@@ -24,13 +24,14 @@ namespace OpenEngine {
             static const unsigned int X = 1;
             static const unsigned int Y = 2;
             static const unsigned int Z = 3;
-            static const unsigned int BUCKET_SIZE = 32; // size of buckets in lower nodes
+            //static const unsigned int BUCKET_SIZE = 32; // size of buckets in lower nodes
+            static const unsigned int BUCKET_SIZE = 1; // size of buckets in lower nodes
             
             char *info; // 0 = LEAF,1 = X, 2 = Y, 3 = Z. 6 bits left for stuff
             float *splitPos; // position along that axis
             float3 *aabbMin; // Min cornor of aabb, important?
             float3 *aabbMax; // Max cornor of aabb, important?
-            unsigned int *startIndex; // index into photons that this node starts at.
+            unsigned int *photonIndex; // index into photons that this node starts at.
             unsigned int *range; // Range of photons that the node spans
             unsigned int *parent;
             unsigned int *child; // If it is a node then child points to the
@@ -45,6 +46,7 @@ namespace OpenEngine {
             void Init(unsigned int size);
                     
             std::string ToString(unsigned int i);
+            std::string PhotonsToString(unsigned int i, PhotonNode photons);
 
             void CheckBoundingBox(unsigned int i, PhotonNode photons);
                     

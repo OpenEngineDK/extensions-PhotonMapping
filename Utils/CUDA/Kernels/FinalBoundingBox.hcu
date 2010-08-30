@@ -25,21 +25,32 @@ __global__ void FinalBoundingBox1(AABBVar aabbVars, KDPhotonUpperNode upperNodes
     // 2. Cut data smem consumption in half by moving the first
     //    calculation outside the loop.
 
-    // 3. Can data be swizzled to allow faster index calculations?
+    // 3. Faster index calculations by multiplying with 2 instead of
+    // all that pow.
+
+    // 4. Can memory lookups be coalesced?
     
     unsigned int i = threadIdx.x;
+
+    unsigned int startNode = aabbVars.owner[0];
+    unsigned int endNode = aabbVars.owner[blockDim.x-1];
+    if (i + startNode <= endNode){
+        upperNodes.aabbMin[i + startNode] = make_float3(fInfinity);
+        upperNodes.aabbMax[i + startNode] = make_float3(-1.0f * fInfinity);
+    }
 
     for (int d = 0; d < iterations; ++d){
         unsigned int index0 = pow(2.0f, d+1) * i;
         unsigned int index1 = index0 + pow(2.0f, d);
+
         if (index1 < blockDim.x){
             unsigned int w0 = aabbVars.owner[index0];
             unsigned int w1 = aabbVars.owner[index1];
             if (w0 != w1){
                 // Will always only be written to by one thread, since
                 // owner x and x+1 only borders in one place.
-                upperNodes.aabbMin[w1] = min(upperNodes.aabbMin[w1], aabbVars.min[w1]);
-                upperNodes.aabbMax[w1] = max(upperNodes.aabbMax[w1], aabbVars.max[w1]);
+                upperNodes.aabbMin[w1] = min(upperNodes.aabbMin[w1], aabbVars.min[index1]);
+                upperNodes.aabbMax[w1] = max(upperNodes.aabbMax[w1], aabbVars.max[index1]);
             }else{
                 aabbVars.min[index0] = min(aabbVars.min[index0], aabbVars.min[index1]);
                 aabbVars.max[index0] = max(aabbVars.max[index0], aabbVars.max[index1]);

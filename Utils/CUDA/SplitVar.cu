@@ -17,8 +17,8 @@ namespace OpenEngine {
             std::string SplitVar::SideToString(unsigned int begin, unsigned int range){
                 std::ostringstream out;
                 
-                bool sides[range];
-                cudaMemcpy(sides, side + begin, range * sizeof(bool), cudaMemcpyDeviceToHost);
+                unsigned int sides[range];
+                cudaMemcpy(sides, side + begin, range * sizeof(unsigned int), cudaMemcpyDeviceToHost);
                 CHECK_FOR_CUDA_ERROR();
 
                 if (sides[0]){
@@ -33,6 +33,22 @@ namespace OpenEngine {
                     }else{
                         out << ", " << i << " right";
                     }
+                }
+                out << "]";
+                return out.str();
+            }
+
+            std::string SplitVar::PrefixSumToString(unsigned int begin, unsigned int range){
+                std::ostringstream out;
+                
+                unsigned int prefix[range];
+                cudaMemcpy(prefix, prefixSum + begin, range * sizeof(unsigned int), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+
+                out << "[0: " << prefix[0];
+                
+                for (unsigned int i = 1; i < range; ++i){
+                    out << ", " << i << ": " << prefix[i];
                 }
                 out << "]";
                 return out.str();

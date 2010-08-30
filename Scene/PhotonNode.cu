@@ -28,7 +28,7 @@ namespace OpenEngine {
             
             out << "[ 0: " << Utils::CUDA::Convert::ToString(position[0]);
             for (unsigned int i = 1; i < range; ++i){
-                out << ", " << i << ": " << Utils::CUDA::Convert::ToString(position[i]);
+                out << "\n " << i << ": " << Utils::CUDA::Convert::ToString(position[i]);
             }
             out << "]";
             return out.str();
