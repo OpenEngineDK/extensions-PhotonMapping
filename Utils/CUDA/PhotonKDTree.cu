@@ -142,10 +142,10 @@ namespace OpenEngine {
                         logger.info << "AABB for node " << nodeID;
             
                         unsigned int size = nodeRanges[nodeID - activeIndex];
-                        logger.info << " of size " << size << logger.end;
+                        logger.info << " of size " << size;
                         unsigned int blocks, threads;
                         Calc1DKernelDimensions(size, blocks, threads);
-
+                        logger.info << " with threads " << threads << logger.end;
                         int smemSize = (threads <= 32) ? 4 * threads * sizeof(float3) : 2 * threads * sizeof(float3);
             
                         // Execute kernel
@@ -176,6 +176,9 @@ namespace OpenEngine {
                             break;
                         case 2:
                             ReduceBoundingBox<float3, 2><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            break;
+                        case 1:
+                            ReduceBoundingBox<float3, 1><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         }
                         CHECK_FOR_CUDA_ERROR();
