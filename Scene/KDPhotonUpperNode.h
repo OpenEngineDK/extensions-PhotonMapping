@@ -31,9 +31,9 @@ namespace OpenEngine {
             float *splitPos; // position along that axis
             float3 *aabbMin; // Min cornor of aabb, important?
             float3 *aabbMax; // Max cornor of aabb, important?
-            unsigned int *photonIndex; // index into photons that this node starts at.
-            unsigned int *range; // Range of photons that the node spans
-            unsigned int *parent;
+            unsigned int *photonIndex, *tempIndex; // index into photons that this node starts at.
+            unsigned int *range, *tempRange; // Range of photons that the node spans
+            unsigned int *parent, *tempParent;
             unsigned int *child; // If it is a node then child points to the
             // left child, if it is a 'leaf' then the child
             // is the lower node.
@@ -43,7 +43,8 @@ namespace OpenEngine {
             unsigned int size;
 
         public:
-            void Init(unsigned int size);
+            KDPhotonUpperNode();
+            KDPhotonUpperNode(unsigned int size);
                     
             std::string ToString(unsigned int i);
             std::string PhotonsToString(unsigned int i, PhotonNode photons);

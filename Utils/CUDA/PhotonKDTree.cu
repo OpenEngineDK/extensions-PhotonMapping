@@ -28,6 +28,9 @@ namespace OpenEngine {
                 MAX_BLOCKS = (activeCudaDevice.maxGridSize[0] + 1) / activeCudaDevice.maxThreadsDim[0];
 
                 logger.info << "MAX_BLOCKS " << MAX_BLOCKS << logger.end;
+                
+                // Initialized timer
+                cutCreateTimer(&timerID);
 
                 // AABB calc vars
                 aabbVars = AABBVar(MAX_BLOCKS);
@@ -37,7 +40,7 @@ namespace OpenEngine {
 
                 // Calculate amount of nodes probably required
                 unsigned int upperNodeSize = 2.5f * photons.maxSize / KDPhotonUpperNode::BUCKET_SIZE;
-                upperNodes.Init(upperNodeSize);
+                upperNodes = KDPhotonUpperNode(upperNodeSize);
 
                 logger.info << "Photons " << size << logger.end;
                 logger.info << "Upper nodes " << upperNodeSize << logger.end;
@@ -97,6 +100,7 @@ namespace OpenEngine {
                 }
                 
                 // Create lower nodes
+                CreateLowerNodes();
             }
 
             void PhotonKDTree::CreateUpperNodes(unsigned int activeIndex, 
@@ -123,8 +127,6 @@ namespace OpenEngine {
             void PhotonKDTree::ComputeBoundingBoxes(unsigned int activeIndex,
                                                     unsigned int activeRange){
 
-                logger.info << "Compute Bounding Boxes" << logger.end;
-
                 unsigned int nodeRanges[activeRange];
                 cudaMemcpy(nodeRanges, upperNodes.range + activeIndex, 
                            activeRange * sizeof(unsigned int), cudaMemcpyDeviceToHost);
@@ -147,59 +149,79 @@ namespace OpenEngine {
                         Calc1DKernelDimensions(size, blocks, threads);
                         logger.info << " with threads " << threads << logger.end;
                         int smemSize = (threads <= 32) ? 4 * threads * sizeof(float3) : 2 * threads * sizeof(float3);
+
+                        cudaMemcpyToSymbol(photonIndex, upperNodes.photonIndex + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                        cudaMemcpyToSymbol(photonRange, upperNodes.range + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
             
                         // Execute kernel
+                        cutResetTimer(timerID);
+                        cutStartTimer(timerID);
                         switch(threads){
                         case 512:
-                            ReduceBoundingBox<float3, 512><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            ReduceBoundingBox<512><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         case 256:
-                            ReduceBoundingBox<float3, 256><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            ReduceBoundingBox<256><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         case 128:
-                            ReduceBoundingBox<float3, 128><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            ReduceBoundingBox<128><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         case 64:
-                            ReduceBoundingBox<float3, 64><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            ReduceBoundingBox<64><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         case 32:
-                            ReduceBoundingBox<float3, 32><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            ReduceBoundingBox<32><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         case 16:
-                            ReduceBoundingBox<float3, 16><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            ReduceBoundingBox<16><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         case 8:
-                            ReduceBoundingBox<float3, 8><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            ReduceBoundingBox<8><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         case 4:
-                            ReduceBoundingBox<float3, 4><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            ReduceBoundingBox<4><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         case 2:
-                            ReduceBoundingBox<float3, 2><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            ReduceBoundingBox<2><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         case 1:
-                            ReduceBoundingBox<float3, 1><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                            ReduceBoundingBox<1><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
                             break;
                         }
                         CHECK_FOR_CUDA_ERROR();
+
+                        cudaThreadSynchronize();
+                        CHECK_FOR_CUDA_ERROR();
+                        cutStopTimer(timerID);
+
+                        logger.info << "Reduce Bounding Box time: " << cutGetTimerValue(timerID) << "ms" << logger.end;
 
                         blocksUsed += blocks;
                         nodeID++;
                     }while(blocksUsed < MAX_BLOCKS && nodeID < activeIndex + activeRange);
 
                     // Run segmented reduce ie FinalBoundingBox
-                    unsigned int iterations = log2(blocksUsed * 1.0f);
-                    //cutResetTimer(timerID);
-                    //cutStartTimer(timerID);
-                    FinalBoundingBox1<<<1, blocksUsed>>>(aabbVars, upperNodes, iterations);
-                    CHECK_FOR_CUDA_ERROR();
-                    /*
-                      cudaThreadSynchronize();
-                      CHECK_FOR_CUDA_ERROR();
-                      cutStopTimer(timerID);
-                    */    
+                    if (blocksUsed > 0){
+                        // Setup device variables
+                        cudaMemcpyToSymbol(startNode, aabbVars.owner, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                        cudaMemcpyToSymbol(endNode, aabbVars.owner + blocksUsed - 1, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                        CHECK_FOR_CUDA_ERROR();
+                        
+                        unsigned int iterations = log2(blocksUsed * 1.0f);
+                        
+                        cutResetTimer(timerID);
+                        cutStartTimer(timerID);
+                        if (blocksUsed <= 128)
+                            FinalBoundingBox3<128><<<1, blocksUsed>>>(aabbVars, upperNodes, iterations);
+                        else
+                            throw Core::Exception("used more blocks than 128, how the hell?");
+                        CHECK_FOR_CUDA_ERROR();
+                        cudaThreadSynchronize();
+                        CHECK_FOR_CUDA_ERROR();
+                        cutStopTimer(timerID);
 
-                    //logger.info << "Final bounding box time: " << cutGetTimerValue(timerID) << "ms" << logger.end;
+                        logger.info << "Final bounding box 3 time: " << cutGetTimerValue(timerID) << "ms" << logger.end;
+                    }
                 }
             }
             

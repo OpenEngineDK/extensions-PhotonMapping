@@ -14,16 +14,26 @@
 namespace OpenEngine {
     namespace Scene {
 
-        void KDPhotonUpperNode::Init(unsigned int size){
-            maxSize = size;
+        KDPhotonUpperNode::KDPhotonUpperNode()
+            : maxSize(0), size(0){}
+
+        KDPhotonUpperNode::KDPhotonUpperNode(unsigned int size)
+            : maxSize(size), size(0) {
+
             cudaMalloc(&info, maxSize * sizeof(char));
             cudaMalloc(&splitPos, maxSize * sizeof(float));
             cudaMalloc(&aabbMin, maxSize * sizeof(float3));
             cudaMalloc(&aabbMax, maxSize * sizeof(float3));
+
             cudaMalloc(&photonIndex, maxSize * sizeof(unsigned int));
             cudaMalloc(&range, maxSize * sizeof(unsigned int));
             cudaMalloc(&parent, maxSize * sizeof(unsigned int));
             cudaMalloc(&child, maxSize * sizeof(unsigned int));
+
+            cudaMalloc(&tempIndex, maxSize * sizeof(unsigned int));
+            cudaMalloc(&tempRange, maxSize * sizeof(unsigned int));
+            cudaMalloc(&tempParent, maxSize * sizeof(unsigned int));
+            
             CHECK_FOR_CUDA_ERROR();
         }
                 

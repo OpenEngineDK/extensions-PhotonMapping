@@ -32,11 +32,6 @@ namespace OpenEngine {
                 // Temp values for photon splitting
                 float3 *tempPos;
 
-                // Temp values for UpperNode sorting
-                unsigned int *tempParent;
-                unsigned int *tempIndex;
-                unsigned int *tempRange;
-
                 unsigned int size;
                 
             public:
@@ -46,10 +41,6 @@ namespace OpenEngine {
                     cudaMalloc(&prefixSum, s * sizeof(unsigned int));
 
                     cudaMalloc(&tempPos, s * sizeof(float3));
-
-                    cudaMalloc(&tempParent, s * sizeof(unsigned int));
-                    cudaMalloc(&tempIndex, s * sizeof(unsigned int));
-                    cudaMalloc(&tempRange, s * sizeof(unsigned int));
                 }
 
                 std::string SideToString(unsigned int begin, unsigned int end);

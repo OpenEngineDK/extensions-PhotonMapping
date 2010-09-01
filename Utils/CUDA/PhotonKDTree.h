@@ -30,6 +30,8 @@ namespace OpenEngine {
                 // Constants
                 unsigned int MAX_BLOCKS;
 
+                unsigned int timerID;
+
                 PhotonNode photons;
                 KDPhotonUpperNode upperNodes;
                 //PhotonLowerKDNode lowerNodes;

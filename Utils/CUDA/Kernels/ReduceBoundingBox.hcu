@@ -16,6 +16,10 @@ namespace Utils {
 namespace CUDA {
 namespace Kernels {
 
+    __constant__ __device__ unsigned int photonIndex;
+    __constant__ __device__ unsigned int photonRange;
+    __constant__ __device__ unsigned int nodeID;
+
 /**
  * Computes the axis aligned bounding box for the given photon node.
  *
@@ -28,30 +32,31 @@ namespace Kernels {
  *
  * Based on NVIDIA's reduction sample.
  */
-template <class T, unsigned int blockSize> 
+template <unsigned int blockSize> 
 __global__ void ReduceBoundingBox(PhotonNode photons,	
                                   KDPhotonUpperNode upperNodes,
                                   AABBVar aabbVars,
-                                  unsigned int nodeID,	
-                                  unsigned int blockOffset) {
+                                  const unsigned int nodeID,	
+                                  const unsigned int blockOffset) {
     // now that we are using warp-synchronous programming (below)
     // we need to declare our shared memory volatile so that the compiler
     // doesn't reorder stores to it and induce incorrect behavior.
-    /*volatile*/ T* sdata = SharedMemory<T>();
+    /*volatile*/ float3* sharedMax = SharedMemory<float3>();
+    float3* sharedMin = sharedMax + blockSize;
 
     unsigned int tid = threadIdx.x;
-    unsigned int i = upperNodes.photonIndex[nodeID] + blockIdx.x*blockSize + threadIdx.x;
+    unsigned int i = photonIndex + blockIdx.x*blockSize + threadIdx.x;
     unsigned int gridSize = blockSize*gridDim.x;
 
     // Do first reduction outside the loop to avoid assigning dummy values.
-    T localMax, localMin;
+    float3 localMax, localMin;
     localMax = localMin = photons.pos[i];
     i += gridSize;
 
     // we reduce multiple elements per thread.  The number is determined by the 
     // number of active thread blocks (via gridDim).  More blocks will result
     // in a larger gridSize and therefore fewer elements per thread
-    while (i < upperNodes.photonIndex[nodeID] + upperNodes.range[nodeID])
+    while (i < photonIndex + photonRange)
     {         
         localMax = max(localMax, photons.pos[i]);
         localMin = min(localMin, photons.pos[i]);
@@ -59,8 +64,8 @@ __global__ void ReduceBoundingBox(PhotonNode photons,
     } 
 
     // each thread puts its local sum into shared memory 
-    sdata[tid] = localMax;
-    sdata[tid + blockSize] = localMin;
+    sharedMax[tid] = localMax;
+    sharedMin[tid] = localMin;
     __syncthreads();
     
     // Do reduction in shared memory.
@@ -68,28 +73,47 @@ __global__ void ReduceBoundingBox(PhotonNode photons,
     // Compiler can't unroll loop, so do this manually for better
     // performance?
     // Haven't now because this is easier for development.
-    for (unsigned int i = blockSize; i > 32; i /= 2){
-        unsigned int offset = i / 2;
+    for (unsigned int offset = blockSize / 2; offset > 16; offset /= 2){
         if (tid < offset){
-            sdata[tid] = localMax = max(localMax, sdata[tid + offset]);
-            sdata[tid + blockSize] = localMin = min(localMin, sdata[tid + offset + blockSize]);
+            sharedMax[tid] = localMax = max(localMax, sharedMax[tid + offset]);
+            sharedMin[tid] = localMin = min(localMin, sharedMin[tid + offset]);
         }
         __syncthreads();
     }
 
-    for (unsigned int i = min(32, blockSize); i > 1; i /= 2){
-        unsigned int offset = i / 2;
-        sdata[tid] = localMax = max(localMax, sdata[tid + offset]);
-        sdata[tid + blockSize] = localMin = min(localMin, sdata[tid + offset + blockSize]);
+    for (unsigned int offset = min(16, blockSize / 2); offset > 1; offset /= 2){
+        sharedMax[tid] = localMax = max(localMax, sharedMax[tid + offset]);
+        sharedMin[tid] = localMin = min(localMin, sharedMin[tid + offset]);
         __syncthreads(); 
     }
 
     // write result for this block to global mem 
-    if (tid == 0) {
-        aabbVars.max[blockIdx.x + blockOffset] = sdata[0];
-        aabbVars.min[blockIdx.x + blockOffset] = sdata[blockSize];
+    if (blockSize > 1){
+        // Do the last reduction and write it to the list of results.
+        if (tid == 0) {
+            aabbVars.max[blockIdx.x + blockOffset] = max(localMax, sharedMax[1]);
+            aabbVars.min[blockIdx.x + blockOffset] = min(localMin, sharedMin[1]);
+            aabbVars.owner[blockIdx.x + blockOffset] = nodeID;
+        }
+    }else{
+        // Perform the reduction directly
+        aabbVars.max[blockIdx.x + blockOffset] = localMax;
+        aabbVars.min[blockIdx.x + blockOffset] = localMin;
         aabbVars.owner[blockIdx.x + blockOffset] = nodeID;
     }
+}
+
+template <unsigned int blockSize> 
+__global__ void DirectReduceBoundingBox(PhotonNode photons,	
+                                        KDPhotonUpperNode upperNodes,
+                                        unsigned int nodeID) {
+    /*
+    // write result for this block to global mem 
+    if (tid == 0) {
+        upperNodes.aabbMax[nodeID] = sdata[0];
+        upperNodes.aabbMin[nodeID] = sdata[blockSize];
+    }
+    */
 }
 
 }
