@@ -18,8 +18,8 @@ namespace OpenEngine {
             std::string AABBVar::MaxToString(unsigned int size) {
                 std::ostringstream out;
                 
-                float3 hostMax[size];
-                cudaMemcpy(hostMax, max, size * sizeof(float3), cudaMemcpyDeviceToHost);
+                point hostMax[size];
+                cudaMemcpy(hostMax, max, size * sizeof(point), cudaMemcpyDeviceToHost);
                 CHECK_FOR_CUDA_ERROR();
                 
                 out << Utils::CUDA::Convert::ToString(hostMax[0]);
@@ -33,8 +33,8 @@ namespace OpenEngine {
             std::string AABBVar::MinToString(unsigned int size) {
                 std::ostringstream out;
                 
-                float3 hostMin[size];
-                cudaMemcpy(hostMin, min, size * sizeof(float3), cudaMemcpyDeviceToHost);
+                point hostMin[size];
+                cudaMemcpy(hostMin, min, size * sizeof(point), cudaMemcpyDeviceToHost);
                 CHECK_FOR_CUDA_ERROR();
                 
                 out << Utils::CUDA::Convert::ToString(hostMin[0]);

@@ -8,6 +8,7 @@
 //--------------------------------------------------------------------
 
 #include <Meta/CUDA.h>
+#include <Utils/CUDA/Types.h>
 #include <string>
 
 #ifndef _SPLIT_VAR_H_
@@ -30,7 +31,7 @@ namespace OpenEngine {
                 // as variables inside the threads.
 
                 // Temp values for photon splitting
-                float3 *tempPos;
+                point *tempPos;
 
                 unsigned int size;
                 
@@ -40,7 +41,7 @@ namespace OpenEngine {
                     cudaMalloc(&side, s * sizeof(unsigned int));
                     cudaMalloc(&prefixSum, s * sizeof(unsigned int));
 
-                    cudaMalloc(&tempPos, s * sizeof(float3));
+                    cudaMalloc(&tempPos, s * sizeof(point));
                 }
 
                 std::string SideToString(unsigned int begin, unsigned int end);

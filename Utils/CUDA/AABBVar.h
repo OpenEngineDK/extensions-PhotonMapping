@@ -10,6 +10,7 @@
 #include <Meta/CUDA.h>
 #include <string>
 #include <Utils/CUDA/Convert.h>
+#include <Utils/CUDA/Types.h>
 
 #ifndef _AABB_VAR_H_
 #define _AABB_VAR_H_
@@ -21,8 +22,8 @@ namespace OpenEngine {
             class AABBVar {
             public:
                 unsigned int size;
-                float3 *max;
-                float3 *min;
+                point *max;
+                point *min;
                 unsigned int *owner;
 
             public:
@@ -31,8 +32,8 @@ namespace OpenEngine {
 
                 AABBVar(unsigned int size)
                     : size(size) {
-                    cudaMalloc(&max, size * sizeof(float3));
-                    cudaMalloc(&min, size * sizeof(float3));
+                    cudaMalloc(&max, size * sizeof(point));
+                    cudaMalloc(&min, size * sizeof(point));
                     cudaMalloc(&owner, size * sizeof(unsigned int));
                     CHECK_FOR_CUDA_ERROR();
                 }

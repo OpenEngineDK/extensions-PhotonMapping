@@ -11,6 +11,7 @@
 #define _PHOTON_NODE_H_
 
 #include <Meta/CUDA.h>
+#include <Utils/CUDA/Types.h>
 
 #include <string>
 
@@ -33,7 +34,7 @@ namespace OpenEngine {
             // read/writes (for photons, some performance may be gained by
             // coalescing assoc lookups)
             //unsigned int *assoc;
-            float3* pos;
+            point* pos;
             unsigned int maxSize;
             unsigned int size;
 
@@ -42,7 +43,7 @@ namespace OpenEngine {
                 : pos(NULL), maxSize(0), size(0) {}
             PhotonNode(unsigned int size) 
                 : maxSize(size), size(0) {
-                cudaMalloc(&pos, maxSize * sizeof(float3));
+                cudaMalloc(&pos, maxSize * sizeof(point));
                 CHECK_FOR_CUDA_ERROR();
             }
 

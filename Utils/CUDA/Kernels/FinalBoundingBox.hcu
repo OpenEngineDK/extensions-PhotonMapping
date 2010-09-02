@@ -9,6 +9,7 @@
 
 #include <Meta/CUDA.h>
 #include <Utils/CUDA/Utils.h>
+#include <Utils/CUDA/Types.h>
 #include <limits>
 
 namespace OpenEngine {
@@ -32,8 +33,6 @@ __global__ void FinalBoundingBox1(AABBVar aabbVars, KDPhotonUpperNode upperNodes
     // 3. Cut data smem consumption in half by moving the first
     //    calculation outside the loop.
 
-    // 4. Can memory lookups be coalesced?
-    
     unsigned int i = threadIdx.x;
 
     if (i + startNode <= endNode){
@@ -73,11 +72,11 @@ __global__ void FinalBoundingBox1(AABBVar aabbVars, KDPhotonUpperNode upperNodes
 template<unsigned int blockSize>
 __global__ void FinalBoundingBox2(AABBVar aabbVars, KDPhotonUpperNode upperNodes, 
                                   unsigned int iterations){
-    __shared__ float3 dataMin[blockSize];
-    __shared__ float3 dataMax[blockSize];
+    __shared__ point dataMin[blockSize];
+    __shared__ point dataMax[blockSize];
     __shared__ unsigned int owner[blockSize];
-    __shared__ float3 resultMin[blockSize];
-    __shared__ float3 resultMax[blockSize];
+    __shared__ point resultMin[blockSize];
+    __shared__ point resultMax[blockSize];
     
     unsigned int i = threadIdx.x;
 
@@ -124,11 +123,11 @@ __global__ void FinalBoundingBox2(AABBVar aabbVars, KDPhotonUpperNode upperNodes
 template<unsigned int blockSize>
 __global__ void FinalBoundingBox3(AABBVar aabbVars, KDPhotonUpperNode upperNodes, 
                                   unsigned int iterations){
-    __shared__ float3 dataMin[blockSize];
-    __shared__ float3 dataMax[blockSize];
+    __shared__ point dataMin[blockSize];
+    __shared__ point dataMax[blockSize];
     __shared__ unsigned int owner[blockSize];
-    __shared__ float3 resultMin[blockSize];
-    __shared__ float3 resultMax[blockSize];
+    __shared__ point resultMin[blockSize];
+    __shared__ point resultMax[blockSize];
     
     unsigned int index0 = threadIdx.x;
 

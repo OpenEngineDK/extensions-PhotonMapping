@@ -31,8 +31,8 @@ __global__ void SetUpperNodeSplitPlane(KDPhotonUpperNode upperNodes,
     unsigned int nodeID = threadIdx.x + activeIndex;
     
     // the nodes aabb size
-    float3 bbSize = upperNodes.aabbMax[nodeID] - upperNodes.aabbMin[nodeID];
-    float3 median = bbSize * 0.5 + upperNodes.aabbMin[nodeID];
+    point bbSize = upperNodes.aabbMax[nodeID] - upperNodes.aabbMin[nodeID];
+    point median = bbSize * 0.5 + upperNodes.aabbMin[nodeID];
 
     // Calculate splitting plane
     bool yAboveX = bbSize.x < bbSize.y;
@@ -42,10 +42,6 @@ __global__ void SetUpperNodeSplitPlane(KDPhotonUpperNode upperNodes,
     bool zHigher = max < bbSize.z;
     upperNodes.splitPos[nodeID] = zHigher ? median.z : split;
     upperNodes.info[nodeID] = zHigher ? KDPhotonUpperNode::Z : axis;
-
-    // Set link to parent nodes from child nodes
-    unsigned int leftChild = upperNodes.child[nodeID] = upperNodes.size + 2 * (nodeID - activeIndex);
-    upperNodes.parent[leftChild] = upperNodes.parent[leftChild+1] = nodeID;
 }
 
 template<char splitPlane>

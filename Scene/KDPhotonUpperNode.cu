@@ -22,19 +22,74 @@ namespace OpenEngine {
 
             cudaMalloc(&info, maxSize * sizeof(char));
             cudaMalloc(&splitPos, maxSize * sizeof(float));
-            cudaMalloc(&aabbMin, maxSize * sizeof(float3));
-            cudaMalloc(&aabbMax, maxSize * sizeof(float3));
+            cudaMalloc(&aabbMin, maxSize * sizeof(point));
+            cudaMalloc(&aabbMax, maxSize * sizeof(point));
 
             cudaMalloc(&photonIndex, maxSize * sizeof(unsigned int));
             cudaMalloc(&range, maxSize * sizeof(unsigned int));
             cudaMalloc(&parent, maxSize * sizeof(unsigned int));
             cudaMalloc(&child, maxSize * sizeof(unsigned int));
 
-            cudaMalloc(&tempIndex, maxSize * sizeof(unsigned int));
-            cudaMalloc(&tempRange, maxSize * sizeof(unsigned int));
-            cudaMalloc(&tempParent, maxSize * sizeof(unsigned int));
-            
             CHECK_FOR_CUDA_ERROR();
+        }
+
+        void KDPhotonUpperNode::Resize(unsigned int i){
+            unsigned int copySize = i < size ? i : size;
+            
+            char *tempChar;
+            float *tempFloat;
+            point *tempPoint;
+            unsigned int *tempUint;
+
+            cudaMalloc(&tempChar, i * sizeof(char));
+            cudaMemcpy(tempChar, info, copySize * sizeof(char), cudaMemcpyDeviceToDevice);
+            cudaFree(info);
+            info = tempChar;
+            CHECK_FOR_CUDA_ERROR();
+
+            cudaMalloc(&tempFloat, i * sizeof(float));
+            cudaMemcpy(tempFloat, splitPos, copySize * sizeof(float), cudaMemcpyDeviceToDevice);
+            cudaFree(splitPos);
+            splitPos = tempFloat;
+            CHECK_FOR_CUDA_ERROR();
+
+            cudaMalloc(&tempPoint, i * sizeof(point));
+            cudaMemcpy(tempPoint, aabbMin, copySize * sizeof(point), cudaMemcpyDeviceToDevice);
+            cudaFree(aabbMin);
+            aabbMin = tempPoint;
+            CHECK_FOR_CUDA_ERROR();
+
+            cudaMalloc(&tempPoint, i * sizeof(point));
+            cudaMemcpy(tempPoint, aabbMax, copySize * sizeof(point), cudaMemcpyDeviceToDevice);
+            cudaFree(aabbMax);
+            aabbMax = tempPoint;
+            CHECK_FOR_CUDA_ERROR();
+
+            cudaMalloc(&tempUint, i * sizeof(unsigned int));
+            cudaMemcpy(tempUint, photonIndex, copySize * sizeof(unsigned int), cudaMemcpyDeviceToDevice);
+            cudaFree(photonIndex);
+            photonIndex = tempUint;
+            CHECK_FOR_CUDA_ERROR();
+
+            cudaMalloc(&tempUint, i * sizeof(unsigned int));
+            cudaMemcpy(tempUint, range, copySize * sizeof(unsigned int), cudaMemcpyDeviceToDevice);
+            cudaFree(range);
+            range = tempUint;
+            CHECK_FOR_CUDA_ERROR();
+
+            cudaMalloc(&tempUint, i * sizeof(unsigned int));
+            cudaMemcpy(tempUint, parent, copySize * sizeof(unsigned int), cudaMemcpyDeviceToDevice);
+            cudaFree(parent);
+            parent = tempUint;
+            CHECK_FOR_CUDA_ERROR();
+
+            cudaMalloc(&tempUint, i * sizeof(unsigned int));
+            cudaMemcpy(tempUint, child, copySize * sizeof(unsigned int), cudaMemcpyDeviceToDevice);
+            cudaFree(child);
+            child = tempUint;
+            CHECK_FOR_CUDA_ERROR();
+
+            maxSize = i;
         }
                 
         std::string KDPhotonUpperNode::ToString(unsigned int i){
@@ -70,9 +125,9 @@ namespace OpenEngine {
             cudaMemcpy(&h_range, range + i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
             out << "Index " << h_index << " and range " << h_range << "\n";
                     
-            float3 h_aabbmin, h_aabbmax;
-            cudaMemcpy(&h_aabbmin, aabbMin + i, sizeof(float3), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&h_aabbmax, aabbMax + i, sizeof(float3), cudaMemcpyDeviceToHost);
+            point h_aabbmin, h_aabbmax;
+            cudaMemcpy(&h_aabbmin, aabbMin + i, sizeof(point), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&h_aabbmax, aabbMax + i, sizeof(point), cudaMemcpyDeviceToHost);
             CHECK_FOR_CUDA_ERROR();
             out << "Axis aligned bounding box: " << Utils::CUDA::Convert::ToString(h_aabbmin);
             out << " -> " << Utils::CUDA::Convert::ToString(h_aabbmax) << "\n";
@@ -103,9 +158,9 @@ namespace OpenEngine {
             cudaMemcpy(&index, photonIndex+i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
             cudaMemcpy(&size, range+i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
             
-            float3 pos[size];
+            point pos[size];
             cudaMemcpy(&pos, photons.pos+index, 
-                       size*sizeof(float3), cudaMemcpyDeviceToHost);
+                       size*sizeof(point), cudaMemcpyDeviceToHost);
             CHECK_FOR_CUDA_ERROR();
             
             out << Utils::CUDA::Convert::ToString(pos[0]);
@@ -122,10 +177,10 @@ namespace OpenEngine {
             unsigned int photonRange;
             cudaMemcpy(&photonRange, range + i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
                     
-            float3 positions[photonRange];
-            cudaMemcpy(positions, photons.pos + photonStart, photonRange * sizeof(float3), cudaMemcpyDeviceToHost);
-            float3 hostMax = positions[0];
-            float3 hostMin = positions[0];
+            point positions[photonRange];
+            cudaMemcpy(positions, photons.pos + photonStart, photonRange * sizeof(point), cudaMemcpyDeviceToHost);
+            point hostMax = positions[0];
+            point hostMin = positions[0];
             for (unsigned int p = 1; p < photonRange; ++p){
                 hostMax = make_float3(max(hostMax.x, positions[p].x),
                                       max(hostMax.y, positions[p].y),
@@ -135,10 +190,10 @@ namespace OpenEngine {
                                       min(hostMin.z, positions[p].z));
             }
                     
-            float3 gpuMax;
-            float3 gpuMin;
-            cudaMemcpy(&gpuMax, aabbMax + i, sizeof(float3), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&gpuMin, aabbMin + i, sizeof(float3), cudaMemcpyDeviceToHost);
+            point gpuMax;
+            point gpuMin;
+            cudaMemcpy(&gpuMax, aabbMax + i, sizeof(point), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&gpuMin, aabbMin + i, sizeof(point), cudaMemcpyDeviceToHost);
     
             if (hostMax.x != gpuMax.x || hostMax.y != gpuMax.y || hostMax.z != gpuMax.z){
                 logger.info << "CPU max " << Utils::CUDA::Convert::ToString(hostMax);

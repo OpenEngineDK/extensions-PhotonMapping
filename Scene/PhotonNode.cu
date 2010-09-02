@@ -22,8 +22,8 @@ namespace OpenEngine {
         std::string PhotonNode::PositionToString(unsigned int begin, unsigned int range){
             std::ostringstream out;
             
-            float3 position[range];
-            cudaMemcpy(position, pos + begin, range * sizeof(float3), cudaMemcpyDeviceToHost);
+            point position[range];
+            cudaMemcpy(position, pos + begin, range * sizeof(point), cudaMemcpyDeviceToHost);
             CHECK_FOR_CUDA_ERROR();
             
             out << "[ 0: " << Utils::CUDA::Convert::ToString(position[0]);
@@ -43,7 +43,7 @@ namespace OpenEngine {
                 cudaGraphicsMapResources(1, &resource, 0);
                 CHECK_FOR_CUDA_ERROR();
             
-                float3* verts;
+                point* verts;
                 size_t bytes;
                 cudaGraphicsResourceGetMappedPointer((void**)&verts, &bytes,
                                                      resource);
@@ -58,7 +58,7 @@ namespace OpenEngine {
                 cudaGraphicsUnregisterResource(resource);
                 CHECK_FOR_CUDA_ERROR();
             }else if (position->GetVoidDataPtr() != NULL){
-                cudaMemcpy(position->GetVoidDataPtr(), pos, size * sizeof(float3), cudaMemcpyDeviceToHost);
+                cudaMemcpy(position->GetVoidDataPtr(), pos, size * sizeof(point), cudaMemcpyDeviceToHost);
             }
         }
         

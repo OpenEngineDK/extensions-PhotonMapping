@@ -41,15 +41,15 @@ __global__ void ReduceBoundingBox(PhotonNode photons,
     // now that we are using warp-synchronous programming (below)
     // we need to declare our shared memory volatile so that the compiler
     // doesn't reorder stores to it and induce incorrect behavior.
-    /*volatile*/ float3* sharedMax = SharedMemory<float3>();
-    float3* sharedMin = sharedMax + blockSize;
+    /*volatile*/ point* sharedMax = SharedMemory<float3>();
+    point* sharedMin = sharedMax + blockSize;
 
     unsigned int tid = threadIdx.x;
     unsigned int i = photonIndex + blockIdx.x*blockSize + threadIdx.x;
     unsigned int gridSize = blockSize*gridDim.x;
 
     // Do first reduction outside the loop to avoid assigning dummy values.
-    float3 localMax, localMin;
+    point localMax, localMin;
     localMax = localMin = photons.pos[i];
     i += gridSize;
 
@@ -73,7 +73,7 @@ __global__ void ReduceBoundingBox(PhotonNode photons,
     // Compiler can't unroll loop, so do this manually for better
     // performance?
     // Haven't now because this is easier for development.
-    for (unsigned int offset = blockSize / 2; offset > 16; offset /= 2){
+    for (int offset = blockSize / 2; offset > 16; offset /= 2){
         if (tid < offset){
             sharedMax[tid] = localMax = max(localMax, sharedMax[tid + offset]);
             sharedMin[tid] = localMin = min(localMin, sharedMin[tid + offset]);
@@ -81,7 +81,7 @@ __global__ void ReduceBoundingBox(PhotonNode photons,
         __syncthreads();
     }
 
-    for (unsigned int offset = min(16, blockSize / 2); offset > 1; offset /= 2){
+    for (unsigned offset = min(16, blockSize / 2); offset > 1; offset /= 2){
         sharedMax[tid] = localMax = max(localMax, sharedMax[tid + offset]);
         sharedMin[tid] = localMin = min(localMin, sharedMin[tid + offset]);
         __syncthreads(); 
