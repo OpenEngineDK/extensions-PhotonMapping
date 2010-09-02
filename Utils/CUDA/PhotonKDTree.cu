@@ -169,8 +169,8 @@ namespace OpenEngine {
                         CHECK_FOR_CUDA_ERROR();
             
                         // Execute kernel
-                        cutResetTimer(timerID);
-                        cutStartTimer(timerID);
+                        //cutResetTimer(timerID);
+                        //cutStartTimer(timerID);
                         switch(threads){
                         case 512:
                             ReduceBoundingBox<512><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
@@ -204,13 +204,12 @@ namespace OpenEngine {
                             break;
                         }
                         CHECK_FOR_CUDA_ERROR();
-
+                        /*
                         cudaThreadSynchronize();
                         CHECK_FOR_CUDA_ERROR();
                         cutStopTimer(timerID);
-
                         logger.info << "Reduce Bounding Box time: " << cutGetTimerValue(timerID) << "ms" << logger.end;
-
+                        */
                         blocksUsed += blocks;
                         nodeID++;
                     }while(blocksUsed < MAX_BLOCKS && nodeID < activeIndex + activeRange);
@@ -224,18 +223,19 @@ namespace OpenEngine {
                         
                         unsigned int iterations = log2(blocksUsed * 1.0f);
                         
-                        cutResetTimer(timerID);
-                        cutStartTimer(timerID);
+                        //cutResetTimer(timerID);
+                        //cutStartTimer(timerID);
                         if (blocksUsed <= 128)
                             FinalBoundingBox3<128><<<1, blocksUsed>>>(aabbVars, upperNodes, iterations);
                         else
                             throw Core::Exception("used more blocks than 128, how the hell?");
                         CHECK_FOR_CUDA_ERROR();
+                        /*
                         cudaThreadSynchronize();
                         CHECK_FOR_CUDA_ERROR();
                         cutStopTimer(timerID);
-
                         logger.info << "Final bounding box 3 time: " << cutGetTimerValue(timerID) << "ms" << logger.end;
+                        */
                     }
                 }
             }
@@ -323,46 +323,47 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
                 
                 for (unsigned int nodeID = 0; nodeID < activeRange; ++nodeID){
-
-                    unsigned int blocks, threads;
-                    Calc1DKernelDimensions(photonRanges[nodeID], blocks, threads);
-        
-                    // For each position calculate the side it should
-                    // be on after the split.
-                    switch (axes[nodeID]) {
-                    case KDPhotonUpperNode::X:
-                        CalcSplitSide<KDPhotonUpperNode::X><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
-                        break;
-                    case KDPhotonUpperNode::Y:
+                    if (photonRanges[nodeID] > KDPhotonUpperNode::BUCKET_SIZE){
+                        unsigned int blocks, threads;
+                        Calc1DKernelDimensions(photonRanges[nodeID], blocks, threads);
+                        
+                        // For each position calculate the side it should
+                        // be on after the split.
+                        switch (axes[nodeID]) {
+                        case KDPhotonUpperNode::X:
+                            CalcSplitSide<KDPhotonUpperNode::X><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
+                            break;
+                        case KDPhotonUpperNode::Y:
                         CalcSplitSide<KDPhotonUpperNode::Y><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
                         break;
-                    case KDPhotonUpperNode::Z:
-                        CalcSplitSide<KDPhotonUpperNode::Z><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
-                        break;
+                        case KDPhotonUpperNode::Z:
+                            CalcSplitSide<KDPhotonUpperNode::Z><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
+                            break;
+                        }
+                        CHECK_FOR_CUDA_ERROR();
+                        
+                        // Scan the array of split sides and calculate
+                        // it's prefix sum.
+                        cudppScan(scanHandle, splitVars.prefixSum,
+                                  splitVars.side,
+                                  photonRanges[nodeID]);
+                        CHECK_FOR_CUDA_ERROR();
+                        
+                        // Move the photon positions and it's association indices.
+                        SplitPhotons<<<blocks, threads>>>(splitVars, photons, upperNodes, nodeID + activeIndex);
+                        CHECK_FOR_CUDA_ERROR();
+                        
+                        // @TODO extend to copy larger collective chunks
+                        // instead of doing a memcpy every god damn time.
+                        
+                        // Or perhaps launch a kernel that can do the
+                        // memcpy without knowing the damn photon indices?
+                        
+                        cudaMemcpy(photons.pos + photonIndices[nodeID], 
+                                   splitVars.tempPos + photonIndices[nodeID], 
+                                   photonRanges[nodeID] * sizeof(point), 
+                                   cudaMemcpyDeviceToDevice);
                     }
-                    CHECK_FOR_CUDA_ERROR();
-
-                    // Scan the array of split sides and calculate
-                    // it's prefix sum.
-                    cudppScan(scanHandle, splitVars.prefixSum,
-                              splitVars.side,
-                              photonRanges[nodeID]);
-                    CHECK_FOR_CUDA_ERROR();
-
-                    // Move the photon positions and it's association indices.
-                    SplitPhotons<<<blocks, threads>>>(splitVars, photons, upperNodes, nodeID + activeIndex);
-                    CHECK_FOR_CUDA_ERROR();
-                    
-                    // @TODO extend to copy larger collective chunks
-                    // instead of doing a memcpy every god damn time.
-
-                    // Or perhaps launch a kernel that can do the
-                    // memcpy without knowing the damn photon indices?
-                    
-                    cudaMemcpy(photons.pos + photonIndices[nodeID], 
-                               splitVars.tempPos + photonIndices[nodeID], 
-                               photonRanges[nodeID] * sizeof(point), 
-                               cudaMemcpyDeviceToDevice);
                 }
             }
             

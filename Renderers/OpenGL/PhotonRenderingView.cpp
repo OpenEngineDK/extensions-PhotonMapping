@@ -34,15 +34,7 @@ namespace OpenEngine {
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
                     //ShootPhotons();
                     if (renderPhotons){
-                        // Copy Photons to OpenGL buffer
-                        photonTree->photons.MapToDataBlocks(photons->GetVertices().get());
-
-                        glColor3f(0.0f, 1.0f, 0.0f);
-                        glEnableClientState(GL_VERTEX_ARRAY);
-                        IDataBlockPtr verts = photons->GetDataBlock("vertex");
-                        glVertexPointer(verts->GetDimension(), GL_FLOAT, 0, 0);
-                        glDrawArrays(GL_POINTS, 0, verts->GetSize());
-                        glDisableClientState(GL_VERTEX_ARRAY);
+                        RenderPhotons();
                     }
                 }
             }
@@ -62,6 +54,22 @@ namespace OpenEngine {
                 logger.info << "Pew pew, photons everywhere" << logger.end;
                 photonTree->Create();
                 CHECK_FOR_CUDA_ERROR();
+            }
+
+            void PhotonRenderingView::RenderPhotons(){
+                // Copy Photons to OpenGL buffer
+                photonTree->photons.MapToDataBlocks(photons->GetVertices().get());
+                
+                glColor3f(0.0f, 1.0f, 0.0f);
+                glEnableClientState(GL_VERTEX_ARRAY);
+                IDataBlockPtr verts = photons->GetDataBlock("vertex");
+                glVertexPointer(verts->GetDimension(), GL_FLOAT, 0, 0);
+                glDrawArrays(GL_POINTS, 0, verts->GetSize());
+                glDisableClientState(GL_VERTEX_ARRAY);
+            }
+
+            void PhotonRenderingView::RenderTree(){
+                
             }
             
         }

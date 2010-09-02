@@ -29,7 +29,7 @@ namespace OpenEngine {
             protected:
                 PhotonKDTree* photonTree;
                 
-                bool renderPhotons;
+                bool renderPhotons, renderTree;
                 GeometrySetPtr photons;
                 
             public:
@@ -40,6 +40,9 @@ namespace OpenEngine {
 
                 void Initialize(RenderingEventArg arg);
                 void ShootPhotons();
+
+                void RenderPhotons();
+                void RenderTree();
             };
 
         }
