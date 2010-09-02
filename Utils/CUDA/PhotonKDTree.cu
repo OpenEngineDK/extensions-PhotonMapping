@@ -110,31 +110,32 @@ namespace OpenEngine {
                 // Check that there is room for the new children
                 if (upperNodes.maxSize < upperNodes.size + activeRange * 2)
                     upperNodes.Resize(upperNodes.size + activeRange * 2);
-                
-                ComputeBoundingBoxes(activeIndex, activeRange);
+
+                // Copy data needed for cpu bookkeeping.
+                unsigned int photonRanges[activeRange];
+                cudaMemcpy(photonRanges, upperNodes.range + activeIndex, 
+                           activeRange * sizeof(unsigned int), cudaMemcpyDeviceToHost);
+
+                // Compute the bounding box of upper nodes.
+                // Leaf nodes possibly excepted.
+                ComputeBoundingBoxes(activeIndex, activeRange, photonRanges);
                 CHECK_FOR_CUDA_ERROR();
 
-                childrenCreated = SortChildren(activeIndex, activeRange);
+                // Create links to children
+                childrenCreated = CreateChildren(activeIndex, activeRange);
                 CHECK_FOR_CUDA_ERROR();
 
-                SplitUpperNodes(activeIndex, activeRange);
+                SplitUpperNodePhotons(activeIndex, activeRange, photonRanges);
                 CHECK_FOR_CUDA_ERROR();
                 
                 lowerCreated = activeRange - childrenCreated;
                 upperNodes.size += activeRange * 2;
             }
 
-            void PhotonKDTree::CreateLowerNodes(){
-
-            }
-            
             void PhotonKDTree::ComputeBoundingBoxes(unsigned int activeIndex,
-                                                    unsigned int activeRange){
+                                                    unsigned int activeRange,
+                                                    unsigned int *photonRanges){
 
-                unsigned int nodeRanges[activeRange];
-                cudaMemcpy(nodeRanges, upperNodes.range + activeIndex, 
-                           activeRange * sizeof(unsigned int), cudaMemcpyDeviceToHost);
-                
                 unsigned int nodeID = activeIndex;
                 while (nodeID < activeIndex + activeRange){
                     unsigned int blocksUsed = 0;
@@ -156,7 +157,7 @@ namespace OpenEngine {
 
                         logger.info << "AABB for node " << nodeID;
             
-                        unsigned int size = nodeRanges[nodeID - activeIndex];
+                        unsigned int size = photonRanges[nodeID - activeIndex];
                         logger.info << " of size " << size;
                         unsigned int blocks, threads;
                         Calc1DKernelDimensions(size, blocks, threads);
@@ -239,74 +240,8 @@ namespace OpenEngine {
                 }
             }
             
-            void PhotonKDTree::SplitUpperNodes(unsigned int activeIndex,
-                                               unsigned int activeRange){
-
-                logger.info << "Split Upper Nodes" << logger.end;
-
-                SetUpperNodeSplitPlane<<< 1, activeRange>>>(upperNodes, activeIndex);
-                CHECK_FOR_CUDA_ERROR();
-
-                // Split each node along the spatial median
-                char axes[activeRange];
-                cudaMemcpy(axes, upperNodes.info+activeIndex, 
-                           activeRange * sizeof(char), cudaMemcpyDeviceToHost);
-                CHECK_FOR_CUDA_ERROR();
-                
-                unsigned int photonIndices[activeRange];
-                cudaMemcpy(photonIndices, upperNodes.photonIndex + activeIndex, 
-                           activeRange * sizeof(unsigned int), cudaMemcpyDeviceToHost);
-                CHECK_FOR_CUDA_ERROR();
-                
-                unsigned int photonRanges[activeRange];
-                cudaMemcpy(photonRanges, upperNodes.range+activeIndex, 
-                           activeRange * sizeof(unsigned int), cudaMemcpyDeviceToHost);
-                CHECK_FOR_CUDA_ERROR();
-                    
-                for (unsigned int nodeID = 0; nodeID < activeRange; ++nodeID){
-
-                    unsigned int blocks, threads;
-                    Calc1DKernelDimensions(photonRanges[nodeID], blocks, threads);
-        
-                    // For each position calculate the side it should
-                    // be on after the split.
-                    switch (axes[nodeID]) {
-                    case KDPhotonUpperNode::X:
-                        CalcSplitSide<KDPhotonUpperNode::X><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
-                        break;
-                    case KDPhotonUpperNode::Y:
-                        CalcSplitSide<KDPhotonUpperNode::Y><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
-                        break;
-                    case KDPhotonUpperNode::Z:
-                        CalcSplitSide<KDPhotonUpperNode::Z><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
-                        break;
-                    }
-                    CHECK_FOR_CUDA_ERROR();
-
-                    // Scan the array of split sides and calculate
-                    // it's prefix sum.
-                    cudppScan(scanHandle, splitVars.prefixSum,
-                              splitVars.side,
-                              photonRanges[nodeID]);
-                    CHECK_FOR_CUDA_ERROR();
-
-
-                    // Move the photon positions and it's association indices.
-                    SplitPhotons<<<blocks, threads>>>(splitVars, photons, upperNodes, nodeID + activeIndex);
-                    CHECK_FOR_CUDA_ERROR();
-                    
-                    // @TODO extend to copy larger collective chunks
-                    // instead of doing a memcpy every god damn time.
-                    
-                    cudaMemcpy(photons.pos + photonIndices[nodeID], 
-                               splitVars.tempPos + photonIndices[nodeID], 
-                               photonRanges[nodeID] * sizeof(point), 
-                               cudaMemcpyDeviceToDevice);
-                }
-            }
-
-            unsigned int PhotonKDTree::SortChildren(unsigned int activeIndex,
-                                                    unsigned int activeRange){
+            unsigned int PhotonKDTree::CreateChildren(unsigned int activeIndex,
+                                                      unsigned int activeRange){
 
                 logger.info << "Sort " << activeRange << " children starting from node " << activeIndex << logger.end;
 
@@ -336,7 +271,6 @@ namespace OpenEngine {
                               activeRange);
                     CHECK_FOR_CUDA_ERROR();
 
-                    
                     SplitUpperLeafs<<<blocks, threads>>>(splitVars, upperNodes, activeIndex, activeRange);
                     CHECK_FOR_CUDA_ERROR();
 
@@ -353,6 +287,87 @@ namespace OpenEngine {
                 }
 
                 return children * 2;
+            }
+
+            void PhotonKDTree::SplitUpperNodePhotons(unsigned int activeIndex,
+                                                     unsigned int activeRange,
+                                                     unsigned int *photonRanges){
+
+                logger.info << "Split Upper Nodes" << logger.end;
+
+                /**
+                 * @TODO
+                 *
+                 * Axes need not be copied if the kernel branches over
+                 * the sides. No thread would diverge. Maybe then the
+                 * calculations could be done for all nodes in
+                 * parallel (would cause diverging)
+                 *
+                 * Set Upper Node split plane right after bbox
+                 * calcs. Then do asynchrunous indices and axis
+                 * copying.
+                 */
+
+                SetUpperNodeSplitPlane<<< 1, activeRange>>>(upperNodes, activeIndex);
+                CHECK_FOR_CUDA_ERROR();
+
+                // Split each node along the spatial median
+                char axes[activeRange];
+                cudaMemcpy(axes, upperNodes.info+activeIndex, 
+                           activeRange * sizeof(char), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+                
+                unsigned int photonIndices[activeRange];
+                cudaMemcpy(photonIndices, upperNodes.photonIndex + activeIndex, 
+                           activeRange * sizeof(unsigned int), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+                
+                for (unsigned int nodeID = 0; nodeID < activeRange; ++nodeID){
+
+                    unsigned int blocks, threads;
+                    Calc1DKernelDimensions(photonRanges[nodeID], blocks, threads);
+        
+                    // For each position calculate the side it should
+                    // be on after the split.
+                    switch (axes[nodeID]) {
+                    case KDPhotonUpperNode::X:
+                        CalcSplitSide<KDPhotonUpperNode::X><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
+                        break;
+                    case KDPhotonUpperNode::Y:
+                        CalcSplitSide<KDPhotonUpperNode::Y><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
+                        break;
+                    case KDPhotonUpperNode::Z:
+                        CalcSplitSide<KDPhotonUpperNode::Z><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
+                        break;
+                    }
+                    CHECK_FOR_CUDA_ERROR();
+
+                    // Scan the array of split sides and calculate
+                    // it's prefix sum.
+                    cudppScan(scanHandle, splitVars.prefixSum,
+                              splitVars.side,
+                              photonRanges[nodeID]);
+                    CHECK_FOR_CUDA_ERROR();
+
+                    // Move the photon positions and it's association indices.
+                    SplitPhotons<<<blocks, threads>>>(splitVars, photons, upperNodes, nodeID + activeIndex);
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    // @TODO extend to copy larger collective chunks
+                    // instead of doing a memcpy every god damn time.
+
+                    // Or perhaps launch a kernel that can do the
+                    // memcpy without knowing the damn photon indices?
+                    
+                    cudaMemcpy(photons.pos + photonIndices[nodeID], 
+                               splitVars.tempPos + photonIndices[nodeID], 
+                               photonRanges[nodeID] * sizeof(point), 
+                               cudaMemcpyDeviceToDevice);
+                }
+            }
+            
+            void PhotonKDTree::CreateLowerNodes(){
+
             }
             
 

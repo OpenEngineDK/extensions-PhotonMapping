@@ -51,16 +51,19 @@ namespace OpenEngine {
                                       unsigned int &childrenCreated, 
                                       unsigned int &lowerCreated);
 
+                void ComputeBoundingBoxes(unsigned int activeIndex,
+                                          unsigned int activeRange,
+                                          unsigned int *photonRanges);
+
+                unsigned int CreateChildren(unsigned int activeIndex,
+                                            unsigned int activeRange);
+
+                void SplitUpperNodePhotons(unsigned int activeIndex,
+                                           unsigned int activeRange,
+                                           unsigned int *photonRanges);
+
                 void CreateLowerNodes();
 
-                void ComputeBoundingBoxes(unsigned int activeIndex,
-                                          unsigned int activeRange);
-
-                void SplitUpperNodes(unsigned int activeIndex,
-                                     unsigned int activeRange);
-
-                unsigned int SortChildren(unsigned int activeIndex,
-                                          unsigned int activeRange);
             };
             
         }
