@@ -25,7 +25,7 @@ unsigned int NextPow2(unsigned int x) {
     return ++x;
 }
 
-void Calc1DKernelDimensions(unsigned int size, 
+void Calc1DKernelDimensions(const unsigned int size, 
                             unsigned int &blocks, unsigned int &threads){
     unsigned int MAX_THREADS = activeCudaDevice.maxThreadsDim[0];
     unsigned int MAX_BLOCKS = (activeCudaDevice.maxGridSize[0]+1) / MAX_THREADS;
@@ -47,5 +47,6 @@ __host__ __device__ float3 min(float3 v, float3 u){
                        min(v.y, u.y),
                        min(v.z, u.z));
 }
+
 
 #endif // _CUDA_PHOTON_UTILS_H_

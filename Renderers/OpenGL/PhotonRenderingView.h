@@ -31,6 +31,7 @@ namespace OpenEngine {
                 
                 bool renderPhotons, renderTree;
                 GeometrySetPtr photons;
+                GeometrySetPtr upperNodes;
                 
             public:
                 PhotonRenderingView();
@@ -42,7 +43,7 @@ namespace OpenEngine {
                 void ShootPhotons();
 
                 void RenderPhotons();
-                void RenderTree();
+                void RenderTree(RenderingEventArg arg);
             };
 
         }

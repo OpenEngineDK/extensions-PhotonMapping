@@ -1,0 +1,91 @@
+// Kernels for sorting upper node children
+// -------------------------------------------------------------------
+// Copyright (C) 2010 OpenEngine.dk (See AUTHORS) 
+// 
+// This program is free software; It is covered by the GNU General 
+// Public License version 2 or any later version. 
+// See the GNU General Public License for more details (see LICENSE). 
+//--------------------------------------------------------------------
+
+#include <Meta/CUDA.h>
+
+#include <Scene/KDPhotonUpperNode.h>
+
+using namespace OpenEngine::Scene;
+
+namespace OpenEngine {
+namespace Utils {
+namespace CUDA {
+namespace Kernels {
+
+    /**
+     * 0-1 1-2 2-3 3-0 0-2 1-3
+     */
+
+    __global__ void UpperNodeMapToGL(KDPhotonUpperNode upperNodes,
+                                     float3 *vertices,
+                                     float3 *colors,
+                                     unsigned int size){
+
+        unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
+        unsigned int stepSize = gridDim.x * blockDim.x;
+
+        unsigned int vOffset = 12 * id;
+
+        while (id < size) {
+
+            float3 min = upperNodes.aabbMin[id];
+            float3 max = upperNodes.aabbMax[id];
+            float splitPos = upperNodes.splitPos[id];
+
+            float3 color;
+            float3 p0, p1, p2, p3;
+
+            switch(upperNodes.info[id]){
+            case KDPhotonUpperNode::X:
+                color = make_float3(1.0f, 0.0f, 0.0f);
+                p0 = make_float3(splitPos, min.y, min.z);
+                p1 = make_float3(splitPos, max.y, min.z);
+                p2 = make_float3(splitPos, max.y, max.z);
+                p3 = make_float3(splitPos, min.y, max.z);
+                break;
+            case KDPhotonUpperNode::Y:
+                color = make_float3(0.0f, 1.0f, 0.0f);
+                p0 = make_float3(min.x, splitPos, min.z);
+                p1 = make_float3(max.x, splitPos, min.z);
+                p2 = make_float3(max.x, splitPos, max.z);
+                p3 = make_float3(min.x, splitPos, max.z);
+                break;
+            case KDPhotonUpperNode::Z:
+                color = make_float3(0.0f, 0.0f, 1.0f);
+                p0 = make_float3(min.x, min.y, splitPos);
+                p1 = make_float3(max.x, min.y, splitPos);
+                p2 = make_float3(max.x, max.y, splitPos);
+                p3 = make_float3(min.x, max.y, splitPos);
+                break;
+            case KDPhotonUpperNode::LEAF:
+                p0 = p1 = p2 = p3 = make_float3(0,0,0);
+                break;
+            }
+
+            #pragma unroll
+            for(unsigned int i= 0; i < 12; ++i)
+                colors[vOffset + i] = color;
+
+            vertices[vOffset] = p0;
+            vertices[vOffset+1] = vertices[vOffset+2] = p1;
+            vertices[vOffset+3] = vertices[vOffset+4] = p2;
+            vertices[vOffset+5] = vertices[vOffset+6] = p3;
+            vertices[vOffset+7] = vertices[vOffset+8] = p0;
+            vertices[vOffset+9] = p2;
+            vertices[vOffset+10] = p1;
+            vertices[vOffset+11] = p3;
+
+            id += stepSize;
+        }
+    }
+
+}
+}
+}
+}

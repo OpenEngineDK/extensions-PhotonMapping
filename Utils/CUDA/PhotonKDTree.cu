@@ -128,8 +128,8 @@ namespace OpenEngine {
                 SplitUpperNodePhotons(activeIndex, activeRange, photonRanges);
                 CHECK_FOR_CUDA_ERROR();
                 
-                lowerCreated = activeRange - childrenCreated;
-                upperNodes.size += activeRange * 2;
+                lowerCreated = activeRange * 2 - childrenCreated;
+                upperNodes.size += childrenCreated;
             }
 
             void PhotonKDTree::ComputeBoundingBoxes(unsigned int activeIndex,
@@ -324,6 +324,7 @@ namespace OpenEngine {
                 
                 for (unsigned int nodeID = 0; nodeID < activeRange; ++nodeID){
                     if (photonRanges[nodeID] > KDPhotonUpperNode::BUCKET_SIZE){
+                        logger.info << "SPLIT CHILDREN" << logger.end;
                         unsigned int blocks, threads;
                         Calc1DKernelDimensions(photonRanges[nodeID], blocks, threads);
                         
@@ -350,6 +351,7 @@ namespace OpenEngine {
                         CHECK_FOR_CUDA_ERROR();
                         
                         // Move the photon positions and it's association indices.
+                        // Also set the childrens photon range and index
                         SplitPhotons<<<blocks, threads>>>(splitVars, photons, upperNodes, nodeID + activeIndex);
                         CHECK_FOR_CUDA_ERROR();
                         

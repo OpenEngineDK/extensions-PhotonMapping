@@ -21,7 +21,8 @@ namespace OpenEngine {
         namespace OpenGL {
             
             PhotonRenderingView::PhotonRenderingView()
-                : RenderingView(), photonTree(NULL), renderPhotons(true){
+                : RenderingView(), photonTree(NULL), 
+                  renderPhotons(true), renderTree(true){
             }
             
             void PhotonRenderingView::Handle(RenderingEventArg arg){
@@ -33,9 +34,10 @@ namespace OpenEngine {
                     ShootPhotons();
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
                     //ShootPhotons();
-                    if (renderPhotons){
+                    if (renderPhotons)
                         RenderPhotons();
-                    }
+                    if (renderTree)
+                        RenderTree(arg);
                 }
             }
 
@@ -63,13 +65,46 @@ namespace OpenEngine {
                 glColor3f(0.0f, 1.0f, 0.0f);
                 glEnableClientState(GL_VERTEX_ARRAY);
                 IDataBlockPtr verts = photons->GetDataBlock("vertex");
+                glBindBuffer(GL_ARRAY_BUFFER, verts->GetID());
                 glVertexPointer(verts->GetDimension(), GL_FLOAT, 0, 0);
                 glDrawArrays(GL_POINTS, 0, verts->GetSize());
                 glDisableClientState(GL_VERTEX_ARRAY);
             }
 
-            void PhotonRenderingView::RenderTree(){
+            void PhotonRenderingView::RenderTree(RenderingEventArg arg){
+                unsigned int size = photonTree->upperNodes.size * 12;
+                if (upperNodes == NULL || upperNodes->GetSize() < size){
+
+                    // @TODO destroy old datablocks on gpu
+
+                    // Allocate new datablocks to store debug geometry
+                    IDataBlockPtr positions = IDataBlockPtr(new DataBlock<3, float>(size));
+                    IDataBlockPtr colors = IDataBlockPtr(new DataBlock<3, float>(size));
+                    map<string, IDataBlockPtr> attr;
+                    attr["position"] = positions;
+                    attr["color"] = colors;
+                    upperNodes = GeometrySetPtr(new GeometrySet(attr));
+                    arg.renderer.BindDataBlock(positions.get());
+                    arg.renderer.BindDataBlock(colors.get());
+                }
                 
+                IDataBlockPtr p = upperNodes->GetDataBlock("position");
+                IDataBlockPtr c = upperNodes->GetDataBlock("color");
+
+                photonTree->upperNodes.MapToDataBlocks(p.get(), c.get());
+
+                glEnableClientState(GL_VERTEX_ARRAY);
+                glBindBuffer(GL_ARRAY_BUFFER, p->GetID());
+                glVertexPointer(p->GetDimension(), GL_FLOAT, 0, 0);
+                
+                glEnableClientState(GL_COLOR_ARRAY);
+                glBindBuffer(GL_ARRAY_BUFFER, c->GetID());
+                glColorPointer(c->GetDimension(), GL_FLOAT, 0, 0);
+                
+                glDrawArrays(GL_LINES, 0, size / 2);
+
+                glDisableClientState(GL_VERTEX_ARRAY);
+                glDisableClientState(GL_COLOR_ARRAY);
             }
             
         }

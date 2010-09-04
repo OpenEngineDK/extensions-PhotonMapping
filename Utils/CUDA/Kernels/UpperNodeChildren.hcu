@@ -1,0 +1,41 @@
+// Kernels for sorting upper node children
+// -------------------------------------------------------------------
+// Copyright (C) 2010 OpenEngine.dk (See AUTHORS) 
+// 
+// This program is free software; It is covered by the GNU General 
+// Public License version 2 or any later version. 
+// See the GNU General Public License for more details (see LICENSE). 
+//--------------------------------------------------------------------
+
+#include <Meta/CUDA.h>
+#include <Utils/CUDA/Utils.h>
+
+namespace OpenEngine {
+namespace Utils {
+namespace CUDA {
+namespace Kernels {
+
+    __global__ void SetupChildLinks(unsigned int *children,
+                                    unsigned int *parents,
+                                    const unsigned int upperNodeSize,
+                                    const unsigned int activeNode,
+                                    const unsigned int activeRange){
+
+        unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
+        unsigned int stepSize = gridDim.x * blockDim.x;
+
+        while (id < activeRange){
+            
+            unsigned int nodeID = id + activeNode;
+            unsigned int child = children[nodeID] = upperNodeSize + 2 * id;
+            parents[child] = parents[child+1] = nodeID;
+
+            id += stepSize;
+        }
+        
+    }
+    
+}
+}
+}
+}

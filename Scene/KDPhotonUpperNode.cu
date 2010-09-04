@@ -8,8 +8,15 @@
 //--------------------------------------------------------------------
 
 #include <Scene/KDPhotonUpperNode.h>
-#include <sstream>
+#include <Resources/IDataBlock.h>
+#include <Utils/CUDA/Kernels/UpperNodeMapToGL.hcu>
+
 #include <Logging/Logger.h>
+
+#include <sstream>
+
+using namespace OpenEngine::Resources;
+using namespace OpenEngine::Utils::CUDA::Kernels;
 
 namespace OpenEngine {
     namespace Scene {
@@ -90,6 +97,45 @@ namespace OpenEngine {
             CHECK_FOR_CUDA_ERROR();
 
             maxSize = i;
+        }
+
+        void KDPhotonUpperNode::MapToDataBlocks(Resources::IDataBlock* position,
+                                                Resources::IDataBlock* colors){
+#ifdef DEBUG
+            if (position->GetID() == 0 && colors->GetID() == 0)
+                return;
+#endif
+            
+            cudaGraphicsResource *pResource, *cResource;
+            cudaGraphicsGLRegisterBuffer(&pResource, position->GetID(), cudaGraphicsMapFlagsWriteDiscard);
+            cudaGraphicsGLRegisterBuffer(&cResource, colors->GetID(), cudaGraphicsMapFlagsWriteDiscard);
+            CHECK_FOR_CUDA_ERROR();
+            
+            cudaGraphicsMapResources(1, &pResource, 0);
+            cudaGraphicsMapResources(1, &cResource, 0);
+            CHECK_FOR_CUDA_ERROR();
+
+            float3* posv;
+            size_t bytes;
+            cudaGraphicsResourceGetMappedPointer((void**)&posv, &bytes,
+                                                 pResource);
+            float3* colv;
+            cudaGraphicsResourceGetMappedPointer((void**)&colv, &bytes,
+                                                 cResource);
+            CHECK_FOR_CUDA_ERROR();
+
+            unsigned int s = min(size, position->GetSize());
+            
+            UpperNodeMapToGL<<<64, 128>>>(*this, posv, colv, s);
+            CHECK_FOR_CUDA_ERROR();
+
+            cudaGraphicsUnmapResources(1, &pResource, 0);
+            cudaGraphicsUnmapResources(1, &cResource, 0);
+            CHECK_FOR_CUDA_ERROR();
+            
+            cudaGraphicsUnregisterResource(pResource);
+            cudaGraphicsUnregisterResource(cResource);
+            CHECK_FOR_CUDA_ERROR();
         }
                 
         std::string KDPhotonUpperNode::ToString(unsigned int i){
