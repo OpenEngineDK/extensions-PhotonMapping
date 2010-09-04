@@ -73,6 +73,7 @@ namespace OpenEngine {
 
             void PhotonRenderingView::RenderTree(RenderingEventArg arg){
                 unsigned int size = photonTree->upperNodes.size * 12;
+
                 if (upperNodes == NULL || upperNodes->GetSize() < size){
 
                     // @TODO destroy old datablocks on gpu
@@ -101,7 +102,7 @@ namespace OpenEngine {
                 glBindBuffer(GL_ARRAY_BUFFER, c->GetID());
                 glColorPointer(c->GetDimension(), GL_FLOAT, 0, 0);
                 
-                glDrawArrays(GL_LINES, 0, size / 2);
+                glDrawArrays(GL_LINES, 0, size);
 
                 glDisableClientState(GL_VERTEX_ARRAY);
                 glDisableClientState(GL_COLOR_ARRAY);
