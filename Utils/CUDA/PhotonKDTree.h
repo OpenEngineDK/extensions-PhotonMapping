@@ -55,6 +55,8 @@ namespace OpenEngine {
                                           unsigned int activeRange,
                                           unsigned int *photonRanges);
 
+                void SegmentedReduce(unsigned int blocksUsed);
+
                 unsigned int CreateChildren(unsigned int activeIndex,
                                             unsigned int activeRange);
 

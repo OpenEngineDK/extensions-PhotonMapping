@@ -130,109 +130,114 @@ namespace OpenEngine {
             void PhotonKDTree::ComputeBoundingBoxes(unsigned int activeIndex,
                                                     unsigned int activeRange,
                                                     unsigned int *photonRanges){
+                
+                logger.info << "Compute bounding boxes" << logger.end;
+                
+                
+                unsigned int blocksUsed = 0;
+                for (unsigned int nodeID = activeIndex; 
+                     nodeID < activeIndex + activeRange;
+                     ++nodeID){
 
-                unsigned int nodeID = activeIndex;
-                while (nodeID < activeIndex + activeRange){
-                    unsigned int blocksUsed = 0;
-                    do {
-                        /*
-                         * @TODO If the computations only require one
-                         * block, then reduce them directly into the
-                         * node arrays.
-                         * -- or --
-                         * Reduce all nodes only requiring 1 block at
-                         * once. Easily to manage and will give a
-                         * performance upgrade on ALL small nodes (of
-                         * which there are many)
-                         *
-                         * Skip AABB calculations of too small
-                         * nodes. No need to calc it for the
-                         * leafs. (Is there?)
-                         */
+                    /*
+                     * @TODO If the computations only require one
+                     * block, then reduce them directly into the
+                     * node arrays.
+                     * -- or --
+                     * Reduce all nodes only requiring 1 block at
+                     * once. Easily to manage and will give a
+                     * performance upgrade on ALL small nodes (of
+                     * which there are many)
+                     *
+                     * Skip AABB calculations of too small
+                     * nodes. No need to calc it for the
+                     * leafs. (Is there?)
+                     */
+                    
+                    unsigned int size = photonRanges[nodeID - activeIndex];
+                    unsigned int blocks, threads;
+                    Calc1DKernelDimensions(size, blocks, threads);
+                    int smemSize = (threads <= 32) ? 4 * threads * sizeof(point) : 2 * threads * sizeof(point);
 
-                        //logger.info << "AABB for node " << nodeID;
-            
-                        unsigned int size = photonRanges[nodeID - activeIndex];
-                        //logger.info << " of size " << size << logger.end;
-                        unsigned int blocks, threads;
-                        Calc1DKernelDimensions(size, blocks, threads);
-                        //logger.info << " with threads " << threads << logger.end;
-                        int smemSize = (threads <= 32) ? 4 * threads * sizeof(point) : 2 * threads * sizeof(point);
-
-                        cudaMemcpyToSymbol(photonIndex, upperNodes.photonIndex + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
-                        cudaMemcpyToSymbol(photonRange, upperNodes.range + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
-                        CHECK_FOR_CUDA_ERROR();
-            
-                        // Execute kernel
-                        //cutResetTimer(timerID);
-                        //cutStartTimer(timerID);
-                        switch(threads){
-                        case 512:
-                            ReduceBoundingBox<512><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
-                            break;
-                        case 256:
-                            ReduceBoundingBox<256><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
-                            break;
-                        case 128:
-                            ReduceBoundingBox<128><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
-                            break;
-                        case 64:
-                            ReduceBoundingBox<64><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
-                            break;
-                        case 32:
-                            ReduceBoundingBox<32><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
-                            break;
-                        case 16:
-                            ReduceBoundingBox<16><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
-                            break;
-                        case 8:
-                            ReduceBoundingBox<8><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
-                            break;
-                        case 4:
-                            ReduceBoundingBox<4><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
-                            break;
-                        case 2:
-                            ReduceBoundingBox<2><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
-                            break;
-                        case 1:
-                            ReduceBoundingBox<1><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
-                            break;
-                        }
-                        CHECK_FOR_CUDA_ERROR();
-                        /*
-                        cudaThreadSynchronize();
-                        CHECK_FOR_CUDA_ERROR();
-                        cutStopTimer(timerID);
-                        logger.info << "Reduce Bounding Box time: " << cutGetTimerValue(timerID) << "ms" << logger.end;
-                        */
-                        blocksUsed += blocks;
-                        nodeID++;
-                    }while(blocksUsed < MAX_BLOCKS && nodeID < activeIndex + activeRange);
-
-                    // Run segmented reduce ie FinalBoundingBox
-                    if (blocksUsed > 0){
-                        // Setup device variables
-                        cudaMemcpyToSymbol(startNode, aabbVars.owner, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
-                        cudaMemcpyToSymbol(endNode, aabbVars.owner + blocksUsed - 1, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
-                        CHECK_FOR_CUDA_ERROR();
-                        
-                        unsigned int iterations = log2(blocksUsed * 1.0f);
-                        
-                        //cutResetTimer(timerID);
-                        //cutStartTimer(timerID);
-                        if (blocksUsed <= 128)
-                            FinalBoundingBox3<128><<<1, blocksUsed>>>(aabbVars, upperNodes, iterations);
-                        else
-                            throw Core::Exception("used more blocks than 128, how the hell?");
-                        CHECK_FOR_CUDA_ERROR();
-                        /*
-                        cudaThreadSynchronize();
-                        CHECK_FOR_CUDA_ERROR();
-                        cutStopTimer(timerID);
-                        logger.info << "Final bounding box 3 time: " << cutGetTimerValue(timerID) << "ms" << logger.end;
-                        */
+                    /**
+                     * If the next reduce will use to many blocks,
+                     * then do a segmented reduce and reset blocks
+                     * used count.
+                     */
+                    if (blocksUsed + blocks > MAX_BLOCKS){
+                        SegmentedReduce(blocksUsed);
+                        blocksUsed = 0;
                     }
+                    
+                    cudaMemcpyToSymbol(photonIndex, upperNodes.photonIndex + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                    cudaMemcpyToSymbol(photonRange, upperNodes.range + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    // Execute kernel
+                    switch(threads){
+                    case 512:
+                        ReduceBoundingBox<512><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        break;
+                    case 256:
+                        ReduceBoundingBox<256><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        break;
+                    case 128:
+                        ReduceBoundingBox<128><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        break;
+                    case 64:
+                        ReduceBoundingBox<64><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        break;
+                    case 32:
+                        ReduceBoundingBox<32><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        break;
+                    case 16:
+                        ReduceBoundingBox<16><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        break;
+                    case 8:
+                        ReduceBoundingBox<8><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        break;
+                    case 4:
+                        ReduceBoundingBox<4><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        break;
+                    case 2:
+                        ReduceBoundingBox<2><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        break;
+                    case 1:
+                        ReduceBoundingBox<1><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        break;
+                    }
+                    CHECK_FOR_CUDA_ERROR();
+
+                    blocksUsed += blocks;
                 }
+                
+                // Run segmented reduce ie FinalBoundingBox
+                if (blocksUsed > 0){
+                    SegmentedReduce(blocksUsed);
+                }
+            }
+
+            void PhotonKDTree::SegmentedReduce(unsigned int blocksUsed){
+                // Setup device variables
+                cudaMemcpyToSymbol(startNode, aabbVars.owner, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                cudaMemcpyToSymbol(endNode, aabbVars.owner + blocksUsed - 1, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                CHECK_FOR_CUDA_ERROR();
+                
+                //unsigned int iterations = log2(blocksUsed * 1.0f);
+                        
+                //cutResetTimer(timerID);
+                //cutStartTimer(timerID);
+                if (blocksUsed <= 128)
+                    FinalBoundingBox3<128><<<1, blocksUsed>>>(aabbVars, upperNodes);
+                else
+                    throw Core::Exception("used more blocks than 128, how the hell?");
+                CHECK_FOR_CUDA_ERROR();
+                /*
+                  cudaThreadSynchronize();
+                  CHECK_FOR_CUDA_ERROR();
+                  cutStopTimer(timerID);
+                  logger.info << "Final bounding box 3 time: " << cutGetTimerValue(timerID) << "ms" << logger.end;
+                */
             }
             
             unsigned int PhotonKDTree::CreateChildren(unsigned int activeIndex,
@@ -303,7 +308,10 @@ namespace OpenEngine {
                  * copying.
                  */
 
-                SetUpperNodeSplitPlane<<< 1, activeRange>>>(upperNodes, activeIndex, activeRange);
+                unsigned int blocks, threads;
+                Calc1DKernelDimensions(activeRange, blocks, threads);
+
+                SetUpperNodeSplitPlane<<< blocks, threads>>>(upperNodes, activeIndex, activeRange);
                 CHECK_FOR_CUDA_ERROR();
 
                 // Split each node along the spatial median

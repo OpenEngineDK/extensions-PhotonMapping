@@ -121,8 +121,7 @@ __global__ void FinalBoundingBox2(AABBVar aabbVars, KDPhotonUpperNode upperNodes
  * the data will be reduced and copied into smem in one go.
  */
 template<unsigned int blockSize>
-__global__ void FinalBoundingBox3(AABBVar aabbVars, KDPhotonUpperNode upperNodes, 
-                                  unsigned int iterations){
+__global__ void FinalBoundingBox3(AABBVar aabbVars, KDPhotonUpperNode upperNodes){
     __shared__ point dataMin[blockSize];
     __shared__ point dataMax[blockSize];
     __shared__ unsigned int owner[blockSize];
