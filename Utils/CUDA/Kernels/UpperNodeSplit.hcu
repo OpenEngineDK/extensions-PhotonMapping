@@ -22,26 +22,28 @@ namespace Kernels {
  * Setup splitting planes and link to children.
  */
 __global__ void SetUpperNodeSplitPlane(KDPhotonUpperNode upperNodes,
-                                  unsigned int activeIndex){
-
-    /**
-     * @TODO extend to handle several blocks.
-     * (global id and while loop)
-     */    
-    unsigned int nodeID = threadIdx.x + activeIndex;
+                                       unsigned int activeIndex, 
+                                       unsigned int activeRange){
+    unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int nodeID = id + activeIndex;
+    unsigned int stepSize = gridDim.x * blockDim.x;
     
-    // the nodes aabb size
-    point bbSize = upperNodes.aabbMax[nodeID] - upperNodes.aabbMin[nodeID];
-    point median = bbSize * 0.5 + upperNodes.aabbMin[nodeID];
+    while (nodeID < activeIndex + activeRange){
+        // the nodes aabb size
+        point bbSize = upperNodes.aabbMax[nodeID] - upperNodes.aabbMin[nodeID];
+        point median = bbSize * 0.5 + upperNodes.aabbMin[nodeID];
+        
+        // Calculate splitting plane
+        bool yAboveX = bbSize.x < bbSize.y;
+        float max = yAboveX ? bbSize.y : bbSize.x;
+        float split = yAboveX ? median.y : median.x;
+        char axis = yAboveX ? KDPhotonUpperNode::Y : KDPhotonUpperNode::X;
+        bool zHigher = max < bbSize.z;
+        upperNodes.splitPos[nodeID] = zHigher ? median.z : split;
+        upperNodes.info[nodeID] = zHigher ? KDPhotonUpperNode::Z : axis;
 
-    // Calculate splitting plane
-    bool yAboveX = bbSize.x < bbSize.y;
-    float max = yAboveX ? bbSize.y : bbSize.x;
-    float split = yAboveX ? median.y : median.x;
-    char axis = yAboveX ? KDPhotonUpperNode::Y : KDPhotonUpperNode::X;
-    bool zHigher = max < bbSize.z;
-    upperNodes.splitPos[nodeID] = zHigher ? median.z : split;
-    upperNodes.info[nodeID] = zHigher ? KDPhotonUpperNode::Z : axis;
+        nodeID += stepSize;
+    }
 }
 
 template<char splitPlane>

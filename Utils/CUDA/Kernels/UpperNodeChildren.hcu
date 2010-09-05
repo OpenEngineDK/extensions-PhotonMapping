@@ -15,6 +15,50 @@ namespace Utils {
 namespace CUDA {
 namespace Kernels {
 
+    __device__ bool d_onlyChildren;
+    __device__ unsigned int newChildren;
+
+    __global__ void MarkUpperLeafs(SplitVar splitVars, 
+                                   KDPhotonUpperNode upperNodes,
+                                   unsigned int activeIndex, 
+                                   unsigned int activeRange){
+
+        unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
+        unsigned int stepSize = gridDim.x * blockDim.x;
+
+        while (id < activeRange){
+            if (upperNodes.range[id + activeIndex] <= upperNodes.BUCKET_SIZE){
+                splitVars.side[id] = d_onlyChildren = false;
+            }else
+                splitVars.side[id] = true;
+
+            id += stepSize;
+        }
+    }
+
+    __global__ void SetupSomeChildLinks(SplitVar splitVars, 
+                                        KDPhotonUpperNode upperNodes,
+                                        unsigned int activeIndex, 
+                                        unsigned int activeRange){
+        
+        unsigned int totalLeafs = newChildren = 
+            splitVars.prefixSum[activeRange - 1] + splitVars.side[activeRange - 1];
+        
+        unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
+        unsigned int stepSize = gridDim.x * blockDim.x;
+        
+        while (id < activeRange){
+            unsigned int hasChildren = splitVars.side[id];
+            unsigned int nodeID = id + activeIndex;
+            unsigned int child = upperNodes.child[nodeID] = hasChildren 
+                ? activeIndex + activeRange + splitVars.prefixSum[id] * 2
+                : 0;
+            upperNodes.parent[child] = upperNodes.parent[child+1] = nodeID;
+
+            id += stepSize;
+        }
+    }
+
     __global__ void SetupChildLinks(unsigned int *children,
                                     unsigned int *parents,
                                     const unsigned int upperNodeSize,

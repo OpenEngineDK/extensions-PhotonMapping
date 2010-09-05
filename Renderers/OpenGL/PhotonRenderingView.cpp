@@ -33,7 +33,6 @@ namespace OpenEngine {
                     Initialize(arg);
                     ShootPhotons();
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
-                    //ShootPhotons();
                     if (renderPhotons)
                         RenderPhotons();
                     if (renderTree)
@@ -43,7 +42,7 @@ namespace OpenEngine {
 
             void PhotonRenderingView::Initialize(RenderingEventArg arg) {
                 INITIALIZE_CUDA();
-                unsigned int size = 1<<3;
+                unsigned int size = 1<<17;
                 photonTree = new PhotonKDTree(size);
                 IDataBlockPtr vertices = IDataBlockPtr(new DataBlock<3, float>(size));
                 map<string, IDataBlockPtr> attr;

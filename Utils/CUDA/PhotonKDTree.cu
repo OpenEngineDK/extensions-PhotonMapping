@@ -16,7 +16,6 @@
 #include <Utils/CUDA/Kernels/ReduceBoundingBox.hcu>
 #include <Utils/CUDA/Kernels/FinalBoundingBox.hcu>
 #include <Utils/CUDA/Kernels/UpperNodeSplit.hcu>
-#include <Utils/CUDA/Kernels/SortUpperChildren.hcu>
 #include <Utils/CUDA/Kernels/UpperNodeChildren.hcu>
 
 using namespace OpenEngine::Utils::CUDA::Kernels;
@@ -63,14 +62,10 @@ namespace OpenEngine {
 
                 point hat[size];
                 Math::RandomGenerator rand;
-                for (unsigned int i = 0; i < size / 2; ++i)
-                    hat[i] = make_float3(rand.UniformInt(0.0f, 5.0f),
-                                         rand.UniformInt(0.0f, 10.0f),
-                                         rand.UniformInt(0.0f, 10.0f));
-                for (unsigned int i = size / 2; i < size; ++i)
-                    hat[i] = make_float3(rand.UniformInt(5.0f, 10.0f),
-                                         rand.UniformInt(0.0f, 10.0f),
-                                         rand.UniformInt(0.0f, 10.0f));
+                for (unsigned int i = 0; i < size; ++i)
+                    hat[i] = make_float3(rand.UniformFloat(0.0f, 10.0f),
+                                         rand.UniformFloat(0.0f, 10.0f),
+                                         rand.UniformFloat(0.0f, 10.0f));
                 
                 cudaMemcpy(photons.pos, hat, size * sizeof(point), cudaMemcpyHostToDevice);
                 photons.size = size;
@@ -90,10 +85,10 @@ namespace OpenEngine {
                 while (childrenCreated != 0){
                     CreateUpperNodes(activeIndex, activeRange, 
                                      childrenCreated, lowerCreated);
-
+                    /*
                     for (unsigned int i = activeIndex; i < activeIndex + activeRange; ++i)
                         logger.info << upperNodes.ToString(i) << upperNodes.PhotonsToString(i, photons) << logger.end;
-
+                    */
                     activeIndex += activeRange;
                     activeRange = childrenCreated;
                 }
@@ -150,18 +145,18 @@ namespace OpenEngine {
                          * performance upgrade on ALL small nodes (of
                          * which there are many)
                          *
-                         * Skip AABB calculations of to small
+                         * Skip AABB calculations of too small
                          * nodes. No need to calc it for the
                          * leafs. (Is there?)
                          */
 
-                        logger.info << "AABB for node " << nodeID;
+                        //logger.info << "AABB for node " << nodeID;
             
                         unsigned int size = photonRanges[nodeID - activeIndex];
-                        logger.info << " of size " << size;
+                        //logger.info << " of size " << size << logger.end;
                         unsigned int blocks, threads;
                         Calc1DKernelDimensions(size, blocks, threads);
-                        logger.info << " with threads " << threads << logger.end;
+                        //logger.info << " with threads " << threads << logger.end;
                         int smemSize = (threads <= 32) ? 4 * threads * sizeof(point) : 2 * threads * sizeof(point);
 
                         cudaMemcpyToSymbol(photonIndex, upperNodes.photonIndex + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
@@ -271,7 +266,7 @@ namespace OpenEngine {
                               activeRange);
                     CHECK_FOR_CUDA_ERROR();
 
-                    SplitUpperLeafs<<<blocks, threads>>>(splitVars, upperNodes, activeIndex, activeRange);
+                    SetupSomeChildLinks<<<blocks, threads>>>(splitVars, upperNodes, activeIndex, activeRange);
                     CHECK_FOR_CUDA_ERROR();
 
                     cudaMemcpyFromSymbol(&children, newChildren, sizeof(unsigned int));
@@ -308,7 +303,7 @@ namespace OpenEngine {
                  * copying.
                  */
 
-                SetUpperNodeSplitPlane<<< 1, activeRange>>>(upperNodes, activeIndex);
+                SetUpperNodeSplitPlane<<< 1, activeRange>>>(upperNodes, activeIndex, activeRange);
                 CHECK_FOR_CUDA_ERROR();
 
                 // Split each node along the spatial median
@@ -324,7 +319,6 @@ namespace OpenEngine {
                 
                 for (unsigned int nodeID = 0; nodeID < activeRange; ++nodeID){
                     if (photonRanges[nodeID] > KDPhotonUpperNode::BUCKET_SIZE){
-                        logger.info << "SPLIT CHILDREN" << logger.end;
                         unsigned int blocks, threads;
                         Calc1DKernelDimensions(photonRanges[nodeID], blocks, threads);
                         
