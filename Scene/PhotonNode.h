@@ -47,6 +47,8 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
             }
 
+            void CreateRandomData();
+
             std::string PositionToString(unsigned int begin, unsigned int range);
 
             void MapToDataBlocks(Resources::IDataBlock* vertices);

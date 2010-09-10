@@ -34,7 +34,7 @@ namespace OpenEngine {
 
                 PhotonNode photons;
                 KDPhotonUpperNode upperNodes;
-                //PhotonLowerKDNode lowerNodes;
+                //PhotonLowerNode lowerNodes;
                 AABBVar aabbVars;
                 SplitVar splitVars;
                 CUDPPConfiguration scanConfig;

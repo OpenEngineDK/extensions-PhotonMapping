@@ -42,8 +42,6 @@ namespace OpenEngine {
                                  // 'leaf' then the child is the lower
                                  // node.
 
-            //unsigned int *left, *right; //children, will right not always be left+1? If so remove the bloody variable
-            //unsigned int *lower; // index into the lower node, use max or 0 as 'not used'?
             unsigned int maxSize; // maximum number of nodes. Should be increased on demand.
             unsigned int size;
 

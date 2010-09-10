@@ -4,10 +4,14 @@ SET ( EXTENSION_NAME "Extensions_PhotonMapping")
 CUDA_ADD_LIBRARY( "CUDA_KERNELS"
 #  Utils/CUDA/Photon/KDTreeConstruction.cu
   Utils/CUDA/PhotonKDTree.cu
+  Scene/KDNode.cu
   Scene/KDPhotonUpperNode.cu
+  Scene/PhotonUpperNode.cu
+  Scene/PhotonLowerNode.cu
+  Scene/PhotonNode.cu
   Utils/CUDA/AABBVar.cu
   Utils/CUDA/splitVar.cu
-  Scene/PhotonNode.cu
+  Utils/CUDA/SplittingPlanes.cu
 )
 
 TARGET_LINK_LIBRARIES("CUDA_KERNELS"

@@ -16,9 +16,15 @@ namespace Utils {
 namespace CUDA {
 namespace Kernels {
 
-    __constant__ __device__ unsigned int photonIndex;
-    __constant__ __device__ unsigned int photonRange;
-    __constant__ __device__ unsigned int nodeID;
+    namespace ReduceBoundingBoxNS {
+        __constant__ __device__ unsigned int photonIndex;
+        __constant__ __device__ unsigned int photonRange;
+        __constant__ __device__ point* photonPos;
+        __constant__ __device__ unsigned int startNode;
+        __constant__ __device__ unsigned int endNode;
+    }
+    
+    using namespace ReduceBoundingBoxNS;
 
 /**
  * Computes the axis aligned bounding box for the given photon node.
@@ -33,15 +39,14 @@ namespace Kernels {
  * Based on NVIDIA's reduction sample.
  */
 template <unsigned int blockSize> 
-__global__ void ReduceBoundingBox(PhotonNode photons,	
-                                  KDPhotonUpperNode upperNodes,
+__global__ void ReduceBoundingBox(point* photonPos,	
                                   AABBVar aabbVars,
                                   const unsigned int nodeID,	
                                   const unsigned int blockOffset) {
     // now that we are using warp-synchronous programming (below)
     // we need to declare our shared memory volatile so that the compiler
     // doesn't reorder stores to it and induce incorrect behavior.
-    /*volatile*/ point* sharedMax = SharedMemory<float3>();
+    /*volatile*/ point* sharedMax = SharedMemory<point>();
     point* sharedMin = sharedMax + blockSize;
 
     unsigned int tid = threadIdx.x;
@@ -50,7 +55,7 @@ __global__ void ReduceBoundingBox(PhotonNode photons,
 
     // Do first reduction outside the loop to avoid assigning dummy values.
     point localMax, localMin;
-    localMax = localMin = photons.pos[i];
+    localMax = localMin = photonPos[i];
     i += gridSize;
 
     // we reduce multiple elements per thread.  The number is determined by the 
@@ -58,8 +63,8 @@ __global__ void ReduceBoundingBox(PhotonNode photons,
     // in a larger gridSize and therefore fewer elements per thread
     while (i < photonIndex + photonRange)
     {         
-        localMax = max(localMax, photons.pos[i]);
-        localMin = min(localMin, photons.pos[i]);
+        localMax = max(localMax, photonPos[i]);
+        localMin = min(localMin, photonPos[i]);
         i += gridSize;
     } 
 
@@ -103,17 +108,149 @@ __global__ void ReduceBoundingBox(PhotonNode photons,
     }
 }
 
-template <unsigned int blockSize> 
-__global__ void DirectReduceBoundingBox(PhotonNode photons,	
-                                        KDPhotonUpperNode upperNodes,
-                                        unsigned int nodeID) {
-    /*
-    // write result for this block to global mem 
-    if (tid == 0) {
-        upperNodes.aabbMax[nodeID] = sdata[0];
-        upperNodes.aabbMin[nodeID] = sdata[blockSize];
+__global__ void FinalBoundingBox1(AABBVar aabbVars, KDPhotonUpperNode upperNodes, 
+                                  unsigned int iterations){
+
+    // Optimization steps.
+
+    // 1. Add shared memory for holding data, owner and results.
+
+    // 2. Faster index calculations by multiplying with 2 instead of
+    // all that pow.
+
+    // 3. Cut data smem consumption in half by moving the first
+    //    calculation outside the loop.
+
+    unsigned int i = threadIdx.x;
+
+    if (i + startNode <= endNode){
+        upperNodes.aabbMin[i + startNode] = make_float3(fInfinity);
+        upperNodes.aabbMax[i + startNode] = make_float3(-1.0f * fInfinity);
     }
-    */
+
+    for (int d = 0; d < iterations; ++d){
+        unsigned int index0 = pow(2.0f, d+1) * i;
+        unsigned int index1 = index0 + pow(2.0f, d);
+
+        if (index1 < blockDim.x){
+            unsigned int w0 = aabbVars.owner[index0];
+            unsigned int w1 = aabbVars.owner[index1];
+            if (w0 != w1){
+                // Will always only be written to by one thread, since
+                // owner x and x+1 only borders in one place.
+                upperNodes.aabbMin[w1] = min(upperNodes.aabbMin[w1], aabbVars.min[index1]);
+                upperNodes.aabbMax[w1] = max(upperNodes.aabbMax[w1], aabbVars.max[index1]);
+            }else{
+                aabbVars.min[index0] = min(aabbVars.min[index0], aabbVars.min[index1]);
+                aabbVars.max[index0] = max(aabbVars.max[index0], aabbVars.max[index1]);
+            }
+        }
+        __syncthreads();
+    }
+
+    if (i == 0){
+        upperNodes.aabbMin[aabbVars.owner[0]] = aabbVars.min[0];
+        upperNodes.aabbMax[aabbVars.owner[0]] = aabbVars.max[0];
+    }
+}
+
+/**
+ * Use shared memory to hold data.
+ */
+template<unsigned int blockSize>
+__global__ void FinalBoundingBox2(AABBVar aabbVars, KDPhotonUpperNode upperNodes, 
+                                  unsigned int iterations){
+    __shared__ point dataMin[blockSize];
+    __shared__ point dataMax[blockSize];
+    __shared__ unsigned int owner[blockSize];
+    __shared__ point resultMin[blockSize];
+    __shared__ point resultMax[blockSize];
+    
+    unsigned int i = threadIdx.x;
+
+    // Move data to shared mem
+    dataMin[i] = aabbVars.min[i];
+    dataMax[i] = aabbVars.max[i];
+    owner[i] = aabbVars.owner[i] - startNode;
+    resultMin[i] = make_float3(fInfinity);
+    resultMax[i] = make_float3(-1.0f * fInfinity);
+    __syncthreads();
+
+    for (int d = 0; d < iterations; ++d){
+        unsigned int index0 = pow(2.0f, d+1) * i;
+        unsigned int index1 = index0 + pow(2.0f, d);
+
+        if (index1 < blockDim.x){
+            unsigned int w0 = owner[index0];
+            unsigned int w1 = owner[index1];
+            if (w0 != w1){
+                // Will always only be written to by one thread, since
+                // owner x and x+1 only borders in one place.
+                upperNodes.aabbMin[w1 + startNode] = resultMin[w1] = min(resultMin[w1], dataMin[index1]);
+                upperNodes.aabbMax[w1 + startNode] = resultMax[w1] = max(resultMax[w1], dataMax[index1]);
+            }else{
+                dataMin[index0] = min(dataMin[index0], dataMin[index1]);
+                dataMax[index0] = max(dataMax[index0], dataMax[index1]);
+            }
+        }
+        __syncthreads();
+    }
+
+    if (i == 0){
+        upperNodes.aabbMin[startNode] = dataMin[0];
+        upperNodes.aabbMax[startNode] = dataMax[0];
+    }
+}
+
+/**
+ * Unroll the first and last iteration. This will cut data shared
+ * memory in half, only half the threads will be needed and there is
+ * no need to used dummy variables. Instead of copying all the data,
+ * the data will be reduced and copied into smem in one go.
+ */
+template<unsigned int blockSize>
+__global__ void FinalBoundingBox3(AABBVar aabbVars, KDPhotonUpperNode upperNodes){
+    __shared__ point dataMin[blockSize];
+    __shared__ point dataMax[blockSize];
+    __shared__ unsigned int owner[blockSize];
+    __shared__ point resultMin[blockSize];
+    __shared__ point resultMax[blockSize];
+    
+    unsigned int index0 = threadIdx.x;
+
+    // Move data to shared mem
+    dataMin[index0] = aabbVars.min[index0];
+    dataMax[index0] = aabbVars.max[index0];
+    owner[index0] = aabbVars.owner[index0] - startNode;
+    resultMin[index0] = make_float3(fInfinity);
+    resultMax[index0] = make_float3(-1.0f * fInfinity);
+    __syncthreads();
+    
+    index0 *= 2;
+    unsigned int index1 = index0 + 1; 
+    while (index1 < blockDim.x){
+        
+        unsigned int w0 = owner[index0];
+        unsigned int w1 = owner[index1];
+        if (w0 != w1){
+            // Will always only be written to by one thread, since
+            // owner x and x+1 only borders in one place.
+            upperNodes.aabbMin[w1 + startNode] = resultMin[w1] = min(resultMin[w1], dataMin[index1]);
+            upperNodes.aabbMax[w1 + startNode] = resultMax[w1] = max(resultMax[w1], dataMax[index1]);
+        }else{
+            dataMin[index0] = min(dataMin[index0], dataMin[index1]);
+            dataMax[index0] = max(dataMax[index0], dataMax[index1]);
+        }
+        __syncthreads();
+        
+        index0 *= 2;
+        index1 *= 2;
+    }
+    
+    if (index0 == 0){
+        upperNodes.aabbMin[startNode] = dataMin[0];
+        upperNodes.aabbMax[startNode] = dataMax[0];
+    }
 }
 
 }

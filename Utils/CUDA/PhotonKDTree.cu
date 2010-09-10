@@ -14,7 +14,6 @@
 
 // Kernels
 #include <Utils/CUDA/Kernels/ReduceBoundingBox.hcu>
-#include <Utils/CUDA/Kernels/FinalBoundingBox.hcu>
 #include <Utils/CUDA/Kernels/UpperNodeSplit.hcu>
 #include <Utils/CUDA/Kernels/UpperNodeChildren.hcu>
 
@@ -37,6 +36,7 @@ namespace OpenEngine {
                 
                 // Allocate photons on GPU
                 photons = PhotonNode(size);
+                photons.CreateRandomData();
 
                 // Calculate amount of nodes probably required
                 //unsigned int upperNodeSize = 2.5f * photons.maxSize / KDPhotonUpperNode::BUCKET_SIZE;
@@ -57,18 +57,6 @@ namespace OpenEngine {
 
                 if (CUDPP_SUCCESS != res)
                     throw Core::Exception("Error creating CUDPP scanPlan");
-
-                // Photon bla values
-
-                point hat[size];
-                Math::RandomGenerator rand;
-                for (unsigned int i = 0; i < size; ++i)
-                    hat[i] = make_float3(rand.UniformFloat(0.0f, 10.0f),
-                                         rand.UniformFloat(0.0f, 10.0f),
-                                         rand.UniformFloat(0.0f, 10.0f));
-                
-                cudaMemcpy(photons.pos, hat, size * sizeof(point), cudaMemcpyHostToDevice);
-                photons.size = size;
             }
 
             void PhotonKDTree::Create() {
@@ -132,7 +120,12 @@ namespace OpenEngine {
                                                     unsigned int *photonRanges){
                 
                 logger.info << "Compute bounding boxes" << logger.end;
-                
+
+                /*
+                cudaMemcpyToSymbol(ReduceBoundingBoxNS::photonPos, photons.pos, 
+                                   sizeof(point*), 0, cudaMemcpyDeviceToDevice);
+                CHECK_FOR_CUDA_ERROR();
+                */
                 
                 unsigned int blocksUsed = 0;
                 for (unsigned int nodeID = activeIndex; 
@@ -169,41 +162,41 @@ namespace OpenEngine {
                         blocksUsed = 0;
                     }
                     
-                    cudaMemcpyToSymbol(photonIndex, upperNodes.photonIndex + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
-                    cudaMemcpyToSymbol(photonRange, upperNodes.range + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                    cudaMemcpyToSymbol(ReduceBoundingBoxNS::photonIndex, upperNodes.photonIndex + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                    cudaMemcpyToSymbol(ReduceBoundingBoxNS::photonRange, upperNodes.range + nodeID, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
                     CHECK_FOR_CUDA_ERROR();
                     
                     // Execute kernel
                     switch(threads){
                     case 512:
-                        ReduceBoundingBox<512><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        ReduceBoundingBox<512><<< blocks, threads, smemSize >>>(photons.pos, aabbVars, nodeID, blocksUsed);
                         break;
                     case 256:
-                        ReduceBoundingBox<256><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        ReduceBoundingBox<256><<< blocks, threads, smemSize >>>(photons.pos, aabbVars, nodeID, blocksUsed);
                         break;
                     case 128:
-                        ReduceBoundingBox<128><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        ReduceBoundingBox<128><<< blocks, threads, smemSize >>>(photons.pos, aabbVars, nodeID, blocksUsed);
                         break;
                     case 64:
-                        ReduceBoundingBox<64><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        ReduceBoundingBox<64><<< blocks, threads, smemSize >>>(photons.pos, aabbVars, nodeID, blocksUsed);
                         break;
                     case 32:
-                        ReduceBoundingBox<32><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        ReduceBoundingBox<32><<< blocks, threads, smemSize >>>(photons.pos, aabbVars, nodeID, blocksUsed);
                         break;
                     case 16:
-                        ReduceBoundingBox<16><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        ReduceBoundingBox<16><<< blocks, threads, smemSize >>>(photons.pos, aabbVars, nodeID, blocksUsed);
                         break;
                     case 8:
-                        ReduceBoundingBox<8><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        ReduceBoundingBox<8><<< blocks, threads, smemSize >>>(photons.pos, aabbVars, nodeID, blocksUsed);
                         break;
                     case 4:
-                        ReduceBoundingBox<4><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        ReduceBoundingBox<4><<< blocks, threads, smemSize >>>(photons.pos, aabbVars, nodeID, blocksUsed);
                         break;
                     case 2:
-                        ReduceBoundingBox<2><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        ReduceBoundingBox<2><<< blocks, threads, smemSize >>>(photons.pos, aabbVars, nodeID, blocksUsed);
                         break;
                     case 1:
-                        ReduceBoundingBox<1><<< blocks, threads, smemSize >>>(photons, upperNodes, aabbVars, nodeID, blocksUsed);
+                        ReduceBoundingBox<1><<< blocks, threads, smemSize >>>(photons.pos, aabbVars, nodeID, blocksUsed);
                         break;
                     }
                     CHECK_FOR_CUDA_ERROR();
@@ -219,8 +212,10 @@ namespace OpenEngine {
 
             void PhotonKDTree::SegmentedReduce(unsigned int blocksUsed){
                 // Setup device variables
-                cudaMemcpyToSymbol(startNode, aabbVars.owner, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
-                cudaMemcpyToSymbol(endNode, aabbVars.owner + blocksUsed - 1, sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                cudaMemcpyToSymbol(ReduceBoundingBoxNS::startNode, aabbVars.owner, 
+                                   sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
+                cudaMemcpyToSymbol(ReduceBoundingBoxNS::endNode, aabbVars.owner + blocksUsed - 1, 
+                                   sizeof(unsigned int), 0, cudaMemcpyDeviceToDevice);
                 CHECK_FOR_CUDA_ERROR();
                 
                 //unsigned int iterations = log2(blocksUsed * 1.0f);
@@ -337,8 +332,8 @@ namespace OpenEngine {
                             CalcSplitSide<KDPhotonUpperNode::X><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
                             break;
                         case KDPhotonUpperNode::Y:
-                        CalcSplitSide<KDPhotonUpperNode::Y><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
-                        break;
+                            CalcSplitSide<KDPhotonUpperNode::Y><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
+                            break;
                         case KDPhotonUpperNode::Z:
                             CalcSplitSide<KDPhotonUpperNode::Z><<<blocks, threads>>>(splitVars, upperNodes, photons, photonRanges[nodeID], nodeID + activeIndex);
                             break;

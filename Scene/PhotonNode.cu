@@ -9,6 +9,7 @@
 
 #include <Scene/PhotonNode.h>
 
+#include <Math/RandomGenerator.h>
 #include <Resources/IDataBlock.h>
 #include <Utils/CUDA/Convert.h>
 
@@ -18,6 +19,19 @@ using namespace OpenEngine::Resources;
 
 namespace OpenEngine {
     namespace Scene {
+
+        void PhotonNode::CreateRandomData(){
+            point hat[maxSize];
+            Math::RandomGenerator rand;
+            rand.SeedWithTime();
+            for (unsigned int i = 0; i < size; ++i)
+                hat[i] = make_float3(rand.UniformFloat(0.0f, 10.0f),
+                                     rand.UniformFloat(0.0f, 10.0f),
+                                     rand.UniformFloat(0.0f, 10.0f));
+            
+            cudaMemcpy(pos, hat, size * sizeof(point), cudaMemcpyHostToDevice);
+            size = maxSize;
+        }
 
         std::string PhotonNode::PositionToString(unsigned int begin, unsigned int range){
             std::ostringstream out;

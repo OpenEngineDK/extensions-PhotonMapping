@@ -15,7 +15,7 @@
 
 #define fInfinity 0x7f800000
 
-unsigned int NextPow2(unsigned int x) {
+inline unsigned int NextPow2(unsigned int x) {
     --x;
     x |= x >> 1;
     x |= x >> 2;
@@ -25,7 +25,7 @@ unsigned int NextPow2(unsigned int x) {
     return ++x;
 }
 
-void Calc1DKernelDimensions(const unsigned int size, 
+inline void Calc1DKernelDimensions(const unsigned int size, 
                             unsigned int &blocks, unsigned int &threads){
     unsigned int MAX_THREADS = activeCudaDevice.maxThreadsDim[0];
     unsigned int MAX_BLOCKS = (activeCudaDevice.maxGridSize[0]+1) / MAX_THREADS;
@@ -35,14 +35,25 @@ void Calc1DKernelDimensions(const unsigned int size,
     blocks = min(MAX_BLOCKS, blocks);
 }
 
+/**
+ * Stolen from
+ * http://gurmeetsingh.wordpress.com/2008/08/05/fast-bit-counting-routines
+ *
+ * How and why it works? I've no idea.
+ */
+inline __host__ __device__ int bitcount(unsigned int n){
+    unsigned int tmp = n - ((n >> 1) & 033333333333)
+        - ((n >> 2) & 011111111111);
+    return ((tmp + (tmp >> 3)) & 030707070707) % 63;
+}
 
-__host__ __device__ float3 max(float3 v, float3 u){
+inline __host__ __device__ float3 max(float3 v, float3 u){
     return make_float3(max(v.x, u.x),
                        max(v.y, u.y),
                        max(v.z, u.z));
 }
 
-__host__ __device__ float3 min(float3 v, float3 u){
+inline __host__ __device__ float3 min(float3 v, float3 u){
     return make_float3(min(v.x, u.x),
                        min(v.y, u.y),
                        min(v.z, u.z));
