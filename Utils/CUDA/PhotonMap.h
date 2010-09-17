@@ -48,8 +48,6 @@ namespace OpenEngine {
                 float *xKeys, *yKeys, *zKeys;
                 float4 *xSorted, *ySorted, *zSorted;
 
-                // @TODO some of these can be compacted into one
-                // JanItor array.
                 int *leafSide;
                 int *leafPrefix;
                 int *splitSide;

@@ -50,8 +50,7 @@ namespace Kernels {
         }
     }
 
-    __global__ void SetPhotonNodeLeafSide(point* photons,
-                                          int *owners,
+    __global__ void SetPhotonNodeLeafSide(int *owners,
                                           char *info,
                                           int *leafSide){
         int id = blockDim.x * blockIdx.x + threadIdx.x;

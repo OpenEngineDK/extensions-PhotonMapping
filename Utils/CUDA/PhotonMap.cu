@@ -117,11 +117,11 @@ namespace OpenEngine {
                     level++;
                 }
                 // Copy the rest of the photons to photon position
-                cudaMemcpy(xSorted, photons.pos, 
+                cudaMemcpy(photons.pos, xSorted, 
                            activePhotons * sizeof(point), cudaMemcpyDeviceToDevice);
                 for (int i = -unhandledLeafs; i < activeRange; ++i)
                     logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
-                logger.info << "photons.pos" << Utils::CUDA::Convert::ToString(photons.pos, photons.size) << logger.end;
+                logger.info << "photons.pos " << Utils::CUDA::Convert::ToString(photons.pos, photons.size) << logger.end;
                 // Setup photon info for the last nodes.
                 
 
@@ -235,11 +235,9 @@ namespace OpenEngine {
 
                 // @OPT Only handle leafs nodes in case there
                 // actually are any!
-                // @OPT precompute leaf pos if there are leaf nodes?
-                // Could remove to copy from symbols.
 
                 // Set photons leaf bit
-                SetPhotonNodeLeafSide<<<blocks, threads>>>(photons.pos, photonOwners, upperNodes.info, leafSide);
+                SetPhotonNodeLeafSide<<<blocks, threads>>>(photonOwners, upperNodes.info, leafSide);
                 CHECK_FOR_CUDA_ERROR();
                 cudppScan(scanHandle, leafPrefix, leafSide, activePhotons);
                 CHECK_FOR_CUDA_ERROR();
@@ -256,9 +254,6 @@ namespace OpenEngine {
                                                             splitSide);
                 cudppScan(scanHandle, splitLeft, splitSide, activePhotons);
                 CHECK_FOR_CUDA_ERROR();
-
-                //logger.info << "xSorted: " << Utils::CUDA::Convert::ToString(xSorted, activePhotons) << logger.end;
-                //logger.info << "Split side: " << Utils::CUDA::Convert::ToString(splitSide, activePhotons) << logger.end;
                 
                 SplitPhotons<<<blocks, threads>>>(xSorted, tempPhotonPos,
                                                   photonOwners, newOwners,
@@ -272,13 +267,11 @@ namespace OpenEngine {
                 cudaMemcpy(&nonLeafPhotons, leafPrefix + activePhotons,
                            sizeof(int), cudaMemcpyDeviceToHost);
                 int leafPhotons = activePhotons - nonLeafPhotons;
-                if (leafPhotons > 0){
+                if (leafPhotons > 0)
                     // Copy photons to a persistent array
-                    cudaMemcpy(tempPhotonPos + nonLeafPhotons, photons.pos + nonLeafPhotons, 
+                    cudaMemcpy(photons.pos + nonLeafPhotons, tempPhotonPos + nonLeafPhotons, 
                                leafPhotons * sizeof(point), cudaMemcpyDeviceToDevice);
 
-                    // Setup the leafs nodes photon info
-                }
                 std::swap(xSorted, tempPhotonPos);
 
                 SplitSortedArray(ySorted, activePhotons);
@@ -322,22 +315,16 @@ namespace OpenEngine {
                                                 int leafNodes,
                                                 int photonOffset){
 
-                //logger.info << "Setup " << leafNodes << " leaf nodes" << logger.end;
-                
                 // Update leafs nodes photon info.
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(leafNodes, blocks, threads);
 
                 int leafIndex = activeIndex - leafNodes;
-                //logger.info << "Leaf index " << leafIndex << logger.end;
                 SetupLeafNodes<<<blocks, threads>>>(upperNodes.photonInfo + leafIndex,
                                                     leafPrefix,
                                                     leafNodes);
                 CHECK_FOR_CUDA_ERROR();
-                /*
-                logger.info << "Leaf photon info" << 
-                    Utils::CUDA::Convert::ToString(upperNodes.photonInfo + leafIndex, leafNodes) << logger.end;
-                */
+
                 // @TODO Create lower nodes
 
             }
@@ -347,8 +334,6 @@ namespace OpenEngine {
                                            int activePhotons,
                                            int &leafsCreated,
                                            int &childrenCreated){
-                //logger.info << "Create children to " << activeRange << " nodes" << logger.end;
-
                 // @TODO extend with children counter (prefixSum) and
                 // empty space splitting
 
