@@ -8,7 +8,7 @@
 //--------------------------------------------------------------------
 
 #include <Meta/CUDA.h>
-#include <Utils/CUDA/Types.h>
+#include <Utils/CUDA/Point.h>
 #include <string>
 
 #ifndef _SPLIT_VAR_H_

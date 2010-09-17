@@ -8,6 +8,7 @@
 //--------------------------------------------------------------------
 
 #include <Scene/KDNode.h>
+#include <Utils/CUDA/Utils.h>
 
 namespace OpenEngine {
     namespace Scene {
@@ -18,12 +19,12 @@ namespace OpenEngine {
         KDNode::KDNode(int i)
             : maxSize(i), size(0) {
             
-            cudaMalloc(&info, maxSize * sizeof(char));
-            cudaMalloc(&splitPos, maxSize * sizeof(float));
-            cudaMalloc(&aabbMin, maxSize * sizeof(point));
-            cudaMalloc(&aabbMax, maxSize * sizeof(point));
+            cudaSafeMalloc(&info, maxSize * sizeof(char));
+            cudaSafeMalloc(&splitPos, maxSize * sizeof(float));
+            cudaSafeMalloc(&aabbMin, maxSize * sizeof(point));
+            cudaSafeMalloc(&aabbMax, maxSize * sizeof(point));
 
-            cudaMalloc(&photonIndex, maxSize * sizeof(int));
+            cudaSafeMalloc(&photonInfo, maxSize * sizeof(int2));
 
             CHECK_FOR_CUDA_ERROR();
         }
@@ -34,7 +35,7 @@ namespace OpenEngine {
             char *tempChar;
             float *tempFloat;
             point *tempPoint;
-            int *tempInt;
+            int2 *tempInt2;
 
             cudaMalloc(&tempChar, i * sizeof(char));
             cudaMemcpy(tempChar, info, copySize * sizeof(char), cudaMemcpyDeviceToDevice);
@@ -60,10 +61,10 @@ namespace OpenEngine {
             aabbMax = tempPoint;
             CHECK_FOR_CUDA_ERROR();
 
-            cudaMalloc(&tempInt, i * sizeof(int));
-            cudaMemcpy(tempInt, photonIndex, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
-            cudaFree(photonIndex);
-            photonIndex = tempInt;
+            cudaMalloc(&tempInt2, i * sizeof(int2));
+            cudaMemcpy(tempInt2, photonInfo, copySize * sizeof(int2), cudaMemcpyDeviceToDevice);
+            cudaFree(photonInfo);
+            photonInfo = tempInt2;
             CHECK_FOR_CUDA_ERROR();
 
             maxSize = i;

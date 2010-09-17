@@ -24,11 +24,8 @@ namespace OpenEngine {
 
         class PhotonUpperNode : public KDNode {
         public:
-            static const unsigned int BUCKET_SIZE = 32; // size of buckets in lower nodes
-            //static const unsigned int BUCKET_SIZE = 2; // size of buckets in lower nodes
-            
-            int *range;//, *tempRange; // Range of photons that the node spans
-            int *parent;//, *tempParent;
+            //int *photonRanges;//, *tempRange; // Range of photons that the node spans
+            int *parents;//, *tempParent;
             int *left, *right; // if it is a leaf node then both nodes
                                // point to it's lower node.
 
@@ -38,13 +35,12 @@ namespace OpenEngine {
 
             void Resize(int i);
 
-            /*                    
             void MapToDataBlocks(Resources::IDataBlock* vertices,
                                  Resources::IDataBlock* colors);
 
             std::string ToString(unsigned int i);
             std::string PhotonsToString(unsigned int i, PhotonNode photons);
-
+            /*                    
             void CheckBoundingBox(unsigned int i, PhotonNode photons);
             */
         };

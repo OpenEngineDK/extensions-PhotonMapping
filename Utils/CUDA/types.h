@@ -10,6 +10,6 @@
 #ifndef _PHOTON_MAPPING_TYPES_H_
 #define _PHOTON_MAPPING_TYPES_H_
 
-typedef float3 point;
+//typedef float3 point;
 
 #endif // _PHOTON_MAPPING_TYPES_H_

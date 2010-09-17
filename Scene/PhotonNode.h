@@ -11,7 +11,7 @@
 #define _PHOTON_NODE_H_
 
 #include <Meta/CUDA.h>
-#include <Utils/CUDA/Types.h>
+#include <Utils/CUDA/Point.h>
 
 #include <string>
 
@@ -39,13 +39,8 @@ namespace OpenEngine {
             unsigned int size;
 
         public:
-            PhotonNode() 
-                : pos(NULL), maxSize(0), size(0) {}
-            PhotonNode(unsigned int size) 
-                : maxSize(size), size(0) {
-                cudaMalloc(&pos, maxSize * sizeof(point));
-                CHECK_FOR_CUDA_ERROR();
-            }
+            PhotonNode();
+            PhotonNode(unsigned int size);
 
             void CreateRandomData();
 

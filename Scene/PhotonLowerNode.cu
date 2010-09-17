@@ -18,7 +18,7 @@ namespace OpenEngine {
         PhotonLowerNode::PhotonLowerNode(int i)
             : KDNode(0) {
             
-            cudaMalloc(&photonBitmap, this->maxSize * sizeof(unsigned int));
+            //cudaMalloc(&photonBitmap, this->maxSize * sizeof(unsigned int));
             cudaMalloc(&smallRoot, this->maxSize * sizeof(int));
 
             CHECK_FOR_CUDA_ERROR();
@@ -28,14 +28,14 @@ namespace OpenEngine {
             KDNode::Resize(i);
 
             unsigned int copySize = this->size;
-
+            /*
             unsigned int *tempUint;
             cudaMalloc(&tempUint, i * sizeof(unsigned int));
             cudaMemcpy(tempUint, photonBitmap, copySize * sizeof(unsigned int), cudaMemcpyDeviceToDevice);
             cudaFree(photonBitmap);
             photonBitmap = tempUint;
             CHECK_FOR_CUDA_ERROR();
-
+            */
             int *tempInt;
             cudaMalloc(&tempInt, i * sizeof(int));
             cudaMemcpy(tempInt, smallRoot, copySize * sizeof(int), cudaMemcpyDeviceToDevice);

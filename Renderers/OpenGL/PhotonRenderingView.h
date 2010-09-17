@@ -15,19 +15,25 @@
 
 #include <boost/shared_ptr.hpp>
 
-using namespace OpenEngine::Utils::CUDA;
-
 namespace OpenEngine {
     namespace Geoemtry {
         class GeometrySet;
         typedef boost::shared_ptr<GeometrySet> GeometrySetPtr;
     }
+    namespace Utils {
+        namespace CUDA {
+            class PhotonMap;
+        }
+    }
     namespace Renderers {
         namespace OpenGL {
 
+            using namespace Utils::CUDA;
+
             class PhotonRenderingView : public RenderingView {
             protected:
-                PhotonKDTree* photonTree;
+                //PhotonKDTree* photonMap;
+                PhotonMap* photonMap;
                 
                 bool renderPhotons, renderTree;
                 GeometrySetPtr photons;

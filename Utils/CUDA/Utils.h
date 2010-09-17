@@ -15,6 +15,20 @@
 
 #define fInfinity 0x7f800000
 
+#ifdef OE_SAFE
+#define cudaSafeMalloc(ptr, size); cudaMalloc(ptr, size); cudaMemset(*ptr, 0, size);
+#else
+#define cudaSafeMalloc(ptr, size); cudaMalloc(ptr, size);
+#endif
+
+// easy timer defs
+#define START_TIMER(timerID) cutResetTimer(timerID);cutStartTimer(timerID);
+#define PRINT_TIMER(timerID, name)              \
+    cudaThreadSynchronize();                    \
+    cutStopTimer(timerID);                      \
+    logger.info << name << " time: " << cutGetTimerValue(timerID) << "ms" << logger.end; \
+    
+
 inline unsigned int NextPow2(unsigned int x) {
     --x;
     x |= x >> 1;
@@ -30,7 +44,7 @@ inline void Calc1DKernelDimensions(const unsigned int size,
     unsigned int MAX_THREADS = activeCudaDevice.maxThreadsDim[0];
     unsigned int MAX_BLOCKS = (activeCudaDevice.maxGridSize[0]+1) / MAX_THREADS;
 
-    threads = (size < MAX_THREADS * 2) ? NextPow2((size + 1)/ 2) : MAX_THREADS;
+    threads = (size < MAX_THREADS) ? NextPow2(size) : MAX_THREADS;
     blocks = (size + (threads * 2 - 1)) / (threads * 2);
     blocks = min(MAX_BLOCKS, blocks);
 }
@@ -58,6 +72,5 @@ inline __host__ __device__ float3 min(float3 v, float3 u){
                        min(v.y, u.y),
                        min(v.z, u.z));
 }
-
 
 #endif // _CUDA_PHOTON_UTILS_H_

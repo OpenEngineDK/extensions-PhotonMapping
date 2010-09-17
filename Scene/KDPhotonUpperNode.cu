@@ -130,7 +130,7 @@ namespace OpenEngine {
 
             unsigned int blocks, threads;
             Calc1DKernelDimensions(s, blocks, threads);
-            UpperNodeMapToGL<<<blocks, threads/2>>>(*this, posv, colv, s);
+            UpperNodeMapToGL<<<blocks, threads/2>>>(aabbMin, aabbMax, splitPos, info, posv, colv, s);
             CHECK_FOR_CUDA_ERROR();
 
             cudaGraphicsUnmapResources(1, &pResource, 0);
@@ -232,12 +232,12 @@ namespace OpenEngine {
             point hostMax = positions[0];
             point hostMin = positions[0];
             for (unsigned int p = 1; p < photonRange; ++p){
-                hostMax = make_float3(max(hostMax.x, positions[p].x),
-                                      max(hostMax.y, positions[p].y),
-                                      max(hostMax.z, positions[p].z));
-                hostMin = make_float3(min(hostMin.x, positions[p].x),
-                                      min(hostMin.y, positions[p].y),
-                                      min(hostMin.z, positions[p].z));
+                hostMax = make_point(max(hostMax.x, positions[p].x),
+                                     max(hostMax.y, positions[p].y),
+                                     max(hostMax.z, positions[p].z));
+                hostMin = make_point(min(hostMin.x, positions[p].x),
+                                     min(hostMin.y, positions[p].y),
+                                     min(hostMin.z, positions[p].z));
             }
                     
             point gpuMax;

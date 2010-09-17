@@ -11,22 +11,22 @@
 #define _CUDA_KD_BASE_NODE_H_
 
 #include <Meta/CUDA.h>
-#include <Utils/Cuda/types.h>
+#include <Utils/Cuda/Point.h>
 
 namespace OpenEngine {
     namespace Scene {
         
         class KDNode {
         public:
-            static const unsigned int LEAF = 0;
-            static const unsigned int X = 1;
-            static const unsigned int Y = 2;
-            static const unsigned int Z = 3;
+            static const char LEAF = 0;
+            static const char X = 1;
+            static const char Y = 2;
+            static const char Z = 3;
 
             char *info; // 0 = LEAF,1 = X, 2 = Y, 3 = Z. 6 bits left for stuff
             float *splitPos; // position along that axis
             point *aabbMin, *aabbMax;
-            int *photonIndex;
+            int2 *photonInfo; // [photonIndex, range/bitmap]
 
             int maxSize;
             int size;

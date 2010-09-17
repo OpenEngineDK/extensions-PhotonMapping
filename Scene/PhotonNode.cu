@@ -12,6 +12,7 @@
 #include <Math/RandomGenerator.h>
 #include <Resources/IDataBlock.h>
 #include <Utils/CUDA/Convert.h>
+#include <Utils/CUDA/Utils.h>
 
 #include <sstream>
 
@@ -20,16 +21,31 @@ using namespace OpenEngine::Resources;
 namespace OpenEngine {
     namespace Scene {
 
+        PhotonNode::PhotonNode()
+            : pos(NULL), maxSize(0), size(0) {}
+
+        PhotonNode::PhotonNode(unsigned int size) 
+            : maxSize(size), size(0) {
+            logger.info << "Photon max: " << size << logger.end;
+            cudaSafeMalloc(&pos, maxSize * sizeof(point));
+            CHECK_FOR_CUDA_ERROR();
+        }
+
         void PhotonNode::CreateRandomData(){
             point hat[maxSize];
             Math::RandomGenerator rand;
-            rand.SeedWithTime();
-            for (unsigned int i = 0; i < size; ++i)
-                hat[i] = make_float3(rand.UniformFloat(0.0f, 10.0f),
-                                     rand.UniformFloat(0.0f, 10.0f),
-                                     rand.UniformFloat(0.0f, 10.0f));
+            //rand.SeedWithTime();
+            for (unsigned int i = 0; i < maxSize; ++i)
+                /*
+                hat[i] = make_point(rand.UniformFloat(0.0f, 10.0f),
+                                    rand.UniformFloat(0.0f, 10.0f),
+                                    rand.UniformFloat(0.0f, 10.0f));
+                */
+                hat[i] = make_point(rand.UniformInt(0.0f, 10.0f),
+                                    rand.UniformInt(0.0f, 10.0f),
+                                    rand.UniformInt(0.0f, 10.0f));
             
-            cudaMemcpy(pos, hat, size * sizeof(point), cudaMemcpyHostToDevice);
+            cudaMemcpy(pos, hat, maxSize * sizeof(point), cudaMemcpyHostToDevice);
             size = maxSize;
         }
 

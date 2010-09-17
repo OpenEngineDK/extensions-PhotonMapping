@@ -13,6 +13,7 @@
 #include <Geometry/GeometrySet.h>
 #include <Resources/DataBlock.h>
 #include <Scene/PhotonNode.h>
+#include <Utils/CUDA/PhotonMap.h>
 
 #include <Logging/Logger.h>
 
@@ -21,8 +22,8 @@ namespace OpenEngine {
         namespace OpenGL {
             
             PhotonRenderingView::PhotonRenderingView()
-                : RenderingView(), photonTree(NULL), 
-                  renderPhotons(true), renderTree(true){
+                : RenderingView(), photonMap(NULL), 
+                  renderPhotons(true), renderTree(false){
             }
             
             void PhotonRenderingView::Handle(RenderingEventArg arg){
@@ -42,9 +43,9 @@ namespace OpenEngine {
 
             void PhotonRenderingView::Initialize(RenderingEventArg arg) {
                 INITIALIZE_CUDA();
-                unsigned int size = 1<<16;
-                photonTree = new PhotonKDTree(size);
-                IDataBlockPtr vertices = IDataBlockPtr(new DataBlock<3, float>(size));
+                unsigned int size = 1<<2;
+                photonMap = new PhotonMap(size);
+                IDataBlockPtr vertices = IDataBlockPtr(new DataBlock<4, float>(size));
                 map<string, IDataBlockPtr> attr;
                 attr["vertex"] = vertices;
                 photons = GeometrySetPtr(new GeometrySet(attr));
@@ -53,13 +54,13 @@ namespace OpenEngine {
 
             void PhotonRenderingView::ShootPhotons(){
                 logger.info << "Pew pew, photons everywhere" << logger.end;
-                photonTree->Create();
+                photonMap->Create();
                 CHECK_FOR_CUDA_ERROR();
             }
 
             void PhotonRenderingView::RenderPhotons(){
                 // Copy Photons to OpenGL buffer
-                photonTree->photons.MapToDataBlocks(photons->GetVertices().get());
+                photonMap->photons.MapToDataBlocks(photons->GetVertices().get());
                 
                 glColor3f(0.0f, 1.0f, 0.0f);
                 glEnableClientState(GL_VERTEX_ARRAY);
@@ -71,7 +72,7 @@ namespace OpenEngine {
             }
 
             void PhotonRenderingView::RenderTree(RenderingEventArg arg){
-                unsigned int size = photonTree->upperNodes.size * 12;
+                unsigned int size = photonMap->upperNodes.size * 12;
 
                 if (upperNodes == NULL || upperNodes->GetSize() < size){
 
@@ -91,7 +92,7 @@ namespace OpenEngine {
                 IDataBlockPtr p = upperNodes->GetDataBlock("position");
                 IDataBlockPtr c = upperNodes->GetDataBlock("color");
 
-                photonTree->upperNodes.MapToDataBlocks(p.get(), c.get());
+                photonMap->upperNodes.MapToDataBlocks(p.get(), c.get());
 
                 glEnableClientState(GL_VERTEX_ARRAY);
                 glBindBuffer(GL_ARRAY_BUFFER, p->GetID());

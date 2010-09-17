@@ -9,7 +9,12 @@
 
 #include <Meta/CUDA.h>
 #include <Utils/CUDA/Utils.h>
+#include <Utils/CUDA/SplitVar.h>
+#include <Scene/KDPhotonUpperNode.h>
+#include <Scene/KDNode.h>
 #include <Scene/PhotonNode.h>
+
+#include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
 
 using namespace OpenEngine::Scene;
 
@@ -17,6 +22,135 @@ namespace OpenEngine {
 namespace Utils {
 namespace CUDA {
 namespace Kernels {
+
+    /**
+     * Requires none of the active nodes are leafs (should be split
+     * away).
+     */
+    __global__ void SetUpperNodeSplitInfo(point *aabbMin, point *aabbMax,
+                                          float *splitPos, char *info){
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        int stepSize = gridDim.x * blockDim.x;
+        
+        while (id < activeNodeRange){
+            
+            point bbSize = aabbMax[id] - aabbMin[id];
+            point median = bbSize * 0.5 + aabbMin[id];
+
+            // Calculate splitting plane
+            bool yAboveX = bbSize.x < bbSize.y;
+            float max = yAboveX ? bbSize.y : bbSize.x;
+            float split = yAboveX ? median.y : median.x;
+            char axis = yAboveX ? KDNode::Y : KDNode::X;
+            bool zHigher = max < bbSize.z;
+            splitPos[id] = zHigher ? median.z : split;
+            info[id] = zHigher ? KDNode::Z : axis;
+            
+            id += stepSize;
+        }
+    }
+
+    __global__ void SetPhotonNodeLeafSide(point* photons,
+                                          int *owners,
+                                          char *info,
+                                          int *leafSide){
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        int stepSize = gridDim.x * blockDim.x;
+        
+        while (id < photonNodes){
+
+            int owner = owners[id];
+            leafSide[id] = info[owner] != KDNode::LEAF;
+
+            id += stepSize;
+        }
+    }
+
+    __global__ void SetPhotonNodeSplitSide(point* photons,
+                                           int *owners,
+                                           float* splitPos, char *info,
+                                           int *splitSide){
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        int stepSize = gridDim.x * blockDim.x;
+        
+        while (id < photonNodes){
+
+            point position = photons[id];
+            int owner = owners[id];
+
+            float split = splitPos[owner];
+            char axis = info[owner];
+
+            // @TODO create something that places the first photons to
+            // the left and right photons to the right if equal. (Or
+            // forget about it, highly unlikely to happen in a real
+            // example!)
+
+            float photonPos = axis == KDNode::X ? position.x : position.y;
+            photonPos = axis == KDNode::Z ? position.z : photonPos;
+            int side = photonPos < split;
+            // Handle leaf before writting to memory
+            splitSide[id] = axis == KDNode::LEAF ? 0 : side;
+            
+            id += stepSize;
+        }
+    }
+
+    __global__ void SplitPhotons(point *photonPos, point *newPos,
+                                 int *owners, int *newOwners,
+                                 int *splitLeft, int *splitSide,
+                                 int *leafLeft, int *leafSide,
+                                 int2 *splitAddrs){
+        __shared__ int leftTotal, nonLeafTotal;
+        
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        const int stepSize = gridDim.x * blockDim.x;
+        
+        if (threadIdx.x == 0){
+            splitLeft[photonNodes] = leftTotal = splitLeft[photonNodes - 1] + splitSide[photonNodes - 1];
+            leafLeft[photonNodes] = nonLeafTotal = leafLeft[photonNodes - 1] + leafSide[photonNodes - 1];
+        }
+
+        while (id < photonNodes){
+
+            int leafRight = id - leafLeft[id] + nonLeafTotal;
+            int left = splitLeft[id];
+            int splitRight = leafLeft[id] - left + leftTotal;
+            int right = leafSide[id] ? splitRight : leafRight;
+            splitAddrs[id] = make_int2(left, right);
+            int addr = splitSide[id] ? left : right;
+            newPos[addr] = photonPos[id];
+            newOwners[addr] = owners[id];
+
+            id += stepSize;
+        }
+    }
+
+    __global__ void SplitPhotons(point *photonPos, point *newPos,
+                                 int *splitLeft, int *splitSide,
+                                 int *leafLeft, int *leafSide){
+        __shared__ int leftTotal, nonLeafTotal;
+        
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        const int stepSize = gridDim.x * blockDim.x;
+        
+        if (threadIdx.x == 0){
+            leftTotal = splitLeft[photonNodes - 1] + splitSide[photonNodes - 1];
+            nonLeafTotal = leafLeft[photonNodes];
+        }
+
+        while (id < photonNodes){
+
+            int leafRight = id - leafLeft[id] + nonLeafTotal;
+            int left = splitLeft[id];
+            int splitRight = leafLeft[id] - left + leftTotal;
+            int right = leafSide[id] ? splitRight : leafRight;
+            int addr = splitSide[id] ? left : right;
+            newPos[addr] = photonPos[id];
+
+            id += stepSize;
+        }
+    }
 
 /**
  * Setup splitting planes and link to children.

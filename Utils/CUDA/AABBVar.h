@@ -7,13 +7,13 @@
 // See the GNU General Public License for more details (see LICENSE). 
 //--------------------------------------------------------------------
 
+#ifndef _AABB_VAR_H_
+#define _AABB_VAR_H_
+
 #include <Meta/CUDA.h>
 #include <string>
 #include <Utils/CUDA/Convert.h>
-#include <Utils/CUDA/Types.h>
-
-#ifndef _AABB_VAR_H_
-#define _AABB_VAR_H_
+#include <Utils/CUDA/Point.h>
 
 namespace OpenEngine {
     namespace Utils {

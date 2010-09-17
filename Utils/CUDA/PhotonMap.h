@@ -14,8 +14,7 @@
 #include <Scene/PhotonNode.h>
 #include <Scene/PhotonUpperNode.h>
 #include <Scene/PhotonLowerNode.h>
-#include <Utils/CUDA/AABBVar.h>
-#include <Utils/CUDA/SplitVar.h>
+#include <Utils/CUDA/NodeChildren.h>
 
 #include <Meta/CUDPP.h>
 
@@ -34,15 +33,31 @@ namespace OpenEngine {
                 unsigned int timerID;
 
                 PhotonNode photons;
+                int *photonOwners;
+                int *newOwners;
                 PhotonUpperNode upperNodes;
                 PhotonLowerNode lowerNodes;
-                AABBVar aabbVars;
-
+                
                 CUDPPConfiguration scanConfig;
                 CUDPPHandle scanHandle;
+                CUDPPConfiguration sortConfig;
+                CUDPPHandle sortHandle;
 
-                // The approximate range
-                int approxPhotonRange;
+                // Sorted photon positions
+                float *xIndices, *yIndices, *zIndices;
+                float *xKeys, *yKeys, *zKeys;
+                float4 *xSorted, *ySorted, *zSorted;
+
+                // @TODO some of these can be compacted into one
+                // JanItor array.
+                int *leafSide;
+                int *leafPrefix;
+                int *splitSide;
+                int *prefixSum;
+                int *splitLeft;
+                int2 *splitAddrs;
+                float4* tempPhotonPos;
+                NodeChildren tempChildren;
 
             public:
                 PhotonMap(unsigned int size);
@@ -50,26 +65,46 @@ namespace OpenEngine {
                 void Create();
 
             private:
-                void ProcessUpperNodes(unsigned int activeIndex,
-                                       unsigned int activeRange,
-                                       unsigned int &childrenCreated);
+                void SortPhotons();
 
-                void ComputeBoundingBox(unsigned int activeIndex,
-                                        unsigned int activeRange);
+                void ProcessUpperNodes(int activeIndex,
+                                       int activeRange,
+                                       int unhandledLeafs,
+                                       int &leafsCreated,
+                                       int &childrenCreated,
+                                       int &activePhotons);
 
-                void SplitUpperNodePhotons(unsigned int activeIndex,
-                                           unsigned int activeRange);
+                void ComputeBoundingBox(int activeIndex,
+                                        int activeRange);
 
-                unsigned int CreateChildren(unsigned int activeIndex,
-                                            unsigned int activeRange);
+                void SplitUpperNodePhotons(int activeIndex,
+                                           int activeRange,
+                                           int unhandledLeafs,
+                                           int &activePhotons);
 
-                void PreprocessLowerNodes(unsigned int range);
+                void SplitSortedArray(float4 *&sortedArray, int activePhotons);
 
-                void ProcessLowerNodes(unsigned int activeIndex,
-                                       unsigned int activeRange,
-                                       unsigned int &childrenCreated);
+                void SetupUpperLeafNodes(int activeIndex,
+                                         int leafNodes,
+                                         int photonOffset);
+
+                void CreateChildren(int activeIndex,
+                                    int activeRange,
+                                    int activePhotons,
+                                    int &leafsCreated,
+                                    int &childrenCreated);
+
+                void PreprocessLowerNodes(int range);
+
+                void ProcessLowerNodes(int activeIndex,
+                                       int activeRange,
+                                       int &childrenCreated);
                                 
-            }
+
+                void VerifyMap();
+                int VerifyUpperNode(int i, char info, float splitPos,
+                                    point parentAABBMin, point parentAABBMax);
+            };
 
         }
     }

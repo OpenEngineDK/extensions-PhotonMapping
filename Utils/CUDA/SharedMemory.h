@@ -1,3 +1,6 @@
+#ifndef _CUDA_SHARED_MEMORY_H_
+#define _CUDA_SHARED_MEMORY_H_
+
 // Utility class used to avoid linker errors with extern
 // unsized shared memory arrays with templated type
 template<class T>
@@ -33,3 +36,5 @@ struct SharedMemory<double>
         return (double*)__smem_d;
     }
 };
+
+#endif

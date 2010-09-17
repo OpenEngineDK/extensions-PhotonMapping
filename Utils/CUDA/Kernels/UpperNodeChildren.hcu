@@ -9,11 +9,184 @@
 
 #include <Meta/CUDA.h>
 #include <Utils/CUDA/Utils.h>
+#include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
+#include <Scene/PhotonLowerNode.h>
+
+using namespace OpenEngine::Scene;
 
 namespace OpenEngine {
 namespace Utils {
 namespace CUDA {
 namespace Kernels {
+
+    __global__ void SetupLeafNodes(int2 *photonInfo, // [index, range]
+                                   int *leafPrefix,
+                                   int leafRange){
+        
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        int stepSize = gridDim.x * blockDim.x;
+
+        __shared__ int nonLeafTotal;
+        if (threadIdx.x == 0) nonLeafTotal = leafPrefix[photonNodes];
+
+        while (id < leafRange){
+
+            int2 info = photonInfo[id];
+            info.x = info.x - leafPrefix[info.x] + nonLeafTotal;
+            photonInfo[id] = info;
+            
+            id += stepSize;
+        }
+    }
+
+    __global__ void SetupLastLeafNodes(int2 *photonInfo, // [index, range]
+                                       int *leafPrefix,
+                                       int leafRange){
+        
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        int stepSize = gridDim.x * blockDim.x;
+
+        __shared__ int nonLeafTotal;
+        if (threadIdx.x == 0) nonLeafTotal = leafPrefix[photonNodes];
+
+        while (id < leafRange){
+
+            int2 info = photonInfo[id];
+            info.x = info.x - leafPrefix[info.x] + nonLeafTotal;
+            photonInfo[id] = info;
+            
+            id += stepSize;
+        }
+    }
+    
+    /**
+     * Compute childrens photon index and range and place the values
+     * in the children array.
+     * 
+     * photonInfo has been moved to start at current active node.
+     */
+    __global__ void SetupChildren(int2 *photonInfo, // [index, range]
+                                  int2 *childPhotonInfo, int *parents, 
+                                  int2 *splitAddrs, int *splitLeft,
+                                  int *leafSide){
+        
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        int stepSize = gridDim.x * blockDim.x;
+
+        bool createdLeaf = false;
+
+        while (id < activeNodeRange){
+
+            int2 info = photonInfo[id];
+            int photonEnd = info.x + info.y;
+            int2 photonIndex = splitAddrs[info.x];
+            
+            int childIndex = id;
+            int leftRange = splitLeft[photonEnd] - photonIndex.x;
+            createdLeaf |= leafSide[childIndex] = leftRange <= PhotonLowerNode::MAX_SIZE ? 1 : 0;
+            childPhotonInfo[childIndex] = make_int2(photonIndex.x, leftRange);
+            parents[childIndex] = id;
+
+            childIndex = id + activeNodeRange;
+            int rightRange = info.y - leftRange;
+            createdLeaf |= leafSide[childIndex] = rightRange <= PhotonLowerNode::MAX_SIZE ? 1 : 0;
+            childPhotonInfo[childIndex] = make_int2(photonIndex.y, rightRange);
+            parents[childIndex] = id;
+
+            id += stepSize;
+        }
+        
+        // parallel or
+        if (createdLeaf) d_createdLeafs = createdLeaf;
+    }
+
+    __global__ void MoveChildInfo(int2 *tempPhotonInfo,
+                                  int *splitSide, int *prefixSum,
+                                  int *lefts, int* rights,
+                                  int2 *photonInfo,
+                                  char *nodeInfo){
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        const int stepSize = gridDim.x * blockDim.x;               
+        
+        // @TODO move to CPU?
+        __shared__ int childStart;
+        __shared__ int totalLeft;
+        if (threadIdx.x == 0){
+            childStart = activeNodeIndex + activeNodeRange;
+            d_leafsCreated = totalLeft = splitSide[activeNodeRange*2-1] + prefixSum[activeNodeRange*2-1];
+        }
+        
+        while (id < activeNodeRange){
+
+            int parent = id;
+
+            // Copy leftnode
+            int leftIndex = id;
+            int left = prefixSum[leftIndex];
+            int right = leftIndex - left + totalLeft;
+            int addr = splitSide[leftIndex] ? left : right;
+            lefts[parent] = childStart + addr;
+            photonInfo[addr] = tempPhotonInfo[leftIndex];
+            nodeInfo[addr] = KDNode::LEAF;
+            
+            // Copy rightnode
+            int rightIndex = id + activeNodeRange;
+            left = prefixSum[rightIndex];
+            right = rightIndex - left + totalLeft;
+            addr = splitSide[rightIndex] ? left : right;
+            rights[parent] = childStart + addr;
+            photonInfo[addr] = tempPhotonInfo[rightIndex];
+            nodeInfo[addr] = KDNode::LEAF;
+
+            id += stepSize;
+        }
+    }
+
+    __global__ void CopyChildInfo(int2 *tempPhotonInfo,
+                                  int *left, int* right,
+                                  int2 *photonInfo, char *nodeInfo){
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        int stepSize = gridDim.x * blockDim.x;               
+        
+        // @TODO move to CPU?
+        int childStart = activeNodeIndex + activeNodeRange;
+
+        while (id < activeNodeRange){
+            
+            // Copy leftnode
+            int leftIndex = id;
+            left[id] = childStart + leftIndex;
+            photonInfo[leftIndex] = tempPhotonInfo[leftIndex];
+            nodeInfo[leftIndex] = KDNode::LEAF;
+
+            // Copy rightnode            
+            int rightIndex = id + activeNodeRange;
+            right[id] = childStart + rightIndex;
+            photonInfo[rightIndex] = tempPhotonInfo[rightIndex];
+            nodeInfo[rightIndex] = KDNode::LEAF;
+
+            id += stepSize;
+        }
+    }
+
+    __global__ void UpdatePhotonOwners(int *owners,
+                                       int *left, int *right,
+                                       int2 *photonInfo){
+
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        int stepSize = gridDim.x * blockDim.x;               
+        
+        while (id < photonNodes){
+            
+            int owner = owners[id];
+            int leftChildIndex = left[owner];
+            int rightChildIndex = right[owner];
+            int2 leftInfo = photonInfo[leftChildIndex];
+            owners[id] = id < leftInfo.x + leftInfo.y ? leftChildIndex : rightChildIndex;
+
+            id += stepSize;
+        }
+    }
 
     __device__ bool d_onlyChildren;
     __device__ unsigned int newChildren;
