@@ -76,6 +76,8 @@ namespace Kernels {
             d_leafsCreated = totalLeft = splitSide[d_activeNodeRange*2-1] + prefixSum[d_activeNodeRange*2-1];
         }
         
+        __syncthreads();
+        
         while (id < d_activeNodeRange){
 
             int parent = id;
