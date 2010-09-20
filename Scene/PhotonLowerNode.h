@@ -19,7 +19,7 @@ namespace OpenEngine {
         public:
             static const int SEARCH_RADIUS = 50;
             //static const int MAX_SIZE = 32;
-            static const int MAX_SIZE = 1;
+            static const int MAX_SIZE = 32;
 
             //unsigned int *photonBitmap;
             int *smallRoot;

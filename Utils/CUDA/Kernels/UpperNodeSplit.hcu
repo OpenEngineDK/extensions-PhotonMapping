@@ -23,40 +23,13 @@ namespace Utils {
 namespace CUDA {
 namespace Kernels {
 
-    /**
-     * Requires none of the active nodes are leafs (should be split
-     * away).
-     */
-    __global__ void SetUpperNodeSplitInfo(point *aabbMin, point *aabbMax,
-                                          float *splitPos, char *info){
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        int stepSize = gridDim.x * blockDim.x;
-        
-        while (id < activeNodeRange){
-            
-            point bbSize = aabbMax[id] - aabbMin[id];
-            point median = bbSize * 0.5 + aabbMin[id];
-
-            // Calculate splitting plane
-            bool yAboveX = bbSize.x < bbSize.y;
-            float max = yAboveX ? bbSize.y : bbSize.x;
-            float split = yAboveX ? median.y : median.x;
-            char axis = yAboveX ? KDNode::Y : KDNode::X;
-            bool zHigher = max < bbSize.z;
-            splitPos[id] = zHigher ? median.z : split;
-            info[id] = zHigher ? KDNode::Z : axis;
-            
-            id += stepSize;
-        }
-    }
-
     __global__ void SetPhotonNodeLeafSide(int *owners,
                                           char *info,
                                           int *leafSide){
         int id = blockDim.x * blockIdx.x + threadIdx.x;
         int stepSize = gridDim.x * blockDim.x;
         
-        while (id < photonNodes){
+        while (id < d_photonNodes){
 
             int owner = owners[id];
             leafSide[id] = info[owner] != KDNode::LEAF;
@@ -72,7 +45,7 @@ namespace Kernels {
         int id = blockDim.x * blockIdx.x + threadIdx.x;
         int stepSize = gridDim.x * blockDim.x;
         
-        while (id < photonNodes){
+        while (id < d_photonNodes){
 
             point position = photons[id];
             int owner = owners[id];
@@ -99,25 +72,28 @@ namespace Kernels {
                                  int *owners, int *newOwners,
                                  int *splitLeft, int *splitSide,
                                  int *leafLeft, int *leafSide,
-                                 int2 *splitAddrs){
+                                 int2 *splitAddrs,
+                                 int *debug){
         __shared__ int leftTotal, nonLeafTotal;
         
         int id = blockDim.x * blockIdx.x + threadIdx.x;
         const int stepSize = gridDim.x * blockDim.x;
         
         if (threadIdx.x == 0){
-            splitLeft[photonNodes] = leftTotal = splitLeft[photonNodes - 1] + splitSide[photonNodes - 1];
-            leafLeft[photonNodes] = nonLeafTotal = leafLeft[photonNodes - 1] + leafSide[photonNodes - 1];
+            splitLeft[d_photonNodes] = leftTotal = splitLeft[d_photonNodes - 1] + splitSide[d_photonNodes - 1];
+            leafLeft[d_photonNodes] = nonLeafTotal = leafLeft[d_photonNodes - 1] + leafSide[d_photonNodes - 1];
         }
 
-        while (id < photonNodes){
+        __syncthreads();
+
+        while (id < d_photonNodes){
 
             int leafRight = id - leafLeft[id] + nonLeafTotal;
             int left = splitLeft[id];
             int splitRight = leafLeft[id] - left + leftTotal;
             int right = leafSide[id] ? splitRight : leafRight;
             splitAddrs[id] = make_int2(left, right);
-            int addr = splitSide[id] ? left : right;
+            int addr = debug[id] = splitSide[id] ? left : right;
             newPos[addr] = photonPos[id];
             newOwners[addr] = owners[id];
 
@@ -134,11 +110,13 @@ namespace Kernels {
         const int stepSize = gridDim.x * blockDim.x;
         
         if (threadIdx.x == 0){
-            leftTotal = splitLeft[photonNodes - 1] + splitSide[photonNodes - 1];
-            nonLeafTotal = leafLeft[photonNodes];
+            leftTotal = splitLeft[d_photonNodes - 1] + splitSide[d_photonNodes - 1];
+            nonLeafTotal = leafLeft[d_photonNodes];
         }
 
-        while (id < photonNodes){
+        __syncthreads();
+
+        while (id < d_photonNodes){
 
             int leafRight = id - leafLeft[id] + nonLeafTotal;
             int left = splitLeft[id];
@@ -150,6 +128,52 @@ namespace Kernels {
             id += stepSize;
         }
     }
+
+    __global__ void SetupLeafNodes(int2 *photonInfo, // [index, range]
+                                   int *leafPrefix,
+                                   int leafRange){
+        
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        int stepSize = gridDim.x * blockDim.x;
+        
+        __shared__ int nonLeafTotal;
+        if (threadIdx.x == 0) nonLeafTotal = leafPrefix[d_photonNodes];
+
+        __syncthreads();
+        
+        while (id < leafRange){
+            
+            int2 info = photonInfo[id];
+            info.x = info.x - leafPrefix[info.x] + nonLeafTotal;
+            photonInfo[id] = info;
+            
+            id += stepSize;
+        }
+    }
+
+    __global__ void SetupLastLeafNodes(int2 *photonInfo, // [index, range]
+                                       int *leafPrefix,
+                                       int leafRange){
+        
+        int id = blockDim.x * blockIdx.x + threadIdx.x;
+        int stepSize = gridDim.x * blockDim.x;
+
+        __shared__ int nonLeafTotal;
+        if (threadIdx.x == 0) nonLeafTotal = leafPrefix[d_photonNodes];
+
+        while (id < leafRange){
+
+            int2 info = photonInfo[id];
+            info.x = info.x - leafPrefix[info.x] + nonLeafTotal;
+            photonInfo[id] = info;
+            
+            id += stepSize;
+        }
+    }
+
+
+
+    /**** ========= OLD CODE ============== ****/
 
 /**
  * Setup splitting planes and link to children.

@@ -41,9 +41,9 @@ namespace OpenEngine {
                                     rand.UniformFloat(0.0f, 10.0f),
                                     rand.UniformFloat(0.0f, 10.0f));
                 */
-                hat[i] = make_point(rand.UniformInt(0.0f, 10.0f),
-                                    rand.UniformInt(0.0f, 10.0f),
-                                    rand.UniformInt(0.0f, 10.0f));
+                hat[i] = make_point(rand.UniformInt(0.0f, 50.0f),
+                                    rand.UniformInt(0.0f, 50.0f),
+                                    rand.UniformInt(0.0f, 50.0f));
             
             cudaMemcpy(pos, hat, maxSize * sizeof(point), cudaMemcpyHostToDevice);
             size = maxSize;

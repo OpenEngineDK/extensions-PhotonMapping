@@ -19,46 +19,6 @@ namespace Utils {
 namespace CUDA {
 namespace Kernels {
 
-    __global__ void SetupLeafNodes(int2 *photonInfo, // [index, range]
-                                   int *leafPrefix,
-                                   int leafRange){
-        
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        int stepSize = gridDim.x * blockDim.x;
-
-        __shared__ int nonLeafTotal;
-        if (threadIdx.x == 0) nonLeafTotal = leafPrefix[photonNodes];
-
-        while (id < leafRange){
-
-            int2 info = photonInfo[id];
-            info.x = info.x - leafPrefix[info.x] + nonLeafTotal;
-            photonInfo[id] = info;
-            
-            id += stepSize;
-        }
-    }
-
-    __global__ void SetupLastLeafNodes(int2 *photonInfo, // [index, range]
-                                       int *leafPrefix,
-                                       int leafRange){
-        
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        int stepSize = gridDim.x * blockDim.x;
-
-        __shared__ int nonLeafTotal;
-        if (threadIdx.x == 0) nonLeafTotal = leafPrefix[photonNodes];
-
-        while (id < leafRange){
-
-            int2 info = photonInfo[id];
-            info.x = info.x - leafPrefix[info.x] + nonLeafTotal;
-            photonInfo[id] = info;
-            
-            id += stepSize;
-        }
-    }
-    
     /**
      * Compute childrens photon index and range and place the values
      * in the children array.
@@ -75,7 +35,7 @@ namespace Kernels {
 
         bool createdLeaf = false;
 
-        while (id < activeNodeRange){
+        while (id < d_activeNodeRange){
 
             int2 info = photonInfo[id];
             int photonEnd = info.x + info.y;
@@ -87,7 +47,7 @@ namespace Kernels {
             childPhotonInfo[childIndex] = make_int2(photonIndex.x, leftRange);
             parents[childIndex] = id;
 
-            childIndex = id + activeNodeRange;
+            childIndex = id + d_activeNodeRange;
             int rightRange = info.y - leftRange;
             createdLeaf |= leafSide[childIndex] = rightRange <= PhotonLowerNode::MAX_SIZE ? 1 : 0;
             childPhotonInfo[childIndex] = make_int2(photonIndex.y, rightRange);
@@ -108,15 +68,15 @@ namespace Kernels {
         int id = blockDim.x * blockIdx.x + threadIdx.x;
         const int stepSize = gridDim.x * blockDim.x;               
         
-        // @TODO move to CPU?
         __shared__ int childStart;
         __shared__ int totalLeft;
         if (threadIdx.x == 0){
-            childStart = activeNodeIndex + activeNodeRange;
-            d_leafsCreated = totalLeft = splitSide[activeNodeRange*2-1] + prefixSum[activeNodeRange*2-1];
+            // @TODO move to CPU?
+            childStart = d_activeNodeIndex + d_activeNodeRange;
+            d_leafsCreated = totalLeft = splitSide[d_activeNodeRange*2-1] + prefixSum[d_activeNodeRange*2-1];
         }
         
-        while (id < activeNodeRange){
+        while (id < d_activeNodeRange){
 
             int parent = id;
 
@@ -130,7 +90,7 @@ namespace Kernels {
             nodeInfo[addr] = KDNode::LEAF;
             
             // Copy rightnode
-            int rightIndex = id + activeNodeRange;
+            int rightIndex = id + d_activeNodeRange;
             left = prefixSum[rightIndex];
             right = rightIndex - left + totalLeft;
             addr = splitSide[rightIndex] ? left : right;
@@ -149,9 +109,9 @@ namespace Kernels {
         int stepSize = gridDim.x * blockDim.x;               
         
         // @TODO move to CPU?
-        int childStart = activeNodeIndex + activeNodeRange;
+        int childStart = d_activeNodeIndex + d_activeNodeRange;
 
-        while (id < activeNodeRange){
+        while (id < d_activeNodeRange){
             
             // Copy leftnode
             int leftIndex = id;
@@ -160,7 +120,7 @@ namespace Kernels {
             nodeInfo[leftIndex] = KDNode::LEAF;
 
             // Copy rightnode            
-            int rightIndex = id + activeNodeRange;
+            int rightIndex = id + d_activeNodeRange;
             right[id] = childStart + rightIndex;
             photonInfo[rightIndex] = tempPhotonInfo[rightIndex];
             nodeInfo[rightIndex] = KDNode::LEAF;
@@ -171,12 +131,12 @@ namespace Kernels {
 
     __global__ void UpdatePhotonOwners(int *owners,
                                        int *left, int *right,
-                                       int2 *photonInfo){
+                                       int2 *photonInfo, int activePhotons){
 
         int id = blockDim.x * blockIdx.x + threadIdx.x;
         int stepSize = gridDim.x * blockDim.x;               
         
-        while (id < photonNodes){
+        while (id < activePhotons){
             
             int owner = owners[id];
             int leftChildIndex = left[owner];
