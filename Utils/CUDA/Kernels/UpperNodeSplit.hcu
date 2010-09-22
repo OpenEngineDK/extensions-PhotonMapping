@@ -72,8 +72,7 @@ namespace Kernels {
                                  int *owners, int *newOwners,
                                  int *splitLeft, int *splitSide,
                                  int *leafLeft, int *leafSide,
-                                 int2 *splitAddrs,
-                                 int *debug){
+                                 int2 *splitAddrs){
         __shared__ int leftTotal, nonLeafTotal;
         
         int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -93,7 +92,7 @@ namespace Kernels {
             int splitRight = leafLeft[id] - left + leftTotal;
             int right = leafSide[id] ? splitRight : leafRight;
             splitAddrs[id] = make_int2(left, right);
-            int addr = debug[id] = splitSide[id] ? left : right;
+            int addr = splitSide[id] ? left : right;
             newPos[addr] = photonPos[id];
             newOwners[addr] = owners[id];
 
@@ -150,7 +149,7 @@ namespace Kernels {
             id += stepSize;
         }
     }
-
+    /*
     __global__ void SetupLastLeafNodes(int2 *photonInfo, // [index, range]
                                        int *leafPrefix,
                                        int leafRange){
@@ -170,7 +169,7 @@ namespace Kernels {
             id += stepSize;
         }
     }
-
+    */
 
 
     /**** ========= OLD CODE ============== ****/

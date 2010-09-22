@@ -40,20 +40,56 @@ inline unsigned int NextPow2(unsigned int x) {
 }
 
 inline void Calc1DKernelDimensions(const unsigned int size, 
-                            unsigned int &blocks, unsigned int &threads){
-    unsigned int MAX_THREADS = activeCudaDevice.maxThreadsDim[0];
-    unsigned int MAX_BLOCKS = (activeCudaDevice.maxGridSize[0]+1) / MAX_THREADS;
+                                   unsigned int &blocks, unsigned int &threads){
+    const unsigned int MAX_THREADS = activeCudaDevice.maxThreadsDim[0];
+    const unsigned int MAX_BLOCKS = (activeCudaDevice.maxGridSize[0]+1) / MAX_THREADS;
 
     threads = (size < MAX_THREADS) ? NextPow2(size) : MAX_THREADS;
     blocks = (size + (threads * 2 - 1)) / (threads * 2);
     blocks = min(MAX_BLOCKS, blocks);
 }
 
+inline void Calc2DKernelDimensions(const int size, 
+                                   int2 &blocks, int2 &threads){
+    const int2 MAX_THREADS = make_int2(activeCudaDevice.maxThreadsDim[0],
+                                       activeCudaDevice.maxThreadsDim[1]);
+
+    const int2 MAX_BLOCKS = make_int2((activeCudaDevice.maxGridSize[0]+1) / MAX_THREADS.x,
+                                      (activeCudaDevice.maxGridSize[1]+1) / MAX_THREADS.y);
+
+    int s = NextPow2(size);
+    threads.x = s > MAX_THREADS.x ? MAX_THREADS.x : s;
+    s /= threads.x;
+    threads.y = s > MAX_THREADS.y ? MAX_THREADS.y : s;
+    s /= threads.y;
+
+    blocks.x = s > MAX_BLOCKS.x ? MAX_BLOCKS.x : s;
+    s /= blocks.x;
+    blocks.y = s > MAX_BLOCKS.y ? MAX_BLOCKS.y : s;
+}
+
+inline __host__ __device__ int globalIdx2D(const uint3 threadIdx, const uint3 blockIdx, 
+                                           const dim3 blockDim, const dim3 gridDim){
+    int blockSize = blockDim.x * blockDim.y;
+    int localIdx = threadIdx.x + blockDim.x * threadIdx.y;
+    int blockId = blockIdx.x + gridDim.x * blockIdx.y;
+    return localIdx + blockSize * blockId;
+}
+
+/*
+inline __device__ int globalIdx2D(){
+    int blockSize = blockDim.x * blockDim.y;
+    int localIdx = threadIdx.x + blockDim.x * threadIdx.y;
+    int blockId = blockIdx.x + gridDim.x * blockIdx.y;
+    return localIdx + blockSize * blockId;
+}
+*/
+
 /**
  * Stolen from
  * http://gurmeetsingh.wordpress.com/2008/08/05/fast-bit-counting-routines
  *
- * How and why it works? I've no idea.
+ * How and why it works? Magic! Now go code something.
  */
 inline __host__ __device__ int bitcount(unsigned int n){
     unsigned int tmp = n - ((n >> 1) & 033333333333)

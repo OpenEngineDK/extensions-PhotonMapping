@@ -46,18 +46,17 @@ namespace OpenEngine {
                 tempChildren = NodeChildren(size / PhotonLowerNode::MAX_SIZE);
 
                 // Split vars
-                scanConfig.op = CUDPP_ADD;
-                scanConfig.datatype = CUDPP_UINT;
                 scanConfig.algorithm = CUDPP_SCAN;
+                scanConfig.op = CUDPP_ADD;
+                scanConfig.datatype = CUDPP_INT;
                 scanConfig.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_EXCLUSIVE;
                 
                 CUDPPResult res = cudppPlan(&scanHandle, scanConfig, size, 1, 0);
                 if (CUDPP_SUCCESS != res)
                     throw Core::Exception("Error creating CUDPP scanPlan");
 
-                sortConfig.op = CUDPP_ADD;
-                sortConfig.datatype = CUDPP_FLOAT;
                 sortConfig.algorithm = CUDPP_SORT_RADIX;
+                sortConfig.datatype = CUDPP_FLOAT;
                 sortConfig.options = CUDPP_OPTION_KEY_VALUE_PAIRS;
                 
                 res = cudppPlan(&sortHandle, sortConfig, size, 1, 0);
@@ -163,7 +162,7 @@ namespace OpenEngine {
                 cudppSort(sortHandle, yKeys, yIndices, sizeof(float), size);
                 cudppSort(sortHandle, zKeys, zIndices, sizeof(float), size);
 
-                logger.info << "xIndices: " << Utils::CUDA::Convert::ToString(xIndices, 16) << logger.end;
+                //logger.info << "xIndices: " << Utils::CUDA::Convert::ToString(xIndices, 16) << logger.end;
 
                 //START_TIMER(timerID);
                 ScatterPhotons<<<blocks, threads>>>(photons.pos, 
@@ -293,17 +292,13 @@ namespace OpenEngine {
                 cudppScan(scanHandle, splitLeft, splitSide, activePhotons);
                 CHECK_FOR_CUDA_ERROR();
                 
-                int* debug;
-                cudaSafeMalloc(&debug, photons.size * sizeof(int));
-
                 SplitPhotons<<<blocks, threads>>>(xSorted, tempPhotonPos,
                                                   photonOwners, newOwners,
                                                   splitLeft, splitSide, 
                                                   leafPrefix, leafSide,
-                                                  splitAddrs,
-                                                  debug);
+                                                  splitAddrs);
                 CHECK_FOR_CUDA_ERROR();
-
+                /*
                 logger.info << "LeafSide: " << Utils::CUDA::Convert::ToString(leafSide, activePhotons) << logger.end;
                 logger.info << "LeafPrefix: " << Utils::CUDA::Convert::ToString(leafPrefix, activePhotons+1) << logger.end;
 
@@ -315,7 +310,7 @@ namespace OpenEngine {
 
                 logger.info << "Owners: " << Utils::CUDA::Convert::ToString(photonOwners, activePhotons) << logger.end;
                 logger.info << "new owners: " << Utils::CUDA::Convert::ToString(newOwners, activePhotons) << logger.end;
-                
+                */                
                 // Copy photon positions belonging to leaves to the photon nodes.
                 int nonLeafPhotons;
                 cudaMemcpy(&nonLeafPhotons, leafPrefix + activePhotons,
@@ -469,21 +464,22 @@ namespace OpenEngine {
                     childrenCreated = 2 * activeRange;
                 }
 
-                logger.info << "=== UpdatePhotonOwners<<<" << blocks << ", " << threads << ">>> ===" << logger.end;
-                logger.info << "owners: " << Utils::CUDA::Convert::ToString(photonOwners, activePhotons) << logger.end;
-                logger.info << "left: " << Utils::CUDA::Convert::ToString(upperNodes.left, upperNodes.size) << logger.end;
-                logger.info << "right: " << Utils::CUDA::Convert::ToString(upperNodes.right, upperNodes.size) << logger.end;
-                logger.info << "photonInfo: " << Utils::CUDA::Convert::ToString(upperNodes.photonInfo, upperNodes.size) << logger.end;
-                logger.info << "===" << logger.end;
-
                 Calc1DKernelDimensions(activePhotons, blocks, threads);
                 UpdatePhotonOwners<<<blocks, threads>>>(photonOwners, upperNodes.left,
                                                         upperNodes.right, upperNodes.photonInfo,
                                                         activePhotons);
                 CHECK_FOR_CUDA_ERROR();
 
+                /*
+                logger.info << "=== UpdatePhotonOwners<<<" << blocks << ", " << threads << ">>> ===" << logger.end;
+                logger.info << "owners: " << Utils::CUDA::Convert::ToString(photonOwners, activePhotons) << logger.end;
+                logger.info << "left: " << Utils::CUDA::Convert::ToString(upperNodes.left, upperNodes.size) << logger.end;
+                logger.info << "right: " << Utils::CUDA::Convert::ToString(upperNodes.right, upperNodes.size) << logger.end;
+                logger.info << "photonInfo: " << Utils::CUDA::Convert::ToString(upperNodes.photonInfo, upperNodes.size) << logger.end;
+                logger.info << "===" << logger.end;
                 logger.info << "owners: " << Utils::CUDA::Convert::ToString(photonOwners, activePhotons) << logger.end;
                 logger.info << "" << logger.end;
+                */
             }
             
             void PhotonMap::PreprocessLowerNodes(int range){
