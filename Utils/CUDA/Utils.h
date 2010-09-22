@@ -42,11 +42,14 @@ inline unsigned int NextPow2(unsigned int x) {
 inline void Calc1DKernelDimensions(const unsigned int size, 
                                    unsigned int &blocks, unsigned int &threads){
     const unsigned int MAX_THREADS = activeCudaDevice.maxThreadsDim[0];
-    const unsigned int MAX_BLOCKS = (activeCudaDevice.maxGridSize[0]+1) / MAX_THREADS;
+    const unsigned int MAX_BLOCKS = activeCudaDevice.maxGridSize[0];
 
-    threads = (size < MAX_THREADS) ? NextPow2(size) : MAX_THREADS;
-    blocks = (size + (threads * 2 - 1)) / (threads * 2);
-    blocks = min(MAX_BLOCKS, blocks);
+    unsigned int s = NextPow2(size);
+    threads = (s < MAX_THREADS) ? s : MAX_THREADS;
+    //blocks = (size + (threads * 2 - 1)) / (threads * 2);
+    //blocks = min(MAX_BLOCKS, blocks);
+    s /= threads;
+    blocks = s < MAX_BLOCKS ? s : MAX_BLOCKS;
 }
 
 inline void Calc2DKernelDimensions(const int size, 

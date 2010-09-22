@@ -27,7 +27,7 @@ namespace OpenEngine {
             using namespace Kernels;
 
             PhotonMap::PhotonMap(unsigned int size) {
-                MAX_BLOCKS = (activeCudaDevice.maxGridSize[0] + 1) / activeCudaDevice.maxThreadsDim[0];
+                MAX_BLOCKS = activeCudaDevice.maxGridSize[0];
                 logger.info << "MAX_BLOCKS " << MAX_BLOCKS << logger.end;
 
                 // Initialized timer
@@ -100,8 +100,9 @@ namespace OpenEngine {
                 SortPhotons();
 
                 // Process upper nodes
-                int level = 0, maxLevel = 2;
-                while (childrenCreated != 0 && level < maxLevel){
+                int level = 0, maxLevel = -1;
+                START_TIMER(timerID);
+                while (childrenCreated != 0 && level != maxLevel){
                     logger.info << "<<== PASS " << level << " ==>>" << logger.end;
                     logger.info << "Active index " << activeIndex << " and range " << activeRange << logger.end;
                     logger.info << "Active photons " << activePhotons << logger.end;
@@ -109,8 +110,8 @@ namespace OpenEngine {
                     ProcessUpperNodes(activeIndex, activeRange, unhandledLeafs, 
                                       leafsCreated, childrenCreated, activePhotons);
                     
-                    for (int i = -unhandledLeafs; i < activeRange; ++i)
-                        logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
+                    //for (int i = -unhandledLeafs; i < activeRange; ++i)
+                    //logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
                     
 
                     // Increment loop variables
@@ -125,14 +126,15 @@ namespace OpenEngine {
                 // Copy the rest of the photons to photon position
                 cudaMemcpy(photons.pos, xSorted, 
                            activePhotons * sizeof(point), cudaMemcpyDeviceToDevice);
-                
+                //for (int i = -unhandledLeafs; i < activeRange; ++i)
+                //logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
+                PRINT_TIMER(timerID, "Upper node creation");
 
-                for (int i = -unhandledLeafs; i < activeRange; ++i)
-                    logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
                 // logger.info << "photons.pos " << Utils::CUDA::Convert::ToString(photons.pos, photons.size) << logger.end;
-                // Setup photon info for the last nodes.
-                
 
+                // @TODO Setup photon info for the last nodes. (Not
+                // needed? Hasn't crashed yet)
+                
                 // Preprocess lower nodes.
 
                 // Process lower nodes.

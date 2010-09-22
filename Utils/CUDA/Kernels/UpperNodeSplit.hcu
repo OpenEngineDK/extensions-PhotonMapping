@@ -26,15 +26,12 @@ namespace Kernels {
     __global__ void SetPhotonNodeLeafSide(int *owners,
                                           char *info,
                                           int *leafSide){
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        int stepSize = gridDim.x * blockDim.x;
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
-        while (id < d_photonNodes){
+        if (id < d_photonNodes){
 
             int owner = owners[id];
             leafSide[id] = info[owner] != KDNode::LEAF;
-
-            id += stepSize;
         }
     }
 
@@ -42,10 +39,9 @@ namespace Kernels {
                                            int *owners,
                                            float* splitPos, char *info,
                                            int *splitSide){
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        int stepSize = gridDim.x * blockDim.x;
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
-        while (id < d_photonNodes){
+        if (id < d_photonNodes){
 
             point position = photons[id];
             int owner = owners[id];
@@ -63,8 +59,6 @@ namespace Kernels {
             int side = photonPos < split;
             // Handle leaf before writting to memory
             splitSide[id] = axis == KDNode::LEAF ? 0 : side;
-            
-            id += stepSize;
         }
     }
 
@@ -75,8 +69,7 @@ namespace Kernels {
                                  int2 *splitAddrs){
         __shared__ int leftTotal, nonLeafTotal;
         
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        const int stepSize = gridDim.x * blockDim.x;
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
         if (threadIdx.x == 0){
             splitLeft[d_photonNodes] = leftTotal = splitLeft[d_photonNodes - 1] + splitSide[d_photonNodes - 1];
@@ -85,7 +78,7 @@ namespace Kernels {
 
         __syncthreads();
 
-        while (id < d_photonNodes){
+        if (id < d_photonNodes){
 
             int leafRight = id - leafLeft[id] + nonLeafTotal;
             int left = splitLeft[id];
@@ -95,8 +88,6 @@ namespace Kernels {
             int addr = splitSide[id] ? left : right;
             newPos[addr] = photonPos[id];
             newOwners[addr] = owners[id];
-
-            id += stepSize;
         }
     }
 
@@ -105,8 +96,7 @@ namespace Kernels {
                                  int *leafLeft, int *leafSide){
         __shared__ int leftTotal, nonLeafTotal;
         
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        const int stepSize = gridDim.x * blockDim.x;
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
         if (threadIdx.x == 0){
             leftTotal = splitLeft[d_photonNodes - 1] + splitSide[d_photonNodes - 1];
@@ -115,7 +105,7 @@ namespace Kernels {
 
         __syncthreads();
 
-        while (id < d_photonNodes){
+        if (id < d_photonNodes){
 
             int leafRight = id - leafLeft[id] + nonLeafTotal;
             int left = splitLeft[id];
@@ -123,8 +113,6 @@ namespace Kernels {
             int right = leafSide[id] ? splitRight : leafRight;
             int addr = splitSide[id] ? left : right;
             newPos[addr] = photonPos[id];
-
-            id += stepSize;
         }
     }
 
@@ -132,21 +120,19 @@ namespace Kernels {
                                    int *leafPrefix,
                                    int leafRange){
         
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        int stepSize = gridDim.x * blockDim.x;
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
         __shared__ int nonLeafTotal;
         if (threadIdx.x == 0) nonLeafTotal = leafPrefix[d_photonNodes];
 
         __syncthreads();
         
-        while (id < leafRange){
+        if (id < leafRange){
             
             int2 info = photonInfo[id];
             info.x = info.x - leafPrefix[info.x] + nonLeafTotal;
             photonInfo[id] = info;
             
-            id += stepSize;
         }
     }
     /*
