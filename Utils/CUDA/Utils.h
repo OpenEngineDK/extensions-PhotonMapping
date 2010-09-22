@@ -50,7 +50,7 @@ inline void Calc1DKernelDimensions(const unsigned int size,
 }
 
 inline void Calc2DKernelDimensions(const int size, 
-                                   int2 &blocks, int2 &threads){
+                                   dim3 &blocks, dim3 &threads){
     const int2 MAX_THREADS = make_int2(activeCudaDevice.maxThreadsDim[0],
                                        activeCudaDevice.maxThreadsDim[1]);
 
@@ -60,18 +60,18 @@ inline void Calc2DKernelDimensions(const int size,
     int s = NextPow2(size);
     threads.x = s > MAX_THREADS.x ? MAX_THREADS.x : s;
     s /= threads.x;
-    threads.y = s > MAX_THREADS.y ? MAX_THREADS.y : s;
-    s /= threads.y;
 
     blocks.x = s > MAX_BLOCKS.x ? MAX_BLOCKS.x : s;
     s /= blocks.x;
     blocks.y = s > MAX_BLOCKS.y ? MAX_BLOCKS.y : s;
+
+    threads.y = threads.z = blocks.z = 1;
 }
 
 inline __host__ __device__ int globalIdx2D(const uint3 threadIdx, const uint3 blockIdx, 
                                            const dim3 blockDim, const dim3 gridDim){
     int blockSize = blockDim.x * blockDim.y;
-    int localIdx = threadIdx.x + blockDim.x * threadIdx.y;
+    int localIdx = threadIdx.x;// + blockDim.x * threadIdx.y;
     int blockId = blockIdx.x + gridDim.x * blockIdx.y;
     return localIdx + blockSize * blockId;
 }

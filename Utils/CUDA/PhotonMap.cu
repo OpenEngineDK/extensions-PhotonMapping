@@ -157,6 +157,7 @@ namespace OpenEngine {
                                              xIndices, yIndices, zIndices, 
                                              xKeys, yKeys, zKeys, 
                                              size);
+                CHECK_FOR_CUDA_ERROR();
                 
                 cudppSort(sortHandle, xKeys, xIndices, sizeof(float), size);
                 cudppSort(sortHandle, yKeys, yIndices, sizeof(float), size);
