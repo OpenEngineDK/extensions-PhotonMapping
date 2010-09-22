@@ -18,16 +18,17 @@ namespace OpenEngine {
         class PhotonLowerNode : public KDNode {
         public:
             static const int SEARCH_RADIUS = 50;
-            //static const int MAX_SIZE = 32;
             static const int MAX_SIZE = 32;
 
-            //unsigned int *photonBitmap;
             int *smallRoot;
             //int *left, *right;
 
+            int2 *splitTriangleSetX, *splitTriangleSetY, *splitTriangleSetZ;
+
+
         public:
             PhotonLowerNode();
-            PhotonLowerNode(int i);
+            PhotonLowerNode(int photons);
 
             void Resize(int i);
         };

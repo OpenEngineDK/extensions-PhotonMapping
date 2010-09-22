@@ -10,11 +10,41 @@
 #include <Meta/CUDA.h>
 #include <Utils/CUDA/SharedMemory.h>
 #include <Utils/CUDA/Utils.h>
+#include <Scene/KDNode.h>
+
+using namespace OpenEngine::Scene;
 
 namespace OpenEngine {
 namespace Utils {
 namespace CUDA {
 namespace Kernels {
+
+    
+    __global__ void CreateLowerNodes(int *upperLeafIDs,
+                                     int2 *upperPhotonInfo,
+                                     char *lowerInfo,
+                                     int2 *lowerPhotonInfo,
+                                     int lowerNodes){
+
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+                
+        if (id < lowerNodes){
+            int upperID = upperLeafIDs[id];
+            lowerInfo[id] = KDNode::LEAF;
+            int2 photonInfo = upperPhotonInfo[upperID];
+            // Mark the n lowest bits
+            photonInfo.y = (1<<photonInfo.y)-1;
+            lowerPhotonInfo[id] = photonInfo;
+        }
+    }
+
+    __global__ void CreateSplittingPlanes(int2 *splitTriangleSetX,
+                                          int2 *splitTriangleSetY,
+                                          int2 *splitTriangleSetZ){
+
+    }
+
+    /*** === OLD CODE === *****/
 
     /**
      * Computes the splitting planes photon bitmaps for the left side
@@ -24,13 +54,14 @@ namespace Kernels {
      *
      * A thread for each photon in the nodes.
      */
-    __global__ void PreprocessLowerNodes(int2 *splitTriangleSetX,
-                                         int2 *splitTriangleSetY,
-                                         int2 *splitTriangleSetZ,
-                                         int *photonIndices,
-                                         int *photonSets,
-                                         point *photonPos,
-                                         int nodeRange) {
+    /*
+    __global__ void OldPreprocessLowerNodes(int2 *splitTriangleSetX,
+                                            int2 *splitTriangleSetY,
+                                            int2 *splitTriangleSetZ,
+                                            int *photonIndices,
+                                            int *photonSets,
+                                            point *photonPos,
+                                            int nodeRange) {
 
         // Assumes 512 threads, just for the heck of it. Can be
         // templated at some point.
@@ -70,6 +101,7 @@ namespace Kernels {
         }
         
     }
+    */
 
 }
 }

@@ -13,6 +13,7 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Scene/PhotonNode.cu
   Utils/CUDA/AABBVar.cu
   Utils/CUDA/NodeChildren.cu
+  Utils/CUDA/UpperNodeLeafList.cu
   Utils/CUDA/splitVar.cu
   Utils/CUDA/Segments.cu
   Utils/CUDA/SplittingPlanes.cu

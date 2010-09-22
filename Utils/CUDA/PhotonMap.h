@@ -15,6 +15,7 @@
 #include <Scene/PhotonUpperNode.h>
 #include <Scene/PhotonLowerNode.h>
 #include <Utils/CUDA/NodeChildren.h>
+#include <Utils/CUDA/UpperNodeLeafList.h>
 
 #include <Meta/CUDPP.h>
 
@@ -38,6 +39,9 @@ namespace OpenEngine {
                 PhotonUpperNode upperNodes;
                 PhotonLowerNode lowerNodes;
                 
+                NodeChildren tempChildren;
+                UpperNodeLeafList upperNodeLeafList;
+
                 CUDPPConfiguration scanConfig;
                 CUDPPHandle scanHandle;
                 CUDPPConfiguration sortConfig;
@@ -55,7 +59,6 @@ namespace OpenEngine {
                 int *splitLeft;
                 int2 *splitAddrs;
                 float4* tempPhotonPos;
-                NodeChildren tempChildren;
 
             public:
                 PhotonMap(unsigned int size);
@@ -92,7 +95,7 @@ namespace OpenEngine {
                                     int &leafsCreated,
                                     int &childrenCreated);
 
-                void PreprocessLowerNodes(int range);
+                void PreprocessLowerNodes();
 
                 void ProcessLowerNodes(int activeIndex,
                                        int activeRange,

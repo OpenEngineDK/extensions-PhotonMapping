@@ -33,6 +33,8 @@ namespace Kernels {
             int owner = owners[id];
             leafSide[id] = info[owner] != KDNode::LEAF;
         }
+        if (id == 0)
+            leafSide[d_photonNodes] = 0;
     }
 
     __global__ void SetPhotonNodeSplitSide(point* photons,
@@ -60,24 +62,27 @@ namespace Kernels {
             // Handle leaf before writting to memory
             splitSide[id] = axis == KDNode::LEAF ? 0 : side;
         }
+        if (id == 0)
+            splitSide[d_photonNodes] = 0;
     }
 
     __global__ void SplitPhotons(point *photonPos, point *newPos,
                                  int *owners, int *newOwners,
                                  int *splitLeft, int *splitSide,
                                  int *leafLeft, int *leafSide,
-                                 int2 *splitAddrs){
-        __shared__ int leftTotal, nonLeafTotal;
-        
+                                 int2 *splitAddrs){        
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
-        
+        int leftTotal = d_photonsMovedLeft;
+        int nonLeafTotal = d_nonLeafPhotons;
+        /*        
+        __shared__ int leftTotal, nonLeafTotal;
         if (threadIdx.x == 0){
-            splitLeft[d_photonNodes] = leftTotal = splitLeft[d_photonNodes - 1] + splitSide[d_photonNodes - 1];
-            leafLeft[d_photonNodes] = nonLeafTotal = leafLeft[d_photonNodes - 1] + leafSide[d_photonNodes - 1];
+            leftTotal = splitLeft[d_photonNodes];
+            nonLeafTotal = leafLeft[d_photonNodes];
         }
-
+        
         __syncthreads();
-
+        */
         if (id < d_photonNodes){
 
             int leafRight = id - leafLeft[id] + nonLeafTotal;
@@ -94,9 +99,13 @@ namespace Kernels {
     __global__ void SplitPhotons(point *photonPos, point *newPos,
                                  int *splitLeft, int *splitSide,
                                  int *leafLeft, int *leafSide){
-        __shared__ int leftTotal, nonLeafTotal;
-        
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+        int leftTotal = d_photonsMovedLeft;
+        int nonLeafTotal = d_nonLeafPhotons;
+
+        /*        
+        __shared__ int leftTotal, nonLeafTotal;
         
         if (threadIdx.x == 0){
             leftTotal = splitLeft[d_photonNodes - 1] + splitSide[d_photonNodes - 1];
@@ -104,6 +113,7 @@ namespace Kernels {
         }
 
         __syncthreads();
+        */
 
         if (id < d_photonNodes){
 
@@ -118,23 +128,31 @@ namespace Kernels {
 
     __global__ void SetupLeafNodes(int2 *photonInfo, // [index, range]
                                    int *leafPrefix,
+                                   int *leafIDs,
                                    int leafRange){
         
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
-        __shared__ int nonLeafTotal;
-        if (threadIdx.x == 0) nonLeafTotal = leafPrefix[d_photonNodes];
-
-        __syncthreads();
+        int nonLeafTotal = leafPrefix[d_photonNodes];
         
         if (id < leafRange){
             
             int2 info = photonInfo[id];
             info.x = info.x - leafPrefix[info.x] + nonLeafTotal;
             photonInfo[id] = info;
-            
+            leafIDs[id] = id + d_activeNodeIndex - leafRange;
         }
     }
+    
+    __global__ void SetLeafNodeArrays(int *leafIDs,
+                                      int leafIndex,
+                                      int leafRange){
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;        
+        if (id < leafRange){
+            leafIDs[id] = id + leafIndex;
+        }
+    }
+
     /*
     __global__ void SetupLastLeafNodes(int2 *photonInfo, // [index, range]
                                        int *leafPrefix,

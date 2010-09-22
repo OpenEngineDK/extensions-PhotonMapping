@@ -23,9 +23,17 @@ namespace Kernels {
     __constant__ __device__ int d_activeNodeIndex;
     __constant__ __device__ int d_activeNodeRange;
 
+    __constant__ __device__ int d_nonLeafPhotons;
+    __constant__ __device__ int d_photonsMovedLeft;
+
     __device__ bool d_createdLeafs;
     __device__ int d_leafsCreated;
 
+    // Upper node info
+    __constant__ __device__ int2* d_upperPhotonInfo;
+
+    // Lower node info
+    __constant__ __device__ int2* d_lowerPhotonInfo;
 }
 }
 }

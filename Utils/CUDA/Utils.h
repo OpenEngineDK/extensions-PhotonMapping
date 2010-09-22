@@ -11,6 +11,8 @@
 #ifndef _CUDA_PHOTON_UTILS_H_
 #define _CUDA_PHOTON_UTILS_H_
 
+#include <Meta/CUDA.h>
+
 #include <algorithm>
 
 #define fInfinity 0x7f800000

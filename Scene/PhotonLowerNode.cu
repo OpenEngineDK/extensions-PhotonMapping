@@ -8,6 +8,7 @@
 //--------------------------------------------------------------------
 
 #include <Scene/PhotonLowerNode.h>
+#include <Utils/CUDA/Utils.h>
 
 namespace OpenEngine {
     namespace Scene {
@@ -15,11 +16,18 @@ namespace OpenEngine {
         PhotonLowerNode::PhotonLowerNode()
             : KDNode() {}
 
-        PhotonLowerNode::PhotonLowerNode(int i)
+        PhotonLowerNode::PhotonLowerNode(int photons)
             : KDNode(0) {
+
+            maxSize = photons / MAX_SIZE * (2 * MAX_SIZE - 1);
+            KDNode::Resize(maxSize);
             
-            //cudaMalloc(&photonBitmap, this->maxSize * sizeof(unsigned int));
-            cudaMalloc(&smallRoot, this->maxSize * sizeof(int));
+            cudaSafeMalloc(&smallRoot, this->maxSize * sizeof(int));
+
+            // Alloc split information
+            cudaSafeMalloc(&splitTriangleSetX, photons * sizeof(int2));
+            cudaSafeMalloc(&splitTriangleSetY, photons * sizeof(int2));
+            cudaSafeMalloc(&splitTriangleSetZ, photons * sizeof(int2));
 
             CHECK_FOR_CUDA_ERROR();
         }
@@ -28,16 +36,9 @@ namespace OpenEngine {
             KDNode::Resize(i);
 
             unsigned int copySize = this->size;
-            /*
-            unsigned int *tempUint;
-            cudaMalloc(&tempUint, i * sizeof(unsigned int));
-            cudaMemcpy(tempUint, photonBitmap, copySize * sizeof(unsigned int), cudaMemcpyDeviceToDevice);
-            cudaFree(photonBitmap);
-            photonBitmap = tempUint;
-            CHECK_FOR_CUDA_ERROR();
-            */
+
             int *tempInt;
-            cudaMalloc(&tempInt, i * sizeof(int));
+            cudaSafeMalloc(&tempInt, i * sizeof(int));
             cudaMemcpy(tempInt, smallRoot, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
             cudaFree(smallRoot);
             smallRoot = tempInt;

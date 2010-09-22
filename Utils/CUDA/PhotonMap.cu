@@ -17,6 +17,7 @@
 #include <Utils/CUDA/Kernels/UpperNodeBoundingBox.h>
 #include <Utils/CUDA/Kernels/UpperNodeSplit.hcu>
 #include <Utils/CUDA/Kernels/UpperNodeChildren.hcu>
+#include <Utils/CUDA/Kernels/PreprocessLowerNodes.h>
 
 #define CPU_VERIFY
 
@@ -42,8 +43,10 @@ namespace OpenEngine {
                 // Make room for the root node
                 int approxSize = (2 * size / PhotonLowerNode::MAX_SIZE) - 1;
                 upperNodes = PhotonUpperNode(approxSize);
+                lowerNodes = PhotonLowerNode(approxSize);
 
                 tempChildren = NodeChildren(size / PhotonLowerNode::MAX_SIZE);
+                upperNodeLeafList = UpperNodeLeafList(size / PhotonLowerNode::MAX_SIZE);
 
                 // Split vars
                 scanConfig.algorithm = CUDPP_SCAN;
@@ -73,9 +76,9 @@ namespace OpenEngine {
                 cudaSafeMalloc(&zSorted, size * sizeof(float4));
                 cudaSafeMalloc(&zKeys, size * sizeof(float));
 
-                cudaSafeMalloc(&leafSide, size * sizeof(int));
+                cudaSafeMalloc(&leafSide, (size+1) * sizeof(int));
                 cudaSafeMalloc(&leafPrefix, (size+1) * sizeof(int));
-                cudaSafeMalloc(&splitSide, size * sizeof(int));
+                cudaSafeMalloc(&splitSide, (size+1) * sizeof(int));
                 cudaSafeMalloc(&prefixSum, (size+1) * sizeof(int));
                 cudaSafeMalloc(&splitLeft, (size+1) * sizeof(int));
                 cudaSafeMalloc(&splitAddrs, size * sizeof(int2));
@@ -101,7 +104,7 @@ namespace OpenEngine {
 
                 // Process upper nodes
                 int level = 0, maxLevel = -1;
-                START_TIMER(timerID);
+                //START_TIMER(timerID);
                 while (childrenCreated != 0 && level != maxLevel){
                     logger.info << "<<== PASS " << level << " ==>>" << logger.end;
                     logger.info << "Active index " << activeIndex << " and range " << activeRange << logger.end;
@@ -110,8 +113,8 @@ namespace OpenEngine {
                     ProcessUpperNodes(activeIndex, activeRange, unhandledLeafs, 
                                       leafsCreated, childrenCreated, activePhotons);
                     
-                    //for (int i = -unhandledLeafs; i < activeRange; ++i)
-                    //logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
+                    for (int i = -unhandledLeafs; i < activeRange; ++i)
+                        logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
                     
 
                     // Increment loop variables
@@ -126,17 +129,29 @@ namespace OpenEngine {
                 // Copy the rest of the photons to photon position
                 cudaMemcpy(photons.pos, xSorted, 
                            activePhotons * sizeof(point), cudaMemcpyDeviceToDevice);
-                //for (int i = -unhandledLeafs; i < activeRange; ++i)
-                //logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
-                PRINT_TIMER(timerID, "Upper node creation");
+                
+                unsigned int blocks, threads;
+                Calc1DKernelDimensions(leafsCreated, blocks, threads);
+                int leafIndex = activeIndex - unhandledLeafs;
+                if (upperNodeLeafList.size + unhandledLeafs > upperNodeLeafList.maxSize)
+                    upperNodeLeafList.Resize(upperNodeLeafList.size + unhandledLeafs);
+
+                SetLeafNodeArrays<<<blocks, threads>>>(upperNodeLeafList.leafIDs + upperNodeLeafList.size,
+                                                       leafIndex, unhandledLeafs);
+                upperNodeLeafList.size += unhandledLeafs;
+
+                for (int i = -unhandledLeafs; i < activeRange; ++i)
+                    logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
+                //PRINT_TIMER(timerID, "Upper node creation");
 
                 // logger.info << "photons.pos " << Utils::CUDA::Convert::ToString(photons.pos, photons.size) << logger.end;
 
                 // @TODO Setup photon info for the last nodes. (Not
-                // needed? Hasn't crashed yet)
-                
-                // Preprocess lower nodes.
+                // needed? Hasn't crashed yet)                
 
+                // Preprocess lower nodes.
+                PreprocessLowerNodes();
+                
                 // Process lower nodes.
 
 
@@ -154,7 +169,7 @@ namespace OpenEngine {
 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(size, blocks, threads);
-                
+
                 Indices<<<blocks, threads>>>(photons.pos, 
                                              xIndices, yIndices, zIndices, 
                                              xKeys, yKeys, zKeys, 
@@ -284,16 +299,19 @@ namespace OpenEngine {
                 // kernel)
 
                 // Set photons leaf bit
-                SetPhotonNodeLeafSide<<<blocks, threads>>>(photonOwners, upperNodes.info, leafSide);                
+                SetPhotonNodeLeafSide<<<blocks, threads>>>(photonOwners, upperNodes.info, leafSide);
                 CHECK_FOR_CUDA_ERROR();
-                cudppScan(scanHandle, leafPrefix, leafSide, activePhotons);
+                cudppScan(scanHandle, leafPrefix, leafSide, activePhotons+1);
                 CHECK_FOR_CUDA_ERROR();
 
                 SetPhotonNodeSplitSide<<<blocks, threads>>>(xSorted, photonOwners, 
                                                             upperNodes.splitPos, upperNodes.info, 
                                                             splitSide);
-                cudppScan(scanHandle, splitLeft, splitSide, activePhotons);
+                cudppScan(scanHandle, splitLeft, splitSide, activePhotons+1);
                 CHECK_FOR_CUDA_ERROR();
+                
+                cudaMemcpyToSymbol(d_nonLeafPhotons, leafPrefix + activePhotons, sizeof(int), 0, cudaMemcpyDeviceToDevice);
+                cudaMemcpyToSymbol(d_photonsMovedLeft, splitLeft + activePhotons, sizeof(int), 0, cudaMemcpyDeviceToDevice);
                 
                 SplitPhotons<<<blocks, threads>>>(xSorted, tempPhotonPos,
                                                   photonOwners, newOwners,
@@ -320,7 +338,7 @@ namespace OpenEngine {
                            sizeof(int), cudaMemcpyDeviceToHost);
                 int leafPhotons = activePhotons - nonLeafPhotons;
                 if (leafPhotons > 0)
-                    // Copy photons to a persistent array
+                    // Copy photons to a persistent array @OPT do it assync
                     cudaMemcpy(photons.pos + nonLeafPhotons, tempPhotonPos + nonLeafPhotons, 
                                leafPhotons * sizeof(point), cudaMemcpyDeviceToDevice);
 
@@ -376,13 +394,19 @@ namespace OpenEngine {
                 Calc1DKernelDimensions(leafNodes, blocks, threads);
 
                 int leafIndex = activeIndex - leafNodes;
+
+                if (upperNodeLeafList.size + leafNodes < upperNodeLeafList.maxSize)
+                    upperNodeLeafList.Resize(upperNodeLeafList.size + leafNodes);
+
                 SetupLeafNodes<<<blocks, threads>>>(upperNodes.photonInfo + leafIndex,
                                                     leafPrefix,
+                                                    upperNodeLeafList.leafIDs + upperNodeLeafList.size,
                                                     leafNodes);
                 CHECK_FOR_CUDA_ERROR();
 
-                // @TODO Create lower nodes
+                upperNodeLeafList.size += leafNodes;
 
+                // @TODO place node ids in an array in preperation for creating lower nodes.
             }
             
             void PhotonMap::CreateChildren(int activeIndex,
@@ -485,8 +509,30 @@ namespace OpenEngine {
                 */
             }
             
-            void PhotonMap::PreprocessLowerNodes(int range){
+            void PhotonMap::PreprocessLowerNodes(){
 
+                // Create lower nodes and their splitting planes.
+                //cudaMemcpyToSymbol(d_upperPhotonInfo, &(upperNodes.photonInfo), sizeof(upperNodes.photonInfo));
+                //cudaMemcpyToSymbol(d_lowerPhotonInfo, &(lowerNodes.photonInfo), sizeof(lowerNodes.photonInfo));
+                //CHECK_FOR_CUDA_ERROR();
+
+                if (lowerNodes.maxSize < upperNodeLeafList.size)
+                    lowerNodes.Resize(upperNodeLeafList.size);
+
+                unsigned int blocks, threads;
+                Calc1DKernelDimensions(upperNodeLeafList.size, blocks, threads);
+                CreateLowerNodes<<<blocks, threads>>>(upperNodeLeafList.leafIDs,
+                                                      upperNodes.photonInfo,
+                                                      lowerNodes.info,
+                                                      lowerNodes.photonInfo,
+                                                      upperNodeLeafList.size);
+
+                lowerNodes.size = upperNodeLeafList.size;
+
+                //logger.info << "Leaf IDs: " << Utils::CUDA::Convert::ToString(upperNodeLeafList.leafIDs, lowerNodes.size) << logger.end;
+                //logger.info << "Lower node photon info: " << Utils::CUDA::Convert::ToString(lowerNodes.photonInfo, lowerNodes.size) << logger.end;
+
+                
             }
             
             void PhotonMap::ProcessLowerNodes(int activeIndex,

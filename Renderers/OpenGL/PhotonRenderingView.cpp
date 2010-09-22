@@ -14,6 +14,7 @@
 #include <Resources/DataBlock.h>
 #include <Scene/PhotonNode.h>
 #include <Utils/CUDA/PhotonMap.h>
+#include <Utils/CUDA/Utils.h>
 
 #include <Logging/Logger.h>
 

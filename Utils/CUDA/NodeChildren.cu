@@ -8,6 +8,7 @@
 //--------------------------------------------------------------------
 
 #include <Utils/CUDA/NodeChildren.h>
+#include <Utils/CUDA/Utils.h>
 
 namespace OpenEngine {
     namespace Utils {
@@ -15,15 +16,15 @@ namespace OpenEngine {
             
             NodeChildren::NodeChildren(int size)
                 : size(size) {
-                cudaMalloc(&photonInfo, size * sizeof(int2));
-                cudaMalloc(&parents, size * sizeof(int));
+                cudaSafeMalloc(&photonInfo, size * sizeof(int2));
+                cudaSafeMalloc(&parents, size * sizeof(int));
             }
 
             void NodeChildren::Resize(int size){
                 cudaFree(photonInfo);
-                cudaMalloc(&photonInfo, size * sizeof(int2));
+                cudaSafeMalloc(&photonInfo, size * sizeof(int2));
                 cudaFree(parents);
-                cudaMalloc(&parents, size * sizeof(int));
+                cudaSafeMalloc(&parents, size * sizeof(int));
             }
 
         }
