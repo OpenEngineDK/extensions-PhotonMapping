@@ -150,6 +150,12 @@ namespace Kernels {
         }
     }
 
+
+
+
+    /*** == old code === ****/
+
+
     __device__ bool d_onlyChildren;
     __device__ unsigned int newChildren;
 
