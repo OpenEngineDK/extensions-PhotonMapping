@@ -19,6 +19,8 @@
 
 #include <Meta/CUDPP.h>
 
+#define CPU_VERIFY
+
 using namespace OpenEngine::Scene;
 
 namespace OpenEngine {

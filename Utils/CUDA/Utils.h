@@ -1,4 +1,4 @@
-// KD tree structs for CUDA
+// Utils for CUDA
 // -------------------------------------------------------------------
 // Copyright (C) 2010 OpenEngine.dk (See AUTHORS) 
 // Modified by Anders Bach Nielsen <abachn@daimi.au.dk> - 21. Nov 2007
@@ -42,53 +42,16 @@ inline unsigned int NextPow2(unsigned int x) {
 }
 
 inline void Calc1DKernelDimensions(const unsigned int size, 
-                                   unsigned int &blocks, unsigned int &threads){
-    const unsigned int MAX_THREADS = activeCudaDevice.maxThreadsDim[0];
+                                   unsigned int &blocks, unsigned int &threads,
+                                   unsigned int maxThreads = 0){
+    const unsigned int MAX_THREADS = maxThreads ? maxThreads : activeCudaDevice.maxThreadsDim[0];
     const unsigned int MAX_BLOCKS = activeCudaDevice.maxGridSize[0];
 
     unsigned int s = NextPow2(size);
     threads = (s < MAX_THREADS) ? s : MAX_THREADS;
-    //blocks = (size + (threads * 2 - 1)) / (threads * 2);
-    //blocks = min(MAX_BLOCKS, blocks);
     s /= threads;
     blocks = s < MAX_BLOCKS ? s : MAX_BLOCKS;
 }
-
-inline void Calc2DKernelDimensions(const int size, 
-                                   dim3 &blocks, dim3 &threads){
-    const int2 MAX_THREADS = make_int2(activeCudaDevice.maxThreadsDim[0],
-                                       activeCudaDevice.maxThreadsDim[1]);
-
-    const int2 MAX_BLOCKS = make_int2((activeCudaDevice.maxGridSize[0]+1) / MAX_THREADS.x,
-                                      (activeCudaDevice.maxGridSize[1]+1) / MAX_THREADS.y);
-
-    int s = NextPow2(size);
-    threads.x = s > MAX_THREADS.x ? MAX_THREADS.x : s;
-    s /= threads.x;
-
-    blocks.x = s > MAX_BLOCKS.x ? MAX_BLOCKS.x : s;
-    s /= blocks.x;
-    blocks.y = s > MAX_BLOCKS.y ? MAX_BLOCKS.y : s;
-
-    threads.y = threads.z = blocks.z = 1;
-}
-
-inline __host__ __device__ int globalIdx2D(const uint3 threadIdx, const uint3 blockIdx, 
-                                           const dim3 blockDim, const dim3 gridDim){
-    int blockSize = blockDim.x * blockDim.y;
-    int localIdx = threadIdx.x;// + blockDim.x * threadIdx.y;
-    int blockId = blockIdx.x + gridDim.x * blockIdx.y;
-    return localIdx + blockSize * blockId;
-}
-
-/*
-inline __device__ int globalIdx2D(){
-    int blockSize = blockDim.x * blockDim.y;
-    int localIdx = threadIdx.x + blockDim.x * threadIdx.y;
-    int blockId = blockIdx.x + gridDim.x * blockIdx.y;
-    return localIdx + blockSize * blockId;
-}
-*/
 
 /**
  * Stolen from

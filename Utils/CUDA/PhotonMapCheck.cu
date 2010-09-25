@@ -101,9 +101,9 @@ namespace OpenEngine {
                     float splitPos;
                     cudaMemcpy(&splitPos, upperNodes.splitPos+index, sizeof(float), cudaMemcpyDeviceToHost);
                     
-                    point aabbMin, aabbMax;
-                    cudaMemcpy(&aabbMin, upperNodes.aabbMin+index, sizeof(point), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(&aabbMax, upperNodes.aabbMax+index, sizeof(point), cudaMemcpyDeviceToHost);
+                    float4 aabbMin, aabbMax;
+                    cudaMemcpy(&aabbMin, upperNodes.aabbMin+index, sizeof(float4), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&aabbMax, upperNodes.aabbMax+index, sizeof(float4), cudaMemcpyDeviceToHost);
 
                     if (!aabbContains(parentAABBMin, parentAABBMax, aabbMin))
                         throw Exception("Node " + Utils::Convert::ToString(index) +

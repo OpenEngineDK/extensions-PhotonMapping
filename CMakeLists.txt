@@ -6,6 +6,7 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Utils/CUDA/PhotonKDTree.cu
   Utils/CUDA/PhotonMap.cu
   Utils/CUDA/PhotonMapCheck.cu
+  Utils/CUDA/PhotonMapLowerNodes.cu
   Scene/KDNode.cu
   Scene/KDPhotonUpperNode.cu
   Scene/PhotonUpperNode.cu

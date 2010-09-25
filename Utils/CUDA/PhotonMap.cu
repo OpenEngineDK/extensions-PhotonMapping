@@ -17,9 +17,6 @@
 #include <Utils/CUDA/Kernels/UpperNodeBoundingBox.h>
 #include <Utils/CUDA/Kernels/UpperNodeSplit.hcu>
 #include <Utils/CUDA/Kernels/UpperNodeChildren.hcu>
-#include <Utils/CUDA/Kernels/PreprocessLowerNodes.h>
-
-#define CPU_VERIFY
 
 namespace OpenEngine {
     namespace Utils {
@@ -103,28 +100,25 @@ namespace OpenEngine {
                 SortPhotons();
 
                 // Process upper nodes
-                int level = 0, maxLevel = -1;
-                //START_TIMER(timerID);
-                while (childrenCreated != 0 && level != maxLevel){
-                    logger.info << "<<== PASS " << level << " ==>>" << logger.end;
-                    logger.info << "Active index " << activeIndex << " and range " << activeRange << logger.end;
-                    logger.info << "Active photons " << activePhotons << logger.end;
+                START_TIMER(timerID);
+                while (childrenCreated != 0){
+                    //logger.info << "<<== PASS " << level << " ==>>" << logger.end;
+                    //logger.info << "Active index " << activeIndex << " and range " << activeRange << logger.end;
+                    //logger.info << "Active photons " << activePhotons << logger.end;
 
                     ProcessUpperNodes(activeIndex, activeRange, unhandledLeafs, 
                                       leafsCreated, childrenCreated, activePhotons);
                     
-                    for (int i = -unhandledLeafs; i < activeRange; ++i)
-                        logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
-                    
+                    //for (int i = -unhandledLeafs; i < activeRange; ++i)
+                    //logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
 
                     // Increment loop variables
                     activeIndex += activeRange + leafsCreated;
                     activeRange = childrenCreated;
                     unhandledLeafs = leafsCreated;
-                    level++;
 
-                    logger.info << "Created " << childrenCreated << " children and " << leafsCreated << " leafs" << logger.end;
-                    logger.info << "Unhandled leafs " << unhandledLeafs << logger.end;
+                    //logger.info << "Created " << childrenCreated << " children and " << leafsCreated << " leafs" << logger.end;
+                    //logger.info << "Unhandled leafs " << unhandledLeafs << logger.end;
                 }
                 // Copy the rest of the photons to photon position
                 cudaMemcpy(photons.pos, xSorted, 
@@ -140,9 +134,9 @@ namespace OpenEngine {
                                                        leafIndex, unhandledLeafs);
                 upperNodeLeafList.size += unhandledLeafs;
 
-                for (int i = -unhandledLeafs; i < activeRange; ++i)
-                    logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
-                //PRINT_TIMER(timerID, "Upper node creation");
+                //for (int i = -unhandledLeafs; i < activeRange; ++i)
+                //logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
+                PRINT_TIMER(timerID, "Upper node creation");
 
                 // logger.info << "photons.pos " << Utils::CUDA::Convert::ToString(photons.pos, photons.size) << logger.end;
 
@@ -150,9 +144,14 @@ namespace OpenEngine {
                 // needed? Hasn't crashed yet)                
 
                 // Preprocess lower nodes.
+                logger.info << upperNodes.ToString(0) << logger.end;
                 PreprocessLowerNodes();
                 
                 // Process lower nodes.
+
+                logger.info << upperNodes.ToString(0) << logger.end;
+                //logger.info << upperNodes.ToString(1) << logger.end;
+                //logger.info << upperNodes.ToString(2) << logger.end;
 
 
 #ifdef CPU_VERIFY
@@ -162,8 +161,6 @@ namespace OpenEngine {
 
             void PhotonMap::SortPhotons(){
                 //logger.info << "Sort all photon" << logger.end;
-
-                //logger.info << "Photon pos: " << Utils::CUDA::Convert::ToString(photons.pos, photons.size) << logger.end;
 
                 int size = photons.size;
 
@@ -176,21 +173,15 @@ namespace OpenEngine {
                                              size);
                 CHECK_FOR_CUDA_ERROR();
                 
-                cudppSort(sortHandle, xKeys, xIndices, sizeof(float), size);
-                cudppSort(sortHandle, yKeys, yIndices, sizeof(float), size);
-                cudppSort(sortHandle, zKeys, zIndices, sizeof(float), size);
-
-                //logger.info << "xIndices: " << Utils::CUDA::Convert::ToString(xIndices, 16) << logger.end;
+                cudppSort(sortHandle, xKeys, xIndices, 8*sizeof(float), size);
+                cudppSort(sortHandle, yKeys, yIndices, 8*sizeof(float), size);
+                cudppSort(sortHandle, zKeys, zIndices, 8*sizeof(float), size);
 
                 //START_TIMER(timerID);
                 ScatterPhotons<<<blocks, threads>>>(photons.pos, 
                                                     xIndices, yIndices, zIndices,
                                                     xSorted, ySorted, zSorted,
                                                     size);
-
-                //logger.info << "\nxSorted: " << Utils::CUDA::Convert::ToString(xSorted, 16) << logger.end;
-                //logger.info << "\nySorted: " << Utils::CUDA::Convert::ToString(ySorted, 16) << logger.end;
-                //logger.info << "\nzSorted: " << Utils::CUDA::Convert::ToString(zSorted, 16) << logger.end;
 
                 //PRINT_TIMER(timerID,"Sort photons");
                 CHECK_FOR_CUDA_ERROR();
@@ -203,7 +194,7 @@ namespace OpenEngine {
                                               int &childrenCreated,
                                               int &activePhotons){
 
-                logger.info << "=== Process " << activeRange << " Upper Nodes === with " << activePhotons << " photons" << logger.end;
+                logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << activePhotons << " photons" << logger.end;
 
                 // Check that there is room for the new children
                 if (upperNodes.maxSize < upperNodes.size + activeRange * 2)
@@ -507,38 +498,6 @@ namespace OpenEngine {
                 logger.info << "owners: " << Utils::CUDA::Convert::ToString(photonOwners, activePhotons) << logger.end;
                 logger.info << "" << logger.end;
                 */
-            }
-            
-            void PhotonMap::PreprocessLowerNodes(){
-
-                // Create lower nodes and their splitting planes.
-                //cudaMemcpyToSymbol(d_upperPhotonInfo, &(upperNodes.photonInfo), sizeof(upperNodes.photonInfo));
-                //cudaMemcpyToSymbol(d_lowerPhotonInfo, &(lowerNodes.photonInfo), sizeof(lowerNodes.photonInfo));
-                //CHECK_FOR_CUDA_ERROR();
-
-                if (lowerNodes.maxSize < upperNodeLeafList.size)
-                    lowerNodes.Resize(upperNodeLeafList.size);
-
-                unsigned int blocks, threads;
-                Calc1DKernelDimensions(upperNodeLeafList.size, blocks, threads);
-                CreateLowerNodes<<<blocks, threads>>>(upperNodeLeafList.leafIDs,
-                                                      upperNodes.photonInfo,
-                                                      lowerNodes.info,
-                                                      lowerNodes.photonInfo,
-                                                      upperNodeLeafList.size);
-
-                lowerNodes.size = upperNodeLeafList.size;
-
-                //logger.info << "Leaf IDs: " << Utils::CUDA::Convert::ToString(upperNodeLeafList.leafIDs, lowerNodes.size) << logger.end;
-                //logger.info << "Lower node photon info: " << Utils::CUDA::Convert::ToString(lowerNodes.photonInfo, lowerNodes.size) << logger.end;
-
-                
-            }
-            
-            void PhotonMap::ProcessLowerNodes(int activeIndex,
-                                              int activeRange,
-                                              int &childrenCreated){
-
             }
             
         }

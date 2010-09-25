@@ -11,6 +11,8 @@
 #include <Utils/CUDA/SharedMemory.h>
 #include <Utils/CUDA/Utils.h>
 #include <Scene/KDNode.h>
+#include <Scene/PhotonLowerNode.h>
+#include <Utils/CUDA/SharedMemory.h>
 
 using namespace OpenEngine::Scene;
 
@@ -40,8 +42,53 @@ namespace Kernels {
 
     __global__ void CreateSplittingPlanes(int2 *splitTriangleSetX,
                                           int2 *splitTriangleSetY,
-                                          int2 *splitTriangleSetZ){
+                                          int2 *splitTriangleSetZ,
+                                          int2 *lowerPhotonInfo,
+                                          float4 *positions,
+                                          int lowerNodes){
 
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        const int nodeID = id / PhotonLowerNode::MAX_SIZE;
+        const int photonID = id % PhotonLowerNode::MAX_SIZE;
+        const int2 photonInfo = lowerPhotonInfo[nodeID];
+        const int photons = bitcount(photonInfo.y);
+        
+        // Copy photons to shared memory
+        __shared__ float4 photonPos[512];
+        photonPos[threadIdx.x] = photonID < photons ? positions[photonInfo.x + photonID] : make_float4(0.0f);
+        /*
+        if (photonID < photons)
+            photonPos[threadIdx.x] = positions[photonInfo.x + photonID];
+        else
+            photonPos[threadIdx.x] = make_float4(0.0f);
+        */
+        __syncthreads();
+
+        /*
+
+        if (nodeID < lowerNodes){
+            // Since we're using points, split
+            int splitX = 0, splitY = 0, splitZ = 0;
+
+            const float4 splitPlane = photonPos[threadIdx.x];
+
+            // @OPT unroll MAX_SIZE photons instead? There is enough
+            // positions in shared mem and the extra bits in the mask
+            // doens't matter.
+            for (int i = 0; i < photons; ++i){
+                int index = nodeID * PhotonLowerNode::MAX_SIZE + i;
+                splitX += photonPos[index].x < splitPlane.x ? 1<<i : 0;
+                splitY += photonPos[index].y < splitPlane.y ? 1<<i : 0;
+                splitZ += photonPos[index].z < splitPlane.z ? 1<<i : 0;
+            }
+
+            if (photonID < photons){
+                splitTriangleSetX[photonInfo.x + photonID] = make_int2(splitX, ~splitX);
+                splitTriangleSetY[photonInfo.x + photonID] = make_int2(splitY, ~splitY);
+                splitTriangleSetZ[photonInfo.x + photonID] = make_int2(splitZ, ~splitZ);
+            }
+        }
+        */
     }
 
     /*** === OLD CODE === *****/
