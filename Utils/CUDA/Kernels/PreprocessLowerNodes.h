@@ -8,11 +8,11 @@
 //--------------------------------------------------------------------
 
 #include <Meta/CUDA.h>
-#include <Utils/CUDA/SharedMemory.h>
-#include <Utils/CUDA/Utils.h>
 #include <Scene/KDNode.h>
 #include <Scene/PhotonLowerNode.h>
+#include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
 #include <Utils/CUDA/SharedMemory.h>
+#include <Utils/CUDA/Utils.h>
 
 using namespace OpenEngine::Scene;
 
@@ -20,7 +20,6 @@ namespace OpenEngine {
 namespace Utils {
 namespace CUDA {
 namespace Kernels {
-
     
     __global__ void CreateLowerNodes(int *upperLeafIDs,
                                      int2 *upperPhotonInfo,
@@ -50,45 +49,44 @@ namespace Kernels {
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
         const int nodeID = id / PhotonLowerNode::MAX_SIZE;
         const int photonID = id % PhotonLowerNode::MAX_SIZE;
-        const int2 photonInfo = lowerPhotonInfo[nodeID];
-        const int photons = bitcount(photonInfo.y);
-        
-        // Copy photons to shared memory
-        __shared__ float4 photonPos[512];
-        photonPos[threadIdx.x] = photonID < photons ? positions[photonInfo.x + photonID] : make_float4(0.0f);
-        /*
-        if (photonID < photons)
-            photonPos[threadIdx.x] = positions[photonInfo.x + photonID];
-        else
-            photonPos[threadIdx.x] = make_float4(0.0f);
-        */
-        __syncthreads();
-
-        /*
 
         if (nodeID < lowerNodes){
-            // Since we're using points, split
+            const int2 photonInfo = lowerPhotonInfo[nodeID];
+            const char photons = bitcount(photonInfo.y);
+            const int photonIndex = photonInfo.x + photonID;
+
+            // Copy photons to shared memory
+            float4* photonPos = SharedMemory<float4>();
+            photonPos[threadIdx.x] = photonID < photons ? positions[photonIndex] : make_float4(0.0f);
+            // @OPT syncthreads isn't needed aslong as MAX_SIZE == WARP_SIZE (32)
+            __syncthreads();
+            
             int splitX = 0, splitY = 0, splitZ = 0;
 
             const float4 splitPlane = photonPos[threadIdx.x];
 
             // @OPT unroll MAX_SIZE photons instead? There is enough
             // positions in shared mem and the extra bits in the mask
-            // doens't matter.
-            for (int i = 0; i < photons; ++i){
+            // doens't matter. Yields a nearly 50% optimization
+            //for (char i = 0; i < photons; ++i){
+#pragma unroll
+            for (char i = 0; i < 32; ++i){
                 int index = nodeID * PhotonLowerNode::MAX_SIZE + i;
+                
                 splitX += photonPos[index].x < splitPlane.x ? 1<<i : 0;
                 splitY += photonPos[index].y < splitPlane.y ? 1<<i : 0;
                 splitZ += photonPos[index].z < splitPlane.z ? 1<<i : 0;
             }
 
+            // @OPT Left split set should be largest to facilitate
+            // better thread coherence. Can't test before I have a
+            // real scene.
             if (photonID < photons){
-                splitTriangleSetX[photonInfo.x + photonID] = make_int2(splitX, ~splitX);
-                splitTriangleSetY[photonInfo.x + photonID] = make_int2(splitY, ~splitY);
-                splitTriangleSetZ[photonInfo.x + photonID] = make_int2(splitZ, ~splitZ);
+                splitTriangleSetX[photonIndex] = make_int2(splitX, ~splitX);
+                splitTriangleSetY[photonIndex] = make_int2(splitY, ~splitY);
+                splitTriangleSetZ[photonIndex] = make_int2(splitZ, ~splitZ);
             }
         }
-        */
     }
 
     /*** === OLD CODE === *****/

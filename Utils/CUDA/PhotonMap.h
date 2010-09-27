@@ -101,6 +101,7 @@ namespace OpenEngine {
 
                 void ProcessLowerNodes(int activeIndex,
                                        int activeRange,
+                                       int &leafsCreated,
                                        int &childrenCreated);
                                 
 

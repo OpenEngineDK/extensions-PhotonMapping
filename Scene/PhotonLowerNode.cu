@@ -22,12 +22,18 @@ namespace OpenEngine {
             maxSize = photons / MAX_SIZE * (2 * MAX_SIZE - 1);
             KDNode::Resize(maxSize);
             
+            logger.info << "LowerNode inital max: " << maxSize << logger.end;
+
             cudaSafeMalloc(&smallRoot, this->maxSize * sizeof(int));
 
             // Alloc split information
-            cudaSafeMalloc(&splitTriangleSetX, photons * sizeof(int2));
-            cudaSafeMalloc(&splitTriangleSetY, photons * sizeof(int2));
-            cudaSafeMalloc(&splitTriangleSetZ, photons * sizeof(int2));
+            cudaSafeMalloc(&splitTriangleSet, 3 * photons * sizeof(int2));
+            splitTriangleSetX = splitTriangleSet;
+            splitTriangleSetY = splitTriangleSetX + photons;
+            splitTriangleSetZ = splitTriangleSetY + photons;
+            //cudaSafeMalloc(&splitTriangleSetX, photons * sizeof(int2));
+            //cudaSafeMalloc(&splitTriangleSetY, photons * sizeof(int2));
+            //cudaSafeMalloc(&splitTriangleSetZ, photons * sizeof(int2));
 
             CHECK_FOR_CUDA_ERROR();
         }

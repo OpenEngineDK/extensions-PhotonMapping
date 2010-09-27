@@ -46,7 +46,6 @@ namespace OpenEngine {
                 INITIALIZE_CUDA();
                 
                 unsigned int size = (1<<17) - 7;
-                //unsigned int size = 1<<7;
                 photonMap = new PhotonMap(size);
                 IDataBlockPtr vertices = IDataBlockPtr(new DataBlock<4, float>(size));
                 map<string, IDataBlockPtr> attr;

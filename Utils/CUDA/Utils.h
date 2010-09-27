@@ -1,7 +1,6 @@
 // Utils for CUDA
 // -------------------------------------------------------------------
 // Copyright (C) 2010 OpenEngine.dk (See AUTHORS) 
-// Modified by Anders Bach Nielsen <abachn@daimi.au.dk> - 21. Nov 2007
 // 
 // This program is free software; It is covered by the GNU General 
 // Public License version 2 or any later version. 
@@ -63,6 +62,18 @@ inline __host__ __device__ int bitcount(unsigned int n){
     unsigned int tmp = n - ((n >> 1) & 033333333333)
         - ((n >> 2) & 011111111111);
     return ((tmp + (tmp >> 3)) & 030707070707) % 63;
+}
+
+inline __host__ __device__ void maxCorner(float4 v, float3 u, float3 &ret){
+    ret = make_float3(max(v.x, u.x),
+                      max(v.y, u.y),
+                      max(v.z, u.z));
+}
+
+inline __host__ __device__ void minCorner(float4 v, float3 u, float3 &ret){
+    ret = make_float3(min(v.x, u.x),
+                      min(v.y, u.y),
+                      min(v.z, u.z));
 }
 
 inline __host__ __device__ float3 max(float3 v, float3 u){

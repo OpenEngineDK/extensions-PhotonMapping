@@ -23,6 +23,7 @@ namespace OpenEngine {
             int *smallRoot;
             //int *left, *right;
 
+            int2 *splitTriangleSet; // {splitTriangleSetX, splitTriangleSetY, splitTriangleSetZ}
             int2 *splitTriangleSetX, *splitTriangleSetY, *splitTriangleSetZ;
 
 

@@ -40,7 +40,7 @@ namespace OpenEngine {
                 // Make room for the root node
                 int approxSize = (2 * size / PhotonLowerNode::MAX_SIZE) - 1;
                 upperNodes = PhotonUpperNode(approxSize);
-                lowerNodes = PhotonLowerNode(approxSize);
+                lowerNodes = PhotonLowerNode(size);
 
                 tempChildren = NodeChildren(size / PhotonLowerNode::MAX_SIZE);
                 upperNodeLeafList = UpperNodeLeafList(size / PhotonLowerNode::MAX_SIZE);
@@ -51,7 +51,7 @@ namespace OpenEngine {
                 scanConfig.datatype = CUDPP_INT;
                 scanConfig.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_EXCLUSIVE;
                 
-                CUDPPResult res = cudppPlan(&scanHandle, scanConfig, size, 1, 0);
+                CUDPPResult res = cudppPlan(&scanHandle, scanConfig, size+1, 1, 0);
                 if (CUDPP_SUCCESS != res)
                     throw Core::Exception("Error creating CUDPP scanPlan");
 
@@ -144,15 +144,20 @@ namespace OpenEngine {
                 // needed? Hasn't crashed yet)                
 
                 // Preprocess lower nodes.
-                logger.info << upperNodes.ToString(0) << logger.end;
                 PreprocessLowerNodes();
                 
                 // Process lower nodes.
+                cudaMemcpyToSymbol(d_photonNodes, &(photons.size), sizeof(int));
 
-                logger.info << upperNodes.ToString(0) << logger.end;
-                //logger.info << upperNodes.ToString(1) << logger.end;
-                //logger.info << upperNodes.ToString(2) << logger.end;
+                activeIndex = 0; activeRange = lowerNodes.size; 
+                leafsCreated = 0; childrenCreated = activeRange * 2;
+                while (activeRange != 0){
+                    ProcessLowerNodes(activeIndex, activeRange, 
+                                      leafsCreated, childrenCreated);
 
+                    activeIndex += activeRange + leafsCreated;
+                    activeRange = childrenCreated;
+                }
 
 #ifdef CPU_VERIFY
                 VerifyMap();
