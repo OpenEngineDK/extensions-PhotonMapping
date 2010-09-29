@@ -22,9 +22,13 @@ namespace CUDA {
 namespace Kernels {
     
     __global__ void CreateLowerNodes(int *upperLeafIDs,
+                                     float4 *upperAabbMin,
+                                     float4 *upperAabbMax,
                                      int2 *upperPhotonInfo,
+                                     int *upperLeft, int *upperRight,
                                      char *lowerInfo,
                                      int2 *lowerPhotonInfo,
+                                     float *extendedVolume,
                                      int lowerNodes){
 
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -33,9 +37,14 @@ namespace Kernels {
             int upperID = upperLeafIDs[id];
             lowerInfo[id] = KDNode::LEAF;
             int2 photonInfo = upperPhotonInfo[upperID];
+            upperLeft[upperID] = upperRight[upperID] = id;
             // Mark the n lowest bits
             photonInfo.y = (1<<photonInfo.y)-1;
             lowerPhotonInfo[id] = photonInfo;
+            float4 bb = upperAabbMax[upperID] - upperAabbMin[upperID];
+            extendedVolume[id] = (bb.x + PhotonLowerNode::SEARCH_RADIUS) * 
+                (bb.y + PhotonLowerNode::SEARCH_RADIUS) * 
+                (bb.z + PhotonLowerNode::SEARCH_RADIUS);
         }
     }
 

@@ -123,6 +123,8 @@ namespace OpenEngine {
                 // Copy the rest of the photons to photon position
                 cudaMemcpy(photons.pos, xSorted, 
                            activePhotons * sizeof(point), cudaMemcpyDeviceToDevice);
+
+                ComputeBoundingBox(activeIndex, activeRange, unhandledLeafs);
                 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(leafsCreated, blocks, threads);
@@ -211,7 +213,7 @@ namespace OpenEngine {
                 cudaMemcpyToSymbol(d_activeNodeRange, &activeRange, sizeof(int));
                 CHECK_FOR_CUDA_ERROR();
 
-                ComputeBoundingBox(activeIndex, activeRange);
+                ComputeBoundingBox(activeIndex, activeRange, unhandledLeafs);
                 CHECK_FOR_CUDA_ERROR();
 
                 SplitUpperNodePhotons(activeIndex, activeRange, unhandledLeafs, activePhotons);
@@ -232,26 +234,34 @@ namespace OpenEngine {
              * constant time.
              */
             void PhotonMap::ComputeBoundingBox(int activeIndex,
-                                               int activeRange){
-                //logger.info << "Compute bounding boxes" << logger.end;
-                
+                                               int activeRange,
+                                               int unhandledLeafs){
+                //logger.info << "Compute " << activeRange + unhandledLeafs << " bounding boxes from " << activeIndex - unhandledLeafs << logger.end;
+
                 unsigned int blocks, threads;
-                Calc1DKernelDimensions(activeRange, blocks, threads);
+                Calc1DKernelDimensions(activeRange + unhandledLeafs, blocks, threads);
 
-                ConstantTimeBoundingBox<<<blocks, threads>>>(upperNodes.photonInfo + activeIndex,
-                                                             upperNodes.aabbMin + activeIndex,
-                                                             upperNodes.aabbMax + activeIndex,
-                                                             xSorted, ySorted, zSorted);
-
-                SetUpperNodeSplitInfo<<<blocks, threads>>>(upperNodes.aabbMin + activeIndex,
-                                                           upperNodes.aabbMax + activeIndex,
-                                                           upperNodes.splitPos + activeIndex,
-                                                           upperNodes.info + activeIndex);
+                ConstantTimeBoundingBox<<<blocks, threads>>>(upperNodes.photonInfo + activeIndex - unhandledLeafs,
+                                                             upperNodes.aabbMin + activeIndex - unhandledLeafs,
+                                                             upperNodes.aabbMax + activeIndex - unhandledLeafs,
+                                                             xSorted, ySorted, zSorted,
+                                                             activeRange + unhandledLeafs);
+                if (activeRange > 0){
+                    Calc1DKernelDimensions(activeRange, blocks, threads);
+                    SetUpperNodeSplitInfo<<<blocks, threads>>>(upperNodes.aabbMin + activeIndex,
+                                                               upperNodes.aabbMax + activeIndex,
+                                                               upperNodes.splitPos + activeIndex,
+                                                               upperNodes.info + activeIndex);
+                }
 
                 //logger.info << "aabbMin: " << Utils::CUDA::Convert::ToString(upperNodes.aabbMin + activeIndex, activeRange) << logger.end;
                 //logger.info << "aabbMax: " << Utils::CUDA::Convert::ToString(upperNodes.aabbMax + activeIndex, activeRange) << logger.end;
 #ifdef CPU_VERIFY
                 // Check that the bounding box holds for all arrays
+
+                activeIndex -= unhandledLeafs;
+                activeRange += unhandledLeafs;
+
                 for (int i = activeIndex; i < activeIndex + activeRange; ++i){
                     int2 photonInfo;
                     cudaMemcpy(&photonInfo, upperNodes.photonInfo + i, sizeof(int2), cudaMemcpyDeviceToHost);
@@ -268,8 +278,10 @@ namespace OpenEngine {
                         cpuMin = pointMin(cpuMin, pos[j]);
                         cpuMax = pointMax(cpuMax, pos[j]);
                     }
+                    
                     if (cpuMin.x != aabbMin.x && cpuMin.y != aabbMin.y && cpuMin.z != aabbMin.z)
-                        throw Core::Exception("aabbMin error: CPU min " + Utils::CUDA::Convert::ToString(cpuMin)
+                        throw Core::Exception("aabbMin error at node " + Utils::Convert::ToString(i) +
+                                              ": CPU min " + Utils::CUDA::Convert::ToString(cpuMin)
                                               + ", GPU min " + Utils::CUDA::Convert::ToString(aabbMin));
                     if (cpuMax.x != aabbMax.x && cpuMax.y != aabbMax.y && cpuMax.z != aabbMax.z)
                         throw Core::Exception("aabbMax error");
@@ -289,11 +301,6 @@ namespace OpenEngine {
                 // @OPT Only handle leafs nodes in case there actually
                 // are any!  
 
-                // @OPT Throw an extra 0 at the end of leafside, so we
-                // can calculate the final left value in the prefix
-                // sum aswell (and not have to do it in the next
-                // kernel)
-
                 // Set photons leaf bit
                 SetPhotonNodeLeafSide<<<blocks, threads>>>(photonOwners, upperNodes.info, leafSide);
                 CHECK_FOR_CUDA_ERROR();
@@ -305,7 +312,11 @@ namespace OpenEngine {
                                                             splitSide);
                 cudppScan(scanHandle, splitLeft, splitSide, activePhotons+1);
                 CHECK_FOR_CUDA_ERROR();
-                
+
+                // @OPT It's faster to copy it data to constant memory
+                // from the host, than to scatter the data from an
+                // array inside the kernel. Will probably change when
+                // it's cached.
                 cudaMemcpyToSymbol(d_nonLeafPhotons, leafPrefix + activePhotons, sizeof(int), 0, cudaMemcpyDeviceToDevice);
                 cudaMemcpyToSymbol(d_photonsMovedLeft, splitLeft + activePhotons, sizeof(int), 0, cudaMemcpyDeviceToDevice);
                 
@@ -315,16 +326,14 @@ namespace OpenEngine {
                                                   leafPrefix, leafSide,
                                                   splitAddrs);
                 CHECK_FOR_CUDA_ERROR();
+
                 /*
                 logger.info << "LeafSide: " << Utils::CUDA::Convert::ToString(leafSide, activePhotons) << logger.end;
                 logger.info << "LeafPrefix: " << Utils::CUDA::Convert::ToString(leafPrefix, activePhotons+1) << logger.end;
-
                 logger.info << "split side: " << Utils::CUDA::Convert::ToString(splitSide, activePhotons) << logger.end;
                 logger.info << "split left: " << Utils::CUDA::Convert::ToString(splitLeft, activePhotons+1) << logger.end;
-
                 logger.info << "SplitAddrs: " << Utils::CUDA::Convert::ToString(splitAddrs, activePhotons) << logger.end;
                 logger.info << "Addrs: " << Utils::CUDA::Convert::ToString(debug, activePhotons) << logger.end;
-
                 logger.info << "Owners: " << Utils::CUDA::Convert::ToString(photonOwners, activePhotons) << logger.end;
                 logger.info << "new owners: " << Utils::CUDA::Convert::ToString(newOwners, activePhotons) << logger.end;
                 */                
@@ -343,23 +352,12 @@ namespace OpenEngine {
                 SplitSortedArray(ySorted, activePhotons);
                 SplitSortedArray(zSorted, activePhotons);
 
-                /*
-                logger.info << "Split xSorted: " << Utils::CUDA::Convert::ToString(xSorted, activePhotons) << logger.end;
-                logger.info << "Split ySorted: " << Utils::CUDA::Convert::ToString(ySorted, activePhotons) << logger.end;
-                logger.info << "Split zSorted: " << Utils::CUDA::Convert::ToString(zSorted, activePhotons) << logger.end;
-                */
                 std::swap(photonOwners, newOwners);
-
-#ifdef CPU_VERIFY
-                
-#endif
                 
                 if (unhandledLeafs > 0)
                     SetupUpperLeafNodes(activeIndex, unhandledLeafs, nonLeafPhotons);
 
                 activePhotons = nonLeafPhotons;
-
-                //logger.info << "New active photons: " << activePhotons << logger.end;
             }
 
             void PhotonMap::SplitSortedArray(float4 *&sortedArray, int activePhotons){
@@ -368,7 +366,7 @@ namespace OpenEngine {
 
                 // Calc splitting side for all sortedArray positions
                 SetPhotonNodeSplitSide<<<blocks, threads>>>(sortedArray, photonOwners, upperNodes.splitPos, upperNodes.info, splitSide);
-                cudppScan(scanHandle, prefixSum, splitSide, activePhotons);
+                cudppScan(scanHandle, prefixSum, splitSide, activePhotons+1);
                 CHECK_FOR_CUDA_ERROR();
 
                 SplitPhotons<<<blocks, threads>>>(sortedArray, tempPhotonPos, 
@@ -442,10 +440,14 @@ namespace OpenEngine {
                 logger.info << "" << logger.end;
                 */
                 cudaMemcpyFromSymbol(&createdLeafs, d_createdLeafs, sizeof(bool));
+                int childIndex = activeIndex + activeRange;
+                cudaMemcpyToSymbol(d_childIndex, &childIndex, sizeof(int));
 
                 if (createdLeafs){
                     // Sort leafs to the left
-                    cudppScan(scanHandle, leafPrefix, leafSide, activeRange * 2);
+                    cudppScan(scanHandle, leafPrefix, leafSide, activeRange * 2 + 1);
+                    cudaMemcpyToSymbol(d_leafsCreated, leafPrefix + activeRange * 2, sizeof(int), 0, cudaMemcpyDeviceToDevice);
+                    
                     /*
                     // Update upper node children with index and range,
                     // and update parent with real address.

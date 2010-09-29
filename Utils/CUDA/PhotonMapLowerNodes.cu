@@ -32,11 +32,18 @@ namespace OpenEngine {
 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(upperNodeLeafList.size, blocks, threads);
+                START_TIMER(timerID);
                 CreateLowerNodes<<<blocks, threads>>>(upperNodeLeafList.leafIDs,
+                                                      upperNodes.aabbMin,
+                                                      upperNodes.aabbMax,
                                                       upperNodes.photonInfo,
+                                                      upperNodes.left,
+                                                      upperNodes.right,
                                                       lowerNodes.info,
                                                       lowerNodes.photonInfo,
+                                                      lowerNodes.extendedVolume,
                                                       upperNodeLeafList.size);
+                PRINT_TIMER(timerID, "Create Lower Nodes");
                 CHECK_FOR_CUDA_ERROR();
                 lowerNodes.size = upperNodeLeafList.size;
 
@@ -51,8 +58,8 @@ namespace OpenEngine {
                      lowerNodes.photonInfo,
                      photons.pos,
                      lowerNodes.size);
-                CHECK_FOR_CUDA_ERROR();
                 PRINT_TIMER(timerID, "Splitting plane creation");
+                CHECK_FOR_CUDA_ERROR();
             }
             
             void PhotonMap::ProcessLowerNodes(int activeIndex,
@@ -72,17 +79,21 @@ namespace OpenEngine {
                 // cost as leaf nodes
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activeRange, blocks, threads);
-                CalcVVHSplittingPlane<<<blocks, threads>>>(lowerNodes.info + activeIndex,
+                START_TIMER(timerID);
+                CalcSimpleSplittingPlane<<<blocks, threads>>>(lowerNodes.info + activeIndex,
+                //CalcVVHSplittingPlane<<<blocks, threads>>>(lowerNodes.info + activeIndex,
                                                               lowerNodes.splitPos + activeIndex,
                                                               lowerNodes.photonInfo + activeIndex,
                                                               lowerNodes.splitTriangleSet,
                                                               photons.pos,
                                                               leafSide);
+                PRINT_TIMER(timerID, "Lower node splitting plane calculation");
                 
                 // Calculate child indexes
-                cudppScan(scanHandle, leafPrefix, leafSide, activeRange);
+                cudppScan(scanHandle, leafPrefix, leafSide, activeRange+1);
 
                 // Split nodes to children
+                
 
                 leafsCreated = childrenCreated = 0;
 

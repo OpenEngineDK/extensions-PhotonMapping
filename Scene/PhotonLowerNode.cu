@@ -24,16 +24,16 @@ namespace OpenEngine {
             
             logger.info << "LowerNode inital max: " << maxSize << logger.end;
 
-            cudaSafeMalloc(&smallRoot, this->maxSize * sizeof(int));
+            //cudaSafeMalloc(&smallRoot, this->maxSize * sizeof(int));
+            cudaSafeMalloc(&extendedVolume, this->maxSize * sizeof(float));
+            cudaSafeMalloc(&splittingPlane, this->maxSize * sizeof(int));
+            //cudaSafeMalloc(&spanMask, this->maxSize * sizeof(int));
 
             // Alloc split information
             cudaSafeMalloc(&splitTriangleSet, 3 * photons * sizeof(int2));
             splitTriangleSetX = splitTriangleSet;
             splitTriangleSetY = splitTriangleSetX + photons;
             splitTriangleSetZ = splitTriangleSetY + photons;
-            //cudaSafeMalloc(&splitTriangleSetX, photons * sizeof(int2));
-            //cudaSafeMalloc(&splitTriangleSetY, photons * sizeof(int2));
-            //cudaSafeMalloc(&splitTriangleSetZ, photons * sizeof(int2));
 
             CHECK_FOR_CUDA_ERROR();
         }
@@ -44,11 +44,33 @@ namespace OpenEngine {
             unsigned int copySize = this->size;
 
             int *tempInt;
+            /*
             cudaSafeMalloc(&tempInt, i * sizeof(int));
             cudaMemcpy(tempInt, smallRoot, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
             cudaFree(smallRoot);
             smallRoot = tempInt;
             CHECK_FOR_CUDA_ERROR();
+            */
+            float *tempFloat;
+            cudaSafeMalloc(&tempFloat, i * sizeof(float));
+            cudaMemcpy(tempFloat, extendedVolume, copySize * sizeof(float), cudaMemcpyDeviceToDevice);
+            cudaFree(extendedVolume);
+            extendedVolume = tempFloat;
+            CHECK_FOR_CUDA_ERROR();
+
+            cudaSafeMalloc(&tempInt, i * sizeof(int));
+            cudaMemcpy(tempInt, splittingPlane, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
+            cudaFree(splittingPlane);
+            splittingPlane = tempInt;
+            CHECK_FOR_CUDA_ERROR();
+
+            /*
+            cudaSafeMalloc(&tempInt, i * sizeof(int));
+            cudaMemcpy(tempInt, spanMask, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
+            cudaFree(spanMask);
+            spanMask = tempInt;
+            CHECK_FOR_CUDA_ERROR();
+            */
         }
 
     }

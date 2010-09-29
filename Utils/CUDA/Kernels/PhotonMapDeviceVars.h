@@ -18,16 +18,18 @@ namespace Utils {
 namespace CUDA {
 namespace Kernels {
 
-    __constant__ __device__ int d_photonNodes;
+    __constant__ int d_photonNodes;
 
-    __constant__ __device__ int d_activeNodeIndex;
-    __constant__ __device__ int d_activeNodeRange;
+    __constant__ int d_activeNodeIndex;
+    __constant__ int d_activeNodeRange;
+    __constant__ int d_childIndex;
 
-    __constant__ __device__ int d_nonLeafPhotons;
-    __constant__ __device__ int d_photonsMovedLeft;
+    __constant__ int d_nonLeafPhotons;
+    __constant__ int d_photonsMovedLeft;
 
     __device__ bool d_createdLeafs;
     __device__ int d_leafsCreated;
+
 
     // Upper node info
     __constant__ __device__ int2* d_upperPhotonInfo;

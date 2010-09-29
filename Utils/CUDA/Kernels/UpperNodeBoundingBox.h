@@ -16,17 +16,20 @@ namespace Utils {
 namespace CUDA {
 namespace Kernels {
 
+    // @OPT perhaps combining these 2 kernels will yield a
+    // speedup. Even when leafs are taken into account.
+
     __global__ void ConstantTimeBoundingBox(int2 *photonInfo, // [index, range]
                                             point *aabbMin, point *aabbMax,
-                                            float4 *xSorted, float4 *ySorted, float4 *zSorted){
+                                            float4 *xSorted, float4 *ySorted, float4 *zSorted,
+                                            const int range){
 
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        int stepSize = gridDim.x * blockDim.x;
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
-        while (id < d_activeNodeRange){
+        if (id < range){
             
-            int2 info = photonInfo[id];
-            int photonEnd = info.x + info.y - 1;
+            const int2 info = photonInfo[id];
+            const int photonEnd = info.x + info.y - 1;
             
             aabbMin[id] = make_point(xSorted[info.x].x,
                                      ySorted[info.x].y,
@@ -35,8 +38,29 @@ namespace Kernels {
             aabbMax[id] = make_point(xSorted[photonEnd].x,
                                      ySorted[photonEnd].y,
                                      zSorted[photonEnd].z);
+        }
+    }
+    
+    __global__ void ConstantTimeBoundingBox(int2 *photonInfo, // [index, range]
+                                            point *aabbMin, point *aabbMax,
+                                            int *xSortedIndex, int *ySortedIndex, int *zSortedIndex,
+                                            point *photonPos,
+                                            const int range){
 
-            id += stepSize;
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+        if (id < range){
+            
+            const int2 info = photonInfo[id];
+            const int photonEnd = info.x + info.y - 1;
+            
+            aabbMin[id] = make_point(photonPos[xSortedIndex[info.x]].x,
+                                     photonPos[ySortedIndex[info.x]].y,
+                                     photonPos[zSortedIndex[info.x]].y);
+
+            aabbMin[id] = make_point(photonPos[xSortedIndex[photonEnd]].x,
+                                     photonPos[ySortedIndex[photonEnd]].y,
+                                     photonPos[zSortedIndex[photonEnd]].y);
         }
     }
     
@@ -47,9 +71,8 @@ namespace Kernels {
     __global__ void SetUpperNodeSplitInfo(point *aabbMin, point *aabbMax,
                                           float *splitPos, char *info){
         int id = blockDim.x * blockIdx.x + threadIdx.x;
-        int stepSize = gridDim.x * blockDim.x;
         
-        while (id < d_activeNodeRange){
+        if (id < d_activeNodeRange){
             
             point bbSize = aabbMax[id] - aabbMin[id];
             point median = bbSize * 0.5 + aabbMin[id];
@@ -62,8 +85,6 @@ namespace Kernels {
             bool zHigher = max < bbSize.z;
             splitPos[id] = zHigher ? median.z : split;
             info[id] = zHigher ? KDNode::Z : axis;
-            
-            id += stepSize;
         }
     }
 

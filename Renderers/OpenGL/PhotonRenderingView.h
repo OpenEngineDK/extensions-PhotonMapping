@@ -11,7 +11,6 @@
 #define _PHOTON_MAPPING_RENDERING_VIEW_H_
 
 #include <Renderers/OpenGL/RenderingView.h>
-#include <Utils/CUDA/PhotonKDTree.h>
 
 #include <boost/shared_ptr.hpp>
 

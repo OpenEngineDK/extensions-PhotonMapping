@@ -34,18 +34,15 @@ namespace OpenEngine {
         void PhotonNode::CreateRandomData(){
             point hat[maxSize];
             Math::RandomGenerator rand;
-            //rand.SeedWithTime();
             for (unsigned int i = 0; i < maxSize; ++i)
-
                 hat[i] = make_point(rand.UniformFloat(0.0f, 10.0f),
                                     rand.UniformFloat(0.0f, 10.0f),
                                     rand.UniformFloat(0.0f, 10.0f));
                 /*
-                hat[i] = make_point(rand.UniformInt(0.0f, 50.0f),
-                                    rand.UniformInt(0.0f, 50.0f),
-                                    rand.UniformInt(0.0f, 50.0f));
-                */
-            
+                hat[i] = make_point(rand.UniformInt(0.0f, 10.0f),
+                                    rand.UniformInt(0.0f, 10.0f),
+                                    rand.UniformInt(0.0f, 10.0f));
+                */            
             cudaMemcpy(pos, hat, maxSize * sizeof(point), cudaMemcpyHostToDevice);
             size = maxSize;
         }

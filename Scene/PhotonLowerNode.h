@@ -20,8 +20,11 @@ namespace OpenEngine {
             static const int SEARCH_RADIUS = 50;
             static const int MAX_SIZE = 32;
 
-            int *smallRoot;
+            //int *smallRoot; // useful?
             //int *left, *right;
+            float *extendedVolume;
+            int *splittingPlane;
+            //int *spanMask;
 
             int2 *splitTriangleSet; // {splitTriangleSetX, splitTriangleSetY, splitTriangleSetZ}
             int2 *splitTriangleSetX, *splitTriangleSetY, *splitTriangleSetZ;

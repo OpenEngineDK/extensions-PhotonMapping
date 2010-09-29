@@ -21,6 +21,7 @@ namespace CUDA {
 namespace Kernels {
 
 #define MIN_VVH 32
+#define MIN_SIZE 32
 
     __global__ void CalcSimpleSplittingPlane(char *lowerInfo,
                                              float *lowerSplitPos,
@@ -41,8 +42,8 @@ namespace Kernels {
             char planeID;
             for (int bitmap = photonInfo.y; bitmap > 0; bitmap -= 1<<planeID){
                 planeID = __ffs(bitmap) - 1;
-                int2 splitSet = splitTriangleSet[photonInfo.x + planeID + 0 * d_photonNodes];
                 
+                int2 splitSet = splitTriangleSet[photonInfo.x + planeID + 0 * d_photonNodes];
                 leftSet = photonInfo.y & splitSet.x;
                 int rightSet = photonInfo.y & splitSet.y;
                 int diff = rightSet - leftSet;
@@ -52,14 +53,49 @@ namespace Kernels {
                     axis = KDNode::X;
                     splitPos = positions[photonInfo.x + planeID].x;
                 }
+
+                splitSet = splitTriangleSet[photonInfo.x + planeID + 1 * d_photonNodes];
+                leftSet = photonInfo.y & splitSet.x;
+                rightSet = photonInfo.y & splitSet.y;
+                diff = rightSet - leftSet;
+
+                if (diff < bestRelation){
+                    bestRelation = diff;
+                    axis = KDNode::Y;
+                    splitPos = positions[photonInfo.x + planeID].x;
+                }
+
+                splitSet = splitTriangleSet[photonInfo.x + planeID + 2 * d_photonNodes];
+                leftSet = photonInfo.y & splitSet.x;
+                rightSet = photonInfo.y & splitSet.y;
+                diff = rightSet - leftSet;
+
+                if (diff < bestRelation){
+                    bestRelation = diff;
+                    axis = KDNode::Z;
+                    splitPos = positions[photonInfo.x + planeID].x;
+                }
             }
 
-            lowerInfo[id] = bitcount(leftSet) <= 2 ? KDNode::LEAF : axis;
+            lowerInfo[id] = bitcount(leftSet) <= MIN_SIZE ? KDNode::LEAF : axis;
             lowerSplitPos[id] = splitPos;
-            isNotLeaf[id] = bitcount(leftSet) <= 2 ? 0 : 1;
+            isNotLeaf[id] = bitcount(leftSet) <= MIN_SIZE ? 0 : 1;
         }
     }
 
+    __global__ void CreateChildren(int2 *lowerPhotonInfo,
+                                   float *extendedVolume,
+                                   int *childOffset){
+
+        const int nodeID = blockDim.x * blockIdx.x + threadIdx.x;
+        
+        if (nodeID < d_activeNodeRange) {
+            const int leftID = d_activeNodeRange + childOffset[nodeID];
+            const int rightID = leftID + childOffset[d_activeNodeRange];
+        }
+    }
+
+    /*
     __device__ int CalcVVH(int2 photonInfo,
                            int2 splitSet, 
                            float4 *positions){
@@ -151,8 +187,10 @@ namespace Kernels {
 
             lowerInfo[id] = bestVVH < MIN_VVH ? KDNode::LEAF :axis;
             lowerSplitPos[id] = splitPos;
+            isNotLeaf[id] = bestVVH < MIN_VVH ? 0 : 1;
         }
     }
+    */
 
 }
 }

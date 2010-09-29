@@ -3,7 +3,7 @@ SET ( EXTENSION_NAME "Extensions_PhotonMapping")
 # Create the extension library
 CUDA_ADD_LIBRARY( "CUDA_KERNELS"
 #  Utils/CUDA/Photon/KDTreeConstruction.cu
-  Utils/CUDA/PhotonKDTree.cu
+#  Utils/CUDA/PhotonKDTree.cu
   Utils/CUDA/PhotonMap.cu
   Utils/CUDA/PhotonMapCheck.cu
   Utils/CUDA/PhotonMapLowerNodes.cu

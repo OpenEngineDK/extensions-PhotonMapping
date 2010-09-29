@@ -63,27 +63,19 @@ namespace Kernels {
                                   int2 *photonInfo,
                                   char *nodeInfo){
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
-        
-        __shared__ int childStart;
-        __shared__ int totalLeft;
-        if (threadIdx.x == 0){
-            // @TODO move to CPU?
-            childStart = d_activeNodeIndex + d_activeNodeRange;
-            d_leafsCreated = totalLeft = splitSide[d_activeNodeRange*2-1] + prefixSum[d_activeNodeRange*2-1];
-        }
-        
-        __syncthreads();
-        
+
+        const int totalLeft = d_leafsCreated;
+
         if (id < d_activeNodeRange){
 
-            int parent = id;
+            const int parent = id;
 
             // Copy leftnode
             int leftIndex = id;
             int left = prefixSum[leftIndex];
             int right = leftIndex - left + totalLeft;
             int addr = splitSide[leftIndex] ? left : right;
-            lefts[parent] = childStart + addr;
+            lefts[parent] = d_childIndex + addr;
             photonInfo[addr] = tempPhotonInfo[leftIndex];
             nodeInfo[addr] = KDNode::LEAF;
             
@@ -92,7 +84,7 @@ namespace Kernels {
             left = prefixSum[rightIndex];
             right = rightIndex - left + totalLeft;
             addr = splitSide[rightIndex] ? left : right;
-            rights[parent] = childStart + addr;
+            rights[parent] = d_childIndex + addr;
             photonInfo[addr] = tempPhotonInfo[rightIndex];
             nodeInfo[addr] = KDNode::LEAF;
         }
@@ -103,20 +95,17 @@ namespace Kernels {
                                   int2 *photonInfo, char *nodeInfo){
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
-        // @TODO move to CPU?
-        int childStart = d_activeNodeIndex + d_activeNodeRange;
-
         if (id < d_activeNodeRange){
             
             // Copy leftnode
-            int leftIndex = id;
-            left[id] = childStart + leftIndex;
+            const int leftIndex = id;
+            left[id] = d_childIndex + leftIndex;
             photonInfo[leftIndex] = tempPhotonInfo[leftIndex];
             nodeInfo[leftIndex] = KDNode::LEAF;
 
             // Copy rightnode            
-            int rightIndex = id + d_activeNodeRange;
-            right[id] = childStart + rightIndex;
+            const int rightIndex = id + d_activeNodeRange;
+            right[id] = d_childIndex + rightIndex;
             photonInfo[rightIndex] = tempPhotonInfo[rightIndex];
             nodeInfo[rightIndex] = KDNode::LEAF;
         }
@@ -139,75 +128,6 @@ namespace Kernels {
     }
 
 
-
-
-    /*** == old code === ****/
-
-
-    __device__ bool d_onlyChildren;
-    __device__ unsigned int newChildren;
-
-    __global__ void MarkUpperLeafs(SplitVar splitVars, 
-                                   KDPhotonUpperNode upperNodes,
-                                   unsigned int activeIndex, 
-                                   unsigned int activeRange){
-
-        unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
-        unsigned int stepSize = gridDim.x * blockDim.x;
-
-        while (id < activeRange){
-            if (upperNodes.range[id + activeIndex] <= upperNodes.BUCKET_SIZE){
-                splitVars.side[id] = d_onlyChildren = false;
-            }else
-                splitVars.side[id] = true;
-
-            id += stepSize;
-        }
-    }
-
-    __global__ void SetupSomeChildLinks(SplitVar splitVars, 
-                                        KDPhotonUpperNode upperNodes,
-                                        unsigned int activeIndex, 
-                                        unsigned int activeRange){
-        
-        unsigned int totalLeafs = newChildren = 
-            splitVars.prefixSum[activeRange - 1] + splitVars.side[activeRange - 1];
-        
-        unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
-        unsigned int stepSize = gridDim.x * blockDim.x;
-        
-        while (id < activeRange){
-            unsigned int hasChildren = splitVars.side[id];
-            unsigned int nodeID = id + activeIndex;
-            unsigned int child = upperNodes.child[nodeID] = hasChildren 
-                ? activeIndex + activeRange + splitVars.prefixSum[id] * 2
-                : 0;
-            upperNodes.parent[child] = upperNodes.parent[child+1] = nodeID;
-
-            id += stepSize;
-        }
-    }
-
-    __global__ void SetupChildLinks(unsigned int *children,
-                                    unsigned int *parents,
-                                    const unsigned int upperNodeSize,
-                                    const unsigned int activeNode,
-                                    const unsigned int activeRange){
-
-        unsigned int id = blockDim.x * blockIdx.x + threadIdx.x;
-        unsigned int stepSize = gridDim.x * blockDim.x;
-
-        while (id < activeRange){
-            
-            unsigned int nodeID = id + activeNode;
-            unsigned int child = children[nodeID] = upperNodeSize + 2 * id;
-            parents[child] = parents[child+1] = nodeID;
-
-            id += stepSize;
-        }
-        
-    }
-    
 }
 }
 }

@@ -71,18 +71,35 @@ namespace OpenEngine {
                 int2 photonInfo;
                 cudaMemcpy(&photonInfo, upperNodes.photonInfo+index, sizeof(int2), cudaMemcpyDeviceToHost);
                     
+                float4 aabbMin, aabbMax;
+                cudaMemcpy(&aabbMin, upperNodes.aabbMin+index, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&aabbMax, upperNodes.aabbMax+index, sizeof(float4), cudaMemcpyDeviceToHost);
+                
                 if (info == KDNode::LEAF){
                     // Base case
                     
                     point positions[photonInfo.y];
                     cudaMemcpy(positions, photons.pos + photonInfo.x, 
                                photonInfo.y * sizeof(point), cudaMemcpyDeviceToHost);
-                    point aabbMin, aabbMax;
-                    aabbMin = aabbMax = positions[0];
+
+                    point calcedMin, calcedMax;
+                    calcedMin = calcedMax = positions[0];
                     for (int i = 1; i < photonInfo.y; ++i){
-                        aabbMin = pointMin(aabbMin, positions[i]);
-                        aabbMax = pointMax(aabbMax, positions[i]);
+                        calcedMin = pointMin(calcedMin, positions[i]);
+                        calcedMax = pointMax(calcedMax, positions[i]);
                     }
+
+                    if (!aabbContains(aabbMin, aabbMax, calcedMin))
+                        throw Exception("Leaf node " + Utils::Convert::ToString(index) +
+                                        " photon aabb minimum cornor " + Utils::CUDA::Convert::ToString(calcedMin) +
+                                        " is not contained in nodes aabb " + Utils::CUDA::Convert::ToString(aabbMin) + 
+                                        " -> " + Utils::CUDA::Convert::ToString(aabbMax) + ".");
+
+                    if (!aabbContains(aabbMin, aabbMax, calcedMax))
+                        throw Exception("Leaf node " + Utils::Convert::ToString(index) +
+                                        " photon aabb maximum cornor " + Utils::CUDA::Convert::ToString(calcedMax) +
+                                        " is not contained in nodes aabb " + Utils::CUDA::Convert::ToString(aabbMin) + 
+                                        " -> " + Utils::CUDA::Convert::ToString(aabbMax) + ".");
 
                     if (!aabbContains(parentAABBMin, parentAABBMax, aabbMin))
                         throw Exception("Leaf node " + Utils::Convert::ToString(index) +
@@ -101,10 +118,6 @@ namespace OpenEngine {
                     float splitPos;
                     cudaMemcpy(&splitPos, upperNodes.splitPos+index, sizeof(float), cudaMemcpyDeviceToHost);
                     
-                    float4 aabbMin, aabbMax;
-                    cudaMemcpy(&aabbMin, upperNodes.aabbMin+index, sizeof(float4), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(&aabbMax, upperNodes.aabbMax+index, sizeof(float4), cudaMemcpyDeviceToHost);
-
                     if (!aabbContains(parentAABBMin, parentAABBMax, aabbMin))
                         throw Exception("Node " + Utils::Convert::ToString(index) +
                                         " aabb minimum cornor " + Utils::CUDA::Convert::ToString(aabbMin) +

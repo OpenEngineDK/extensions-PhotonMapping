@@ -78,7 +78,8 @@ namespace OpenEngine {
                                        int &activePhotons);
 
                 void ComputeBoundingBox(int activeIndex,
-                                        int activeRange);
+                                        int activeRange,
+                                        int unhandledLeafs);
 
                 void SplitUpperNodePhotons(int activeIndex,
                                            int activeRange,
