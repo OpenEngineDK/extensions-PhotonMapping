@@ -28,6 +28,9 @@ namespace OpenEngine {
             point *aabbMin, *aabbMax;
             int2 *photonInfo; // [photonIndex, range/bitmap]
 
+            int *left, *right; // if it is a leaf node then both nodes
+                               // point to it's lower node.
+
             int maxSize;
             int size;
 

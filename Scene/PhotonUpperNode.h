@@ -26,8 +26,6 @@ namespace OpenEngine {
         public:
             //int *photonRanges;//, *tempRange; // Range of photons that the node spans
             int *parents;//, *tempParent;
-            int *left, *right; // if it is a leaf node then both nodes
-                               // point to it's lower node.
 
         public:
             PhotonUpperNode();

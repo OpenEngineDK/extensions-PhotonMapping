@@ -26,6 +26,9 @@ namespace OpenEngine {
 
             cudaSafeMalloc(&photonInfo, maxSize * sizeof(int2));
 
+            cudaSafeMalloc(&left, maxSize * sizeof(int));
+            cudaSafeMalloc(&right, maxSize * sizeof(int));
+
             CHECK_FOR_CUDA_ERROR();
         }
 
@@ -65,6 +68,19 @@ namespace OpenEngine {
             cudaMemcpy(tempInt2, photonInfo, copySize * sizeof(int2), cudaMemcpyDeviceToDevice);
             cudaFree(photonInfo);
             photonInfo = tempInt2;
+            CHECK_FOR_CUDA_ERROR();
+
+            int *tempInt;
+            cudaSafeMalloc(&tempInt, i * sizeof(int));
+            cudaMemcpy(tempInt, left, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
+            cudaFree(left);
+            left = tempInt;
+            CHECK_FOR_CUDA_ERROR();
+
+            cudaSafeMalloc(&tempInt, i * sizeof(int));
+            cudaMemcpy(tempInt, right, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
+            cudaFree(right);
+            right = tempInt;
             CHECK_FOR_CUDA_ERROR();
 
             maxSize = i;
