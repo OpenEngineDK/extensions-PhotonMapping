@@ -75,6 +75,9 @@ namespace OpenEngine {
 
                 cudaMemcpyToSymbol(d_activeNodeRange, &activeRange, sizeof(int));
 
+                // @OPT mark leafs and only do scan if there actually
+                // are any. Otherwise just copy.
+
                 // Compute split plane and mark nodes with low split
                 // cost as leaf nodes
                 unsigned int blocks, threads;

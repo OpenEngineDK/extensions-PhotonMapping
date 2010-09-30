@@ -49,8 +49,8 @@ namespace OpenEngine {
                 cudaMemcpy(&left, upperNodes.left, sizeof(int), cudaMemcpyDeviceToHost);
                 cudaMemcpy(&right, upperNodes.right, sizeof(int), cudaMemcpyDeviceToHost);
 
-                int leftSize = VerifyUpperNode(left, info, splitPos, aabbMin, aabbMaxAdjusted);
-                int rightSize = VerifyUpperNode(right, info, splitPos, aabbMinAdjusted, aabbMax);
+                int leftSize = VerifyUpperNode(left, aabbMin, aabbMaxAdjusted);
+                int rightSize = VerifyUpperNode(right, aabbMinAdjusted, aabbMax);
 
                 int2 photonInfo;
                 cudaMemcpy(&photonInfo, upperNodes.photonInfo, sizeof(int2), cudaMemcpyDeviceToHost);
@@ -63,7 +63,7 @@ namespace OpenEngine {
                                     " and right size " + Utils::Convert::ToString(rightSize));
             }
 
-            int PhotonMap::VerifyUpperNode(int index, char parentInfo, float parentSplitPos,
+            int PhotonMap::VerifyUpperNode(int index,
                                            point parentAABBMin, point parentAABBMax){
                 char info;
                 cudaMemcpy(&info, upperNodes.info+index, sizeof(char), cudaMemcpyDeviceToHost);
@@ -75,6 +75,18 @@ namespace OpenEngine {
                 cudaMemcpy(&aabbMin, upperNodes.aabbMin+index, sizeof(float4), cudaMemcpyDeviceToHost);
                 cudaMemcpy(&aabbMax, upperNodes.aabbMax+index, sizeof(float4), cudaMemcpyDeviceToHost);
                 
+                if (!aabbContains(parentAABBMin, parentAABBMax, aabbMin))
+                    throw Exception("Node " + Utils::Convert::ToString(index) +
+                                    " aabb minimum cornor " + Utils::CUDA::Convert::ToString(aabbMin) +
+                                    " is not contained in parents aabb " + Utils::CUDA::Convert::ToString(parentAABBMin) + 
+                                    " -> " + Utils::CUDA::Convert::ToString(parentAABBMax) + ".");
+                
+                if (!aabbContains(parentAABBMin, parentAABBMax, aabbMax))
+                    throw Exception("Node " + Utils::Convert::ToString(index) +
+                                    " aabb maximum cornor " + Utils::CUDA::Convert::ToString(aabbMax) +
+                                    " is not contained in parents aabb " + Utils::CUDA::Convert::ToString(parentAABBMin) + 
+                                    " -> " + Utils::CUDA::Convert::ToString(parentAABBMax) + ".");
+
                 if (info == KDNode::LEAF){
                     // Base case
                     
@@ -101,35 +113,15 @@ namespace OpenEngine {
                                         " is not contained in nodes aabb " + Utils::CUDA::Convert::ToString(aabbMin) + 
                                         " -> " + Utils::CUDA::Convert::ToString(aabbMax) + ".");
 
-                    if (!aabbContains(parentAABBMin, parentAABBMax, aabbMin))
-                        throw Exception("Leaf node " + Utils::Convert::ToString(index) +
-                                        " aabb minimum cornor " + Utils::CUDA::Convert::ToString(aabbMin) +
-                                        " is not contained in parents aabb " + Utils::CUDA::Convert::ToString(parentAABBMin) + 
-                                        " -> " + Utils::CUDA::Convert::ToString(parentAABBMax) + ".");
+                    int child;
+                    cudaMemcpy(&child, upperNodes.left+index, sizeof(int), cudaMemcpyDeviceToHost);
 
-                    if (!aabbContains(parentAABBMin, parentAABBMax, aabbMax))
-                        throw Exception("Leaf node " + Utils::Convert::ToString(index) +
-                                        " aabb maximum cornor " + Utils::CUDA::Convert::ToString(aabbMax) +
-                                        " is not contained in parents aabb " + Utils::CUDA::Convert::ToString(parentAABBMin) + 
-                                        " -> " + Utils::CUDA::Convert::ToString(parentAABBMax) + ".");
-                    
+                    VerifyLowerNode(child, calcedMin, calcedMax);
+
                 }else{
                     // Check parent info
                     float splitPos;
-                    cudaMemcpy(&splitPos, upperNodes.splitPos+index, sizeof(float), cudaMemcpyDeviceToHost);
-                    
-                    if (!aabbContains(parentAABBMin, parentAABBMax, aabbMin))
-                        throw Exception("Node " + Utils::Convert::ToString(index) +
-                                        " aabb minimum cornor " + Utils::CUDA::Convert::ToString(aabbMin) +
-                                        " is not contained in parents aabb " + Utils::CUDA::Convert::ToString(parentAABBMin) + 
-                                        " -> " + Utils::CUDA::Convert::ToString(parentAABBMax) + ".");
-
-                    if (!aabbContains(parentAABBMin, parentAABBMax, aabbMax))
-                        throw Exception("Node " + Utils::Convert::ToString(index) +
-                                        " aabb maximum cornor " + Utils::CUDA::Convert::ToString(aabbMax) +
-                                        " is not contained in parents aabb " + Utils::CUDA::Convert::ToString(parentAABBMin) + 
-                                        " -> " + Utils::CUDA::Convert::ToString(parentAABBMax) + ".");
-
+                    cudaMemcpy(&splitPos, upperNodes.splitPos+index, sizeof(float), cudaMemcpyDeviceToHost);                    
 
                     point aabbMinAdjusted = aabbMin, aabbMaxAdjusted = aabbMax;
                     switch(info){
@@ -148,8 +140,8 @@ namespace OpenEngine {
                     cudaMemcpy(&left, upperNodes.left+index, sizeof(int), cudaMemcpyDeviceToHost);
                     cudaMemcpy(&right, upperNodes.right+index, sizeof(int), cudaMemcpyDeviceToHost);
 
-                    int leftSize = VerifyUpperNode(left, info, splitPos, aabbMin, aabbMaxAdjusted);
-                    int rightSize = VerifyUpperNode(right, info, splitPos, aabbMinAdjusted, aabbMax);
+                    int leftSize = VerifyUpperNode(left, aabbMin, aabbMaxAdjusted);
+                    int rightSize = VerifyUpperNode(right, aabbMinAdjusted, aabbMax);
 
                     if (leftSize + rightSize != photonInfo.y)
                         throw Exception("The " + Utils::Convert::ToString(index) + 
@@ -161,6 +153,87 @@ namespace OpenEngine {
                 }
 
                 return photonInfo.y;
+            }
+
+            int PhotonMap::VerifyLowerNode(int index,
+                                           point parentAABBMin, point parentAABBMax){
+
+                char info;
+                cudaMemcpy(&info, lowerNodes.info+index, sizeof(char), cudaMemcpyDeviceToHost);
+                
+                int2 photonInfo;
+                cudaMemcpy(&photonInfo, lowerNodes.photonInfo+index, sizeof(int2), cudaMemcpyDeviceToHost);
+                
+                int photonAmount = bitcount(photonInfo.y);
+
+                point aabbMin = make_point(fInfinity);
+                point aabbMax = make_point(-fInfinity);
+                while (photonInfo.y){
+                    int i = ffs(photonInfo.y)-1;
+
+                    point photonPos;
+                    cudaMemcpy(&photonPos, 
+                               photons.pos+photonInfo.x+i, 
+                               sizeof(point), 
+                               cudaMemcpyDeviceToHost);
+                    
+                    aabbMin = pointMin(aabbMin, photonPos);
+                    aabbMax = pointMax(aabbMax, photonPos);
+                    
+                    photonInfo.y -= 1<<i;
+                }
+
+                if (!aabbContains(parentAABBMin, parentAABBMax, aabbMin))
+                    throw Exception("Lower node " + Utils::Convert::ToString(index) +
+                                    " aabb minimum cornor " + Utils::CUDA::Convert::ToString(aabbMin) +
+                                    " is not contained in parents aabb " + Utils::CUDA::Convert::ToString(parentAABBMin) + 
+                                    " -> " + Utils::CUDA::Convert::ToString(parentAABBMax) + ".");
+                
+                if (!aabbContains(parentAABBMin, parentAABBMax, aabbMax))
+                    throw Exception("Lower node " + Utils::Convert::ToString(index) +
+                                    " aabb maximum cornor " + Utils::CUDA::Convert::ToString(aabbMax) +
+                                    " is not contained in parents aabb " + Utils::CUDA::Convert::ToString(parentAABBMin) + 
+                                    " -> " + Utils::CUDA::Convert::ToString(parentAABBMax) + ".");
+                
+                if (info == KDNode::LEAF){ // Base case
+                    
+                    // Do nothing?
+
+                }else{ // Check parent info
+
+                    float splitPos;
+                    cudaMemcpy(&splitPos, lowerNodes.splitPos+index, sizeof(float), cudaMemcpyDeviceToHost);                    
+
+                    point aabbMinAdjusted = aabbMin, aabbMaxAdjusted = aabbMax;
+                    switch(info){
+                    case KDNode::X:
+                        aabbMinAdjusted.x = aabbMaxAdjusted.x = splitPos;
+                        break;
+                    case KDNode::Y:
+                        aabbMinAdjusted.y = aabbMaxAdjusted.y = splitPos;
+                        break;
+                    case KDNode::Z:
+                        aabbMinAdjusted.z = aabbMaxAdjusted.z = splitPos;
+                        break;
+                    }
+                    
+                    int left, right;
+                    cudaMemcpy(&left, lowerNodes.left+index, sizeof(int), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&right, lowerNodes.right+index, sizeof(int), cudaMemcpyDeviceToHost);
+
+                    int leftSize = VerifyLowerNode(left, aabbMin, aabbMaxAdjusted);
+                    int rightSize = VerifyLowerNode(right, aabbMinAdjusted, aabbMax);
+
+                    if (leftSize + rightSize != photonAmount)
+                        throw Exception("The " + Utils::Convert::ToString(index) + 
+                                        "'th node's size " + 
+                                        Utils::Convert::ToString(photonInfo.y) + 
+                                        " isn't the sum of left size " + 
+                                        Utils::Convert::ToString(leftSize) +
+                                        " and right size " + Utils::Convert::ToString(rightSize));
+                }
+                
+                return photonAmount;
             }
 
         }

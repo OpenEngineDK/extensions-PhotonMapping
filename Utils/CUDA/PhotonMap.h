@@ -108,8 +108,8 @@ namespace OpenEngine {
                                 
 
                 void VerifyMap();
-                int VerifyUpperNode(int i, char info, float splitPos,
-                                    point parentAABBMin, point parentAABBMax);
+                int VerifyUpperNode(int i, point parentAABBMin, point parentAABBMax);
+                int VerifyLowerNode(int i, point parentAABBMin, point parentAABBMax);
             };
 
         }
