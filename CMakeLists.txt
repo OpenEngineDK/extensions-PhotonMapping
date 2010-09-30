@@ -30,6 +30,8 @@ MESSAGE( " cut: ${CUDA_CUT_LIBRARIES} ")#cutil
 ADD_LIBRARY( ${EXTENSION_NAME}
   Renderers/OpenGL/PhotonRenderingView.h
   Renderers/OpenGL/PhotonRenderingView.cpp
+  Scene/TransparentNode.h
+  Scene/TransparentNode.cpp
 )
 
 TARGET_LINK_LIBRARIES( ${EXTENSION_NAME}
