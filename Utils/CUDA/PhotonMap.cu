@@ -298,33 +298,52 @@ namespace OpenEngine {
                 unsigned int blocks, threads;                
                 Calc1DKernelDimensions(activePhotons, blocks, threads);
 
-                // @OPT Only handle leafs nodes in case there actually
-                // are any!  
-
-                // Set photons leaf bit
-                SetPhotonNodeLeafSide<<<blocks, threads>>>(photonOwners, upperNodes.info, leafSide);
-                CHECK_FOR_CUDA_ERROR();
-                cudppScan(scanHandle, leafPrefix, leafSide, activePhotons+1);
-                CHECK_FOR_CUDA_ERROR();
-
-                SetPhotonNodeSplitSide<<<blocks, threads>>>(xSorted, photonOwners, 
-                                                            upperNodes.splitPos, upperNodes.info, 
-                                                            splitSide);
-                cudppScan(scanHandle, splitLeft, splitSide, activePhotons+1);
-                CHECK_FOR_CUDA_ERROR();
-
                 // @OPT It's faster to copy it data to constant memory
                 // from the host, than to scatter the data from an
                 // array inside the kernel. Will probably change when
                 // it's cached.
-                cudaMemcpyToSymbol(d_nonLeafPhotons, leafPrefix + activePhotons, sizeof(int), 0, cudaMemcpyDeviceToDevice);
+                SetPhotonNodeSplitSide<<<blocks, threads>>>(xSorted, photonOwners, 
+                                                            upperNodes.splitPos, upperNodes.info, 
+                                                            splitSide);
+                cudppScan(scanHandle, splitLeft, splitSide, activePhotons+1);
                 cudaMemcpyToSymbol(d_photonsMovedLeft, splitLeft + activePhotons, sizeof(int), 0, cudaMemcpyDeviceToDevice);
-                
-                SplitPhotons<<<blocks, threads>>>(xSorted, tempPhotonPos,
-                                                  photonOwners, newOwners,
-                                                  splitLeft, splitSide, 
-                                                  leafPrefix, leafSide,
-                                                  splitAddrs);
+                CHECK_FOR_CUDA_ERROR();
+
+                // Set photons leaf bit
+                bool createdLeafs = false;
+                cudaMemcpyToSymbol(d_createdLeafs, &createdLeafs, sizeof(bool));
+                SetPhotonNodeLeafSide<<<blocks, threads>>>(photonOwners, upperNodes.info, leafSide);
+                cudaMemcpyFromSymbol(&createdLeafs, d_createdLeafs, sizeof(bool));
+                CHECK_FOR_CUDA_ERROR();
+
+                int nonLeafPhotons = activePhotons;
+
+                if (createdLeafs){
+                    cudppScan(scanHandle, leafPrefix, leafSide, activePhotons+1);
+                    CHECK_FOR_CUDA_ERROR();
+
+                    cudaMemcpyToSymbol(d_nonLeafPhotons, leafPrefix + activePhotons, sizeof(int), 0, cudaMemcpyDeviceToDevice);
+                    
+                    SplitPhotons<<<blocks, threads>>>(xSorted, tempPhotonPos,
+                                                      photonOwners, newOwners,
+                                                      splitLeft, splitSide, 
+                                                      leafPrefix, leafSide,
+                                                      splitAddrs);
+                    
+                    // Copy photon positions belonging to leaves to the photon nodes.
+                    cudaMemcpy(&nonLeafPhotons, leafPrefix + activePhotons,
+                               sizeof(int), cudaMemcpyDeviceToHost);
+                    int leafPhotons = activePhotons - nonLeafPhotons;
+                    // Copy photons to a persistent array @OPT do it assync
+                    cudaMemcpy(photons.pos + nonLeafPhotons, tempPhotonPos + nonLeafPhotons, 
+                               leafPhotons * sizeof(point), cudaMemcpyDeviceToDevice);
+
+                }else{
+                    SplitPhotons<<<blocks, threads>>>(xSorted, tempPhotonPos,
+                                                      photonOwners, newOwners,
+                                                      splitLeft, splitSide, 
+                                                      splitAddrs);
+                }
                 CHECK_FOR_CUDA_ERROR();
 
                 /*
@@ -337,20 +356,11 @@ namespace OpenEngine {
                 logger.info << "Owners: " << Utils::CUDA::Convert::ToString(photonOwners, activePhotons) << logger.end;
                 logger.info << "new owners: " << Utils::CUDA::Convert::ToString(newOwners, activePhotons) << logger.end;
                 */                
-                // Copy photon positions belonging to leaves to the photon nodes.
-                int nonLeafPhotons;
-                cudaMemcpy(&nonLeafPhotons, leafPrefix + activePhotons,
-                           sizeof(int), cudaMemcpyDeviceToHost);
-                int leafPhotons = activePhotons - nonLeafPhotons;
-                if (leafPhotons > 0)
-                    // Copy photons to a persistent array @OPT do it assync
-                    cudaMemcpy(photons.pos + nonLeafPhotons, tempPhotonPos + nonLeafPhotons, 
-                               leafPhotons * sizeof(point), cudaMemcpyDeviceToDevice);
 
                 std::swap(xSorted, tempPhotonPos);
 
-                SplitSortedArray(ySorted, activePhotons);
-                SplitSortedArray(zSorted, activePhotons);
+                SplitSortedArray(ySorted, activePhotons, createdLeafs);
+                SplitSortedArray(zSorted, activePhotons, createdLeafs);
 
                 std::swap(photonOwners, newOwners);
                 
@@ -360,7 +370,8 @@ namespace OpenEngine {
                 activePhotons = nonLeafPhotons;
             }
 
-            void PhotonMap::SplitSortedArray(float4 *&sortedArray, int activePhotons){
+            void PhotonMap::SplitSortedArray(float4 *&sortedArray, int activePhotons, 
+                                             bool createdLeafs){
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activePhotons, blocks, threads);
 
@@ -369,9 +380,14 @@ namespace OpenEngine {
                 cudppScan(scanHandle, prefixSum, splitSide, activePhotons+1);
                 CHECK_FOR_CUDA_ERROR();
 
-                SplitPhotons<<<blocks, threads>>>(sortedArray, tempPhotonPos, 
-                                                  prefixSum, splitSide, 
-                                                  leafPrefix, leafSide);
+                if (createdLeafs)
+                    SplitPhotons<<<blocks, threads>>>(sortedArray, tempPhotonPos, 
+                                                      prefixSum, splitSide, 
+                                                      leafPrefix, leafSide);
+                else
+                    SplitPhotons<<<blocks, threads>>>(sortedArray, tempPhotonPos, 
+                                                      prefixSum, splitSide);
+
                 CHECK_FOR_CUDA_ERROR();
 
                 point* temp = sortedArray;
@@ -399,8 +415,6 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 upperNodeLeafList.size += leafNodes;
-
-                // @TODO place node ids in an array in preperation for creating lower nodes.
             }
             
             void PhotonMap::CreateChildren(int activeIndex,

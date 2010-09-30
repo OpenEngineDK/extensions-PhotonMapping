@@ -15,48 +15,55 @@ namespace CUDA {
 namespace Kernels {
 
     __global__ void Indices(point *positions,
-                            float* xIndices, float* yIndices, float* zIndices,
+                            int* xIndices, int* yIndices, int* zIndices,
                             float* xKeys, float* yKeys, float* zKeys, 
                             int size){
         
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        //int id = globalIdx2D(threadIdx, blockIdx, blockDim, gridDim);
-        int stepSize = gridDim.x * blockDim.x;
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
-        while (id < size){
+        if (id < size){
 
             point pos = positions[id];
             xIndices[id] = yIndices[id] = zIndices[id] = id;
             xKeys[id] = pos.x;
             yKeys[id] = pos.y;
             zKeys[id] = pos.z;
-            
-            id += stepSize;
         }
     }
+
     __global__ void ScatterPhotons(point *positions,
-                                   float* xIndices, float* yIndices, float* zIndices,
+                                   int* xIndices, int* yIndices, int* zIndices,
                                    float4 *xSorted, float4 *ySorted, float4 *zSorted,
                                    int size){
         
-        int id = blockDim.x * blockIdx.x + threadIdx.x;
-        int stepSize = gridDim.x * blockDim.x;
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
-        while (id < size){
+        if (id < size){
 
-            float index = xIndices[id];
-            point pos = positions[(int)index];
+            int index = xIndices[id];
+            point pos = positions[index];
             xSorted[id] = make_float4(pos.x, pos.y, pos.z, index);
 
             index = yIndices[id];
-            pos = positions[(int)index];
+            pos = positions[index];
             ySorted[id] = make_float4(pos.x, pos.y, pos.z, index);
             
             index = zIndices[id];
-            pos = positions[(int)index];
+            pos = positions[index];
             zSorted[id] = make_float4(pos.x, pos.y, pos.z, index);
+        }
+    }
 
-            id += stepSize;
+    __global__ void ScatterPhotons(int *indices,
+                                    point *position,
+                                    point *newPosition,
+                                    int size){
+        
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+        if (id < size){
+            const int oldId = indices[id];
+            newPosition[id] = position[oldId];
         }
     }
 

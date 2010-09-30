@@ -50,7 +50,7 @@ namespace OpenEngine {
                 CUDPPHandle sortHandle;
 
                 // Sorted photon positions
-                float *xIndices, *yIndices, *zIndices;
+                int *xIndices, *yIndices, *zIndices;
                 float *xKeys, *yKeys, *zKeys;
                 float4 *xSorted, *ySorted, *zSorted;
 
@@ -86,7 +86,8 @@ namespace OpenEngine {
                                            int unhandledLeafs,
                                            int &activePhotons);
 
-                void SplitSortedArray(float4 *&sortedArray, int activePhotons);
+                void SplitSortedArray(float4 *&sortedArray, int activePhotons, 
+                                      bool createdLeafs);
 
                 void SetupUpperLeafNodes(int activeIndex,
                                          int leafNodes,

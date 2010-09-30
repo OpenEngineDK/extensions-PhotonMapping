@@ -32,6 +32,7 @@ namespace Kernels {
 
             int owner = owners[id];
             leafSide[id] = info[owner] != KDNode::LEAF;
+            if (info[owner] == KDNode::LEAF) d_createdLeafs = true;
         }
     }
 
@@ -68,8 +69,8 @@ namespace Kernels {
                                  int *leafLeft, int *leafSide,
                                  int2 *splitAddrs){        
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
-        int leftTotal = d_photonsMovedLeft;
-        int nonLeafTotal = d_nonLeafPhotons;
+        const int leftTotal = d_photonsMovedLeft;
+        const int nonLeafTotal = d_nonLeafPhotons;
 
         if (id < d_photonNodes){
 
@@ -85,12 +86,30 @@ namespace Kernels {
     }
 
     __global__ void SplitPhotons(point *photonPos, point *newPos,
+                                 int *owners, int *newOwners,
+                                 int *splitLeft, int *splitSide,
+                                 int2 *splitAddrs){        
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        const int leftTotal = d_photonsMovedLeft;
+
+        if (id < d_photonNodes){
+
+            int left = splitLeft[id];
+            int right = id - left + leftTotal;
+            splitAddrs[id] = make_int2(left, right);
+            int addr = splitSide[id] ? left : right;
+            newPos[addr] = photonPos[id];
+            newOwners[addr] = owners[id];
+        }
+    }
+
+    __global__ void SplitPhotons(point *photonPos, point *newPos,
                                  int *splitLeft, int *splitSide,
                                  int *leafLeft, int *leafSide){
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
-        int leftTotal = d_photonsMovedLeft;
-        int nonLeafTotal = d_nonLeafPhotons;
+        const int leftTotal = d_photonsMovedLeft;
+        const int nonLeafTotal = d_nonLeafPhotons;
 
         if (id < d_photonNodes){
 
@@ -98,6 +117,21 @@ namespace Kernels {
             int left = splitLeft[id];
             int splitRight = leafLeft[id] - left + leftTotal;
             int right = leafSide[id] ? splitRight : leafRight;
+            int addr = splitSide[id] ? left : right;
+            newPos[addr] = photonPos[id];
+        }
+    }
+
+    __global__ void SplitPhotons(point *photonPos, point *newPos,
+                                 int *splitLeft, int *splitSide){
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        
+        const int leftTotal = d_photonsMovedLeft;
+
+        if (id < d_photonNodes){
+
+            int left = splitLeft[id];
+            int right = id - left + leftTotal;
             int addr = splitSide[id] ? left : right;
             newPos[addr] = photonPos[id];
         }
