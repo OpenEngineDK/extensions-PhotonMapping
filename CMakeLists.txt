@@ -2,22 +2,22 @@ SET ( EXTENSION_NAME "Extensions_PhotonMapping")
 
 # Create the extension library
 CUDA_ADD_LIBRARY( "CUDA_KERNELS"
-#  Utils/CUDA/Photon/KDTreeConstruction.cu
-#  Utils/CUDA/PhotonKDTree.cu
-  Utils/CUDA/PhotonMap.cu
-  Utils/CUDA/PhotonMapCheck.cu
-  Utils/CUDA/PhotonMapLowerNodes.cu
+  Math/CUDA/Matrix.h
   Scene/KDNode.cu
   Scene/KDPhotonUpperNode.cu
   Scene/PhotonUpperNode.cu
   Scene/PhotonLowerNode.cu
   Scene/PhotonNode.cu
-  Utils/CUDA/AABBVar.cu
+  Scene/TriangleUpperNode.cu
+  Resources/CUDA/CUDADataBlock.h
   Utils/CUDA/NodeChildren.cu
   Utils/CUDA/UpperNodeLeafList.cu
-  Utils/CUDA/splitVar.cu
   Utils/CUDA/Segments.cu
   Utils/CUDA/SplittingPlanes.cu
+  Utils/CUDA/GeometryList.cu
+  Utils/CUDA/PhotonMap.cu
+  Utils/CUDA/PhotonMapCheck.cu
+  Utils/CUDA/PhotonMapLowerNodes.cu
 )
 
 TARGET_LINK_LIBRARIES("CUDA_KERNELS"
@@ -30,8 +30,6 @@ MESSAGE( " cut: ${CUDA_CUT_LIBRARIES} ")#cutil
 ADD_LIBRARY( ${EXTENSION_NAME}
   Renderers/OpenGL/PhotonRenderingView.h
   Renderers/OpenGL/PhotonRenderingView.cpp
-  Scene/TransparentNode.h
-  Scene/TransparentNode.cpp
 )
 
 TARGET_LINK_LIBRARIES( ${EXTENSION_NAME}

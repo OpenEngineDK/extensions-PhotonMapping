@@ -9,7 +9,6 @@
 
 #include <Meta/CUDA.h>
 #include <Utils/CUDA/Utils.h>
-#include <Utils/CUDA/SplitVar.h>
 #include <Scene/KDPhotonUpperNode.h>
 #include <Scene/KDNode.h>
 #include <Scene/PhotonNode.h>

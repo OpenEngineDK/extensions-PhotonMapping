@@ -8,7 +8,7 @@
 //--------------------------------------------------------------------
 
 #ifndef _PHOTON_MAP_H_
-#define _PHoTON_MAP_H_
+#define _PHOTON_MAP_H_
 
 #include <Meta/CUDA.h>
 #include <Scene/PhotonNode.h>
@@ -30,9 +30,6 @@ namespace OpenEngine {
             class PhotonMap {
             public:
 
-                // Constants
-                unsigned int MAX_BLOCKS;
-
                 unsigned int timerID;
 
                 PhotonNode photons;
@@ -48,6 +45,8 @@ namespace OpenEngine {
                 CUDPPHandle scanHandle;
                 CUDPPConfiguration sortConfig;
                 CUDPPHandle sortHandle;
+
+                cudaStream_t copyStream;
 
                 // Sorted photon positions
                 int *xIndices, *yIndices, *zIndices;

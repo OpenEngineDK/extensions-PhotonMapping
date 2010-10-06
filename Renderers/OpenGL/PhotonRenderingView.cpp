@@ -24,7 +24,7 @@ namespace OpenEngine {
             
             PhotonRenderingView::PhotonRenderingView()
                 : RenderingView(), photonMap(NULL), 
-                  renderPhotons(true), renderTree(false){
+                  renderPhotons(false), renderTree(false){
             }
             
             void PhotonRenderingView::Handle(RenderingEventArg arg){
@@ -109,7 +109,7 @@ namespace OpenEngine {
                 glDisableClientState(GL_VERTEX_ARRAY);
                 glDisableClientState(GL_COLOR_ARRAY);
             }
-            
+
         }
     }
 }

@@ -32,10 +32,10 @@ namespace Kernels {
 
 
     // Upper node info
-    __constant__ __device__ int2* d_upperPhotonInfo;
+    __constant__ int2* d_upperPhotonInfo;
 
     // Lower node info
-    __constant__ __device__ int2* d_lowerPhotonInfo;
+    __constant__ int2* d_lowerPhotonInfo;
 }
 }
 }

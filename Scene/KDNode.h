@@ -12,6 +12,9 @@
 
 #include <Meta/CUDA.h>
 #include <Utils/Cuda/Point.h>
+#include <Resources/CUDA/CUDADataBlock.h>
+
+using namespace OpenEngine::Resources::CUDA;
 
 namespace OpenEngine {
     namespace Scene {
@@ -23,8 +26,8 @@ namespace OpenEngine {
             static const char Y = 2;
             static const char Z = 3;
 
-            char *info; // 0 = LEAF,1 = X, 2 = Y, 3 = Z. 6 bits left for stuff
-            float *splitPos; // position along that axis
+            char* info; // 0 = LEAF,1 = X, 2 = Y, 3 = Z. 6 bits left for stuff
+            float* splitPos;
             point *aabbMin, *aabbMax;
             int2 *photonInfo; // [photonIndex, range/bitmap]
 

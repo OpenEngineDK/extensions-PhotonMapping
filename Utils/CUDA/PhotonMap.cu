@@ -18,6 +18,8 @@
 #include <Utils/CUDA/Kernels/UpperNodeSplit.hcu>
 #include <Utils/CUDA/Kernels/UpperNodeChildren.hcu>
 
+using namespace OpenEngine::Resources::CUDA;
+
 namespace OpenEngine {
     namespace Utils {
         namespace CUDA {
@@ -25,9 +27,6 @@ namespace OpenEngine {
             using namespace Kernels;
 
             PhotonMap::PhotonMap(unsigned int size) {
-                MAX_BLOCKS = activeCudaDevice.maxGridSize[0];
-                logger.info << "MAX_BLOCKS " << MAX_BLOCKS << logger.end;
-
                 // Initialized timer
                 cutCreateTimer(&timerID);
 
@@ -62,6 +61,8 @@ namespace OpenEngine {
                 res = cudppPlan(&sortHandle, sortConfig, size, 1, 0);
                 if (CUDPP_SUCCESS != res)
                     throw Core::Exception("Error creating CUDPP sortPlan");
+
+                cudaStreamCreate(&copyStream);
 
                 cudaSafeMalloc(&xIndices, size * sizeof(float));
                 cudaSafeMalloc(&xSorted, size * sizeof(float4));
@@ -122,7 +123,8 @@ namespace OpenEngine {
                 }
                 // Copy the rest of the photons to photon position
                 cudaMemcpy(photons.pos, xSorted, 
-                           activePhotons * sizeof(point), cudaMemcpyDeviceToDevice);
+                           activePhotons * sizeof(point), 
+                           cudaMemcpyDeviceToDevice);
 
                 ComputeBoundingBox(activeIndex, activeRange, unhandledLeafs);
                 
@@ -146,8 +148,9 @@ namespace OpenEngine {
                 // needed? Hasn't crashed yet)                
 
                 // Preprocess lower nodes.
+                cudaStreamSynchronize(copyStream);                
                 PreprocessLowerNodes();
-                
+
                 // Process lower nodes.
                 cudaMemcpyToSymbol(d_photonNodes, &(photons.size), sizeof(int));
 
@@ -439,7 +442,7 @@ namespace OpenEngine {
 
                 // Reuse leafSide to hold splits
                 SetupChildren<<<blocks, threads>>>(upperNodes.photonInfo + activeIndex,
-                                                   tempChildren.photonInfo, tempChildren.parents,
+                                                   tempChildren.photonInfo,
                                                    splitAddrs, splitLeft,
                                                    leafSide);
                 CHECK_FOR_CUDA_ERROR();

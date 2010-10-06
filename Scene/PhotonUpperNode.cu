@@ -28,9 +28,8 @@ namespace OpenEngine {
         PhotonUpperNode::PhotonUpperNode(int size)
             : KDNode(size) {
 
-            logger.info << "UpperNode inital max: " << size<< logger.end;
+            logger.info << "Photon upper node inital max: " << size<< logger.end;
 
-            //cudaSafeMalloc(&photonRanges, maxSize * sizeof(int));
             cudaSafeMalloc(&parents, maxSize * sizeof(int));
 
             CHECK_FOR_CUDA_ERROR();
@@ -43,13 +42,6 @@ namespace OpenEngine {
             
             int *tempInt;
 
-            /*
-            cudaMalloc(&tempInt, i * sizeof(int));
-            cudaMemcpy(tempInt, photonRanges, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
-            cudaFree(photonRanges);
-            photonRanges = tempInt;
-            CHECK_FOR_CUDA_ERROR();
-            */
             cudaSafeMalloc(&tempInt, i * sizeof(int));
             cudaMemcpy(tempInt, parents, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
             cudaFree(parents);

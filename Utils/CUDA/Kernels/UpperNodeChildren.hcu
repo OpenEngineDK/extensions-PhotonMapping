@@ -26,7 +26,7 @@ namespace Kernels {
      * photonInfo has been moved to start at current active node.
      */
     __global__ void SetupChildren(int2 *photonInfo, // [index, range]
-                                  int2 *childPhotonInfo, int *parents, 
+                                  int2 *childPhotonInfo, 
                                   int2 *splitAddrs, int *splitLeft,
                                   int *leafSide){
         
@@ -44,13 +44,11 @@ namespace Kernels {
             int leftRange = splitLeft[photonEnd] - photonIndex.x;
             createdLeaf |= leafSide[childIndex] = leftRange <= PhotonLowerNode::MAX_SIZE ? 1 : 0;
             childPhotonInfo[childIndex] = make_int2(photonIndex.x, leftRange);
-            parents[childIndex] = id;
 
             childIndex = id + d_activeNodeRange;
             int rightRange = info.y - leftRange;
             createdLeaf |= leafSide[childIndex] = rightRange <= PhotonLowerNode::MAX_SIZE ? 1 : 0;
             childPhotonInfo[childIndex] = make_int2(photonIndex.y, rightRange);
-            parents[childIndex] = id;
         }
         
         // parallel or
