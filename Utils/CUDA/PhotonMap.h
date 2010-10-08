@@ -11,6 +11,7 @@
 #define _PHOTON_MAP_H_
 
 #include <Meta/CUDA.h>
+#include <Resources/CUDA/CUDADataBlock.h>
 #include <Scene/PhotonNode.h>
 #include <Scene/PhotonUpperNode.h>
 #include <Scene/PhotonLowerNode.h>
@@ -19,7 +20,7 @@
 
 #include <Meta/CUDPP.h>
 
-#define CPU_VERIFY
+//#define CPU_VERIFY
 
 using namespace OpenEngine::Scene;
 
@@ -35,8 +36,8 @@ namespace OpenEngine {
                 PhotonNode photons;
                 int *photonOwners;
                 int *newOwners;
-                PhotonUpperNode upperNodes;
-                PhotonLowerNode lowerNodes;
+                PhotonUpperNode* upperNodes;
+                PhotonLowerNode* lowerNodes;
                 
                 NodeChildren tempChildren;
                 UpperNodeLeafList upperNodeLeafList;

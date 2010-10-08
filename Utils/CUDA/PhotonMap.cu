@@ -38,8 +38,8 @@ namespace OpenEngine {
                 
                 // Make room for the root node
                 int approxSize = (2 * size / PhotonLowerNode::MAX_SIZE) - 1;
-                upperNodes = PhotonUpperNode(approxSize);
-                lowerNodes = PhotonLowerNode(size);
+                upperNodes = new PhotonUpperNode(approxSize);
+                lowerNodes = new PhotonLowerNode(size);
 
                 tempChildren = NodeChildren(size / PhotonLowerNode::MAX_SIZE);
                 upperNodeLeafList = UpperNodeLeafList(size / PhotonLowerNode::MAX_SIZE);
@@ -91,8 +91,8 @@ namespace OpenEngine {
 
                 // Initialize kd root node data
                 int2 i = make_int2(0, activePhotons);
-                cudaMemcpy(upperNodes.photonInfo, &i, sizeof(int2), cudaMemcpyHostToDevice);
-                upperNodes.size = 1;
+                cudaMemcpy(upperNodes->photonInfo->GetDeviceData(), &i, sizeof(int2), cudaMemcpyHostToDevice);
+                upperNodes->size = 1;
 
                 // Set all photons owner to node 0
                 cudaMemset(photonOwners, 0, activePhotons * sizeof(int));
@@ -111,7 +111,7 @@ namespace OpenEngine {
                                       leafsCreated, childrenCreated, activePhotons);
                     
                     //for (int i = -unhandledLeafs; i < activeRange; ++i)
-                    //logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
+                    //logger.info << upperNodes->ToString(i + activeIndex) << logger.end;
 
                     // Increment loop variables
                     activeIndex += activeRange + leafsCreated;
@@ -139,7 +139,7 @@ namespace OpenEngine {
                 upperNodeLeafList.size += unhandledLeafs;
 
                 //for (int i = -unhandledLeafs; i < activeRange; ++i)
-                //logger.info << upperNodes.ToString(i + activeIndex) << logger.end;
+                //logger.info << upperNodes->ToString(i + activeIndex) << logger.end;
                 PRINT_TIMER(timerID, "Upper node creation");
 
                 // logger.info << "photons.pos " << Utils::CUDA::Convert::ToString(photons.pos, photons.size) << logger.end;
@@ -154,7 +154,7 @@ namespace OpenEngine {
                 // Process lower nodes.
                 cudaMemcpyToSymbol(d_photonNodes, &(photons.size), sizeof(int));
 
-                activeIndex = 0; activeRange = lowerNodes.size; 
+                activeIndex = 0; activeRange = lowerNodes->size; 
                 leafsCreated = 0; childrenCreated = activeRange * 2;
                 while (activeRange != 0){
                     ProcessLowerNodes(activeIndex, activeRange, 
@@ -207,8 +207,8 @@ namespace OpenEngine {
                 logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << activePhotons << " photons" << logger.end;
 
                 // Check that there is room for the new children
-                if (upperNodes.maxSize < upperNodes.size + activeRange * 2)
-                    upperNodes.Resize(upperNodes.size + activeRange * 2);
+                if (upperNodes->maxSize < upperNodes->size + activeRange * 2)
+                    upperNodes->Resize(upperNodes->size + activeRange * 2);
 
                 // Copy bookkeeping to symbols
                 cudaMemcpyToSymbol(d_photonNodes, &activePhotons, sizeof(int));
@@ -227,7 +227,7 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
                 
                 // Update uppernode size
-                upperNodes.size += leafsCreated + childrenCreated;
+                upperNodes->size += leafsCreated + childrenCreated;
                 
                 CHECK_FOR_CUDA_ERROR();
             }
@@ -244,21 +244,21 @@ namespace OpenEngine {
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activeRange + unhandledLeafs, blocks, threads);
 
-                ConstantTimeBoundingBox<<<blocks, threads>>>(upperNodes.photonInfo + activeIndex - unhandledLeafs,
-                                                             upperNodes.aabbMin + activeIndex - unhandledLeafs,
-                                                             upperNodes.aabbMax + activeIndex - unhandledLeafs,
+                ConstantTimeBoundingBox<<<blocks, threads>>>(upperNodes->photonInfo->GetDeviceData() + activeIndex - unhandledLeafs,
+                                                             upperNodes->aabbMin->GetDeviceData() + activeIndex - unhandledLeafs,
+                                                             upperNodes->aabbMax->GetDeviceData() + activeIndex - unhandledLeafs,
                                                              xSorted, ySorted, zSorted,
                                                              activeRange + unhandledLeafs);
                 if (activeRange > 0){
                     Calc1DKernelDimensions(activeRange, blocks, threads);
-                    SetUpperNodeSplitInfo<<<blocks, threads>>>(upperNodes.aabbMin + activeIndex,
-                                                               upperNodes.aabbMax + activeIndex,
-                                                               upperNodes.splitPos + activeIndex,
-                                                               upperNodes.info + activeIndex);
+                    SetUpperNodeSplitInfo<<<blocks, threads>>>(upperNodes->aabbMin->GetDeviceData() + activeIndex,
+                                                               upperNodes->aabbMax->GetDeviceData() + activeIndex,
+                                                               upperNodes->splitPos->GetDeviceData() + activeIndex,
+                                                               upperNodes->info->GetDeviceData() + activeIndex);
                 }
 
-                //logger.info << "aabbMin: " << Utils::CUDA::Convert::ToString(upperNodes.aabbMin + activeIndex, activeRange) << logger.end;
-                //logger.info << "aabbMax: " << Utils::CUDA::Convert::ToString(upperNodes.aabbMax + activeIndex, activeRange) << logger.end;
+                //logger.info << "aabbMin: " << Utils::CUDA::Convert::ToString(upperNodes->aabbMin + activeIndex, activeRange) << logger.end;
+                //logger.info << "aabbMax: " << Utils::CUDA::Convert::ToString(upperNodes->aabbMax + activeIndex, activeRange) << logger.end;
 #ifdef CPU_VERIFY
                 // Check that the bounding box holds for all arrays
 
@@ -267,11 +267,11 @@ namespace OpenEngine {
 
                 for (int i = activeIndex; i < activeIndex + activeRange; ++i){
                     int2 photonInfo;
-                    cudaMemcpy(&photonInfo, upperNodes.photonInfo + i, sizeof(int2), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&photonInfo, upperNodes->photonInfo->GetDeviceData() + i, sizeof(int2), cudaMemcpyDeviceToHost);
 
                     point aabbMin, aabbMax;
-                    cudaMemcpy(&aabbMin, upperNodes.aabbMin+i, sizeof(point), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(&aabbMax, upperNodes.aabbMax+i, sizeof(point), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&aabbMin, upperNodes->aabbMin->GetDeviceData()+i, sizeof(point), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&aabbMax, upperNodes->aabbMax->GetDeviceData()+i, sizeof(point), cudaMemcpyDeviceToHost);
 
                     point pos[photonInfo.y];
                     point cpuMin, cpuMax;
@@ -306,7 +306,7 @@ namespace OpenEngine {
                 // array inside the kernel. Will probably change when
                 // it's cached.
                 SetPhotonNodeSplitSide<<<blocks, threads>>>(xSorted, photonOwners, 
-                                                            upperNodes.splitPos, upperNodes.info, 
+                                                            upperNodes->splitPos->GetDeviceData(), upperNodes->info->GetDeviceData(), 
                                                             splitSide);
                 cudppScan(scanHandle, splitLeft, splitSide, activePhotons+1);
                 cudaMemcpyToSymbol(d_photonsMovedLeft, splitLeft + activePhotons, sizeof(int), 0, cudaMemcpyDeviceToDevice);
@@ -315,7 +315,7 @@ namespace OpenEngine {
                 // Set photons leaf bit
                 bool createdLeafs = false;
                 cudaMemcpyToSymbol(d_createdLeafs, &createdLeafs, sizeof(bool));
-                SetPhotonNodeLeafSide<<<blocks, threads>>>(photonOwners, upperNodes.info, leafSide);
+                SetPhotonNodeLeafSide<<<blocks, threads>>>(photonOwners, upperNodes->info->GetDeviceData(), leafSide);
                 cudaMemcpyFromSymbol(&createdLeafs, d_createdLeafs, sizeof(bool));
                 CHECK_FOR_CUDA_ERROR();
 
@@ -379,7 +379,7 @@ namespace OpenEngine {
                 Calc1DKernelDimensions(activePhotons, blocks, threads);
 
                 // Calc splitting side for all sortedArray positions
-                SetPhotonNodeSplitSide<<<blocks, threads>>>(sortedArray, photonOwners, upperNodes.splitPos, upperNodes.info, splitSide);
+                SetPhotonNodeSplitSide<<<blocks, threads>>>(sortedArray, photonOwners, upperNodes->splitPos->GetDeviceData(), upperNodes->info->GetDeviceData(), splitSide);
                 cudppScan(scanHandle, prefixSum, splitSide, activePhotons+1);
                 CHECK_FOR_CUDA_ERROR();
 
@@ -411,7 +411,7 @@ namespace OpenEngine {
                 if (upperNodeLeafList.size + leafNodes < upperNodeLeafList.maxSize)
                     upperNodeLeafList.Resize(upperNodeLeafList.size + leafNodes);
 
-                SetupLeafNodes<<<blocks, threads>>>(upperNodes.photonInfo + leafIndex,
+                SetupLeafNodes<<<blocks, threads>>>(upperNodes->photonInfo->GetDeviceData() + leafIndex,
                                                     leafPrefix,
                                                     upperNodeLeafList.leafIDs + upperNodeLeafList.size,
                                                     leafNodes);
@@ -441,14 +441,14 @@ namespace OpenEngine {
                 cudaMemcpyToSymbol(d_createdLeafs, &createdLeafs, sizeof(bool));
 
                 // Reuse leafSide to hold splits
-                SetupChildren<<<blocks, threads>>>(upperNodes.photonInfo + activeIndex,
+                SetupChildren<<<blocks, threads>>>(upperNodes->photonInfo->GetDeviceData() + activeIndex,
                                                    tempChildren.photonInfo,
                                                    splitAddrs, splitLeft,
                                                    leafSide);
                 CHECK_FOR_CUDA_ERROR();
                 /*
                 logger.info << "=== SetupChildren<<<" << blocks << ", " << threads << ">>> ===" << logger.end;
-                logger.info << "Photon info: " << Utils::CUDA::Convert::ToString(upperNodes.photonInfo + activeIndex, activeRange) << logger.end;
+                logger.info << "Photon info: " << Utils::CUDA::Convert::ToString(upperNodes->photonInfo + activeIndex, activeRange) << logger.end;
                 logger.info << "SplitAddrs: " << Utils::CUDA::Convert::ToString(splitAddrs, photons.size) << logger.end;
                 logger.info << "Split left: " << Utils::CUDA::Convert::ToString(splitLeft, photons.size+1) << logger.end;
                 logger.info << "===" << logger.end;
@@ -477,14 +477,14 @@ namespace OpenEngine {
                     */
                     MoveChildInfo<<<blocks, threads>>>(tempChildren.photonInfo,
                                                        leafSide, leafPrefix,
-                                                       upperNodes.left + activeIndex, 
-                                                       upperNodes.right + activeIndex,
-                                                       upperNodes.photonInfo + activeIndex + activeRange,
-                                                       upperNodes.info + activeIndex + activeRange);
+                                                       upperNodes->GetLeftData() + activeIndex, 
+                                                       upperNodes->GetRightData() + activeIndex,
+                                                       upperNodes->photonInfo->GetDeviceData() + activeIndex + activeRange,
+                                                       upperNodes->info->GetDeviceData() + activeIndex + activeRange);
                     /*
-                    logger.info << "Child photon info: " << Utils::CUDA::Convert::ToString(upperNodes.photonInfo + activeIndex + activeRange, activeRange * 2) << logger.end;
-                    logger.info << "Left: " << Utils::CUDA::Convert::ToString(upperNodes.left + activeIndex, activeRange) << logger.end;
-                    logger.info << "Right: " << Utils::CUDA::Convert::ToString(upperNodes.right + activeIndex, activeRange) << logger.end;
+                    logger.info << "Child photon info: " << Utils::CUDA::Convert::ToString(upperNodes->photonInfo + activeIndex + activeRange, activeRange * 2) << logger.end;
+                    logger.info << "Left: " << Utils::CUDA::Convert::ToString(upperNodes->left + activeIndex, activeRange) << logger.end;
+                    logger.info << "Right: " << Utils::CUDA::Convert::ToString(upperNodes->right + activeIndex, activeRange) << logger.end;
                     */
                     CHECK_FOR_CUDA_ERROR();                    
 
@@ -496,10 +496,10 @@ namespace OpenEngine {
                 }else{
                     // Move child info into uppernodes
                     CopyChildInfo<<<blocks, threads>>>(tempChildren.photonInfo,
-                                                       upperNodes.left + activeIndex, 
-                                                       upperNodes.right + activeIndex,
-                                                       upperNodes.photonInfo + activeIndex + activeRange,
-                                                       upperNodes.info + activeIndex + activeRange);
+                                                       upperNodes->GetLeftData() + activeIndex, 
+                                                       upperNodes->GetRightData() + activeIndex,
+                                                       upperNodes->photonInfo->GetDeviceData() + activeIndex + activeRange,
+                                                       upperNodes->info->GetDeviceData() + activeIndex + activeRange);
                     CHECK_FOR_CUDA_ERROR();
 
                     leafsCreated = 0;
@@ -507,17 +507,17 @@ namespace OpenEngine {
                 }
 
                 Calc1DKernelDimensions(activePhotons, blocks, threads);
-                UpdatePhotonOwners<<<blocks, threads>>>(photonOwners, upperNodes.left,
-                                                        upperNodes.right, upperNodes.photonInfo,
+                UpdatePhotonOwners<<<blocks, threads>>>(photonOwners, upperNodes->GetLeftData(),
+                                                        upperNodes->GetRightData(), upperNodes->photonInfo->GetDeviceData(),
                                                         activePhotons);
                 CHECK_FOR_CUDA_ERROR();
 
                 /*
                 logger.info << "=== UpdatePhotonOwners<<<" << blocks << ", " << threads << ">>> ===" << logger.end;
                 logger.info << "owners: " << Utils::CUDA::Convert::ToString(photonOwners, activePhotons) << logger.end;
-                logger.info << "left: " << Utils::CUDA::Convert::ToString(upperNodes.left, upperNodes.size) << logger.end;
-                logger.info << "right: " << Utils::CUDA::Convert::ToString(upperNodes.right, upperNodes.size) << logger.end;
-                logger.info << "photonInfo: " << Utils::CUDA::Convert::ToString(upperNodes.photonInfo, upperNodes.size) << logger.end;
+                logger.info << "left: " << Utils::CUDA::Convert::ToString(upperNodes->left, upperNodes->size) << logger.end;
+                logger.info << "right: " << Utils::CUDA::Convert::ToString(upperNodes->right, upperNodes->size) << logger.end;
+                logger.info << "photonInfo: " << Utils::CUDA::Convert::ToString(upperNodes->photonInfo, upperNodes->size) << logger.end;
                 logger.info << "===" << logger.end;
                 logger.info << "owners: " << Utils::CUDA::Convert::ToString(photonOwners, activePhotons) << logger.end;
                 logger.info << "" << logger.end;

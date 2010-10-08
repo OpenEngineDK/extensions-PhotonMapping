@@ -11,6 +11,9 @@
 #define _CUDA_NODE_SEGMENTS_H_
 
 #include <Utils/CUDA/Point.h>
+#include <Resources/CUDA/CUDADataBlock.h>
+
+using namespace OpenEngine::Resources::CUDA;
 
 namespace OpenEngine {
     namespace Utils {
@@ -21,12 +24,11 @@ namespace OpenEngine {
                 
                 static const int SEGMENT_SIZE = 256;
                 
-                int *nodeIDs;
-                int *photonIndices;
-                int *photonRanges; // usually segment_size
+                CUDADataBlock<1, int> *nodeIDs;
+                CUDADataBlock<1, int2> *photonInfo;
                 // Variables for holding the intermediate min/max values
-                point *aabbMin, *aabbMax;
-                int *prefixSum; // prefix sum.
+                CUDADataBlock<1, point> *aabbMin, *aabbMax;
+                CUDADataBlock<1, int> *prefixSum; // prefix sum.
 
                 int maxSize, size;
 

@@ -22,6 +22,7 @@ namespace OpenEngine {
     namespace Utils {
         namespace CUDA {
             class PhotonMap;
+            class TriangleMap;
         }
     }
     namespace Renderers {
@@ -31,7 +32,7 @@ namespace OpenEngine {
 
             class PhotonRenderingView : public RenderingView {
             protected:
-                //PhotonKDTree* photonMap;
+                TriangleMap* triangleMap;
                 PhotonMap* photonMap;
                 
                 bool renderPhotons, renderTree;
@@ -45,6 +46,7 @@ namespace OpenEngine {
                 virtual void Handle(RenderingEventArg arg);
 
                 void Initialize(RenderingEventArg arg);
+                void UpdateGeometry();
                 void ShootPhotons();
 
                 void RenderPhotons();

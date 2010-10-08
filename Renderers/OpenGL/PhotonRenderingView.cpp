@@ -13,6 +13,7 @@
 #include <Geometry/GeometrySet.h>
 #include <Resources/DataBlock.h>
 #include <Scene/PhotonNode.h>
+#include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/PhotonMap.h>
 #include <Utils/CUDA/Utils.h>
 
@@ -23,7 +24,7 @@ namespace OpenEngine {
         namespace OpenGL {
             
             PhotonRenderingView::PhotonRenderingView()
-                : RenderingView(), photonMap(NULL), 
+                : RenderingView(), triangleMap(NULL), photonMap(NULL), 
                   renderPhotons(false), renderTree(false){
             }
             
@@ -33,7 +34,7 @@ namespace OpenEngine {
                 
                 if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_INITIALIZE){
                     Initialize(arg);
-                    ShootPhotons();
+                    UpdateGeometry();
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
                     if (renderPhotons)
                         RenderPhotons();
@@ -44,6 +45,8 @@ namespace OpenEngine {
 
             void PhotonRenderingView::Initialize(RenderingEventArg arg) {
                 INITIALIZE_CUDA();
+
+                triangleMap = new TriangleMap(arg.canvas.GetScene());
                 
                 unsigned int size = (1<<17)-7;
                 photonMap = new PhotonMap(size);
@@ -51,7 +54,13 @@ namespace OpenEngine {
                 map<string, IDataBlockPtr> attr;
                 attr["vertex"] = vertices;
                 photons = GeometrySetPtr(new GeometrySet(attr));
-                arg.renderer.BindDataBlock(vertices.get());                
+                arg.renderer.BindDataBlock(vertices.get());
+            }
+
+            void PhotonRenderingView::UpdateGeometry(){
+                triangleMap->Create();
+                CHECK_FOR_CUDA_ERROR();
+                ShootPhotons();
             }
 
             void PhotonRenderingView::ShootPhotons(){
@@ -74,7 +83,7 @@ namespace OpenEngine {
             }
 
             void PhotonRenderingView::RenderTree(RenderingEventArg arg){
-                unsigned int size = photonMap->upperNodes.size * 12;
+                unsigned int size = photonMap->upperNodes->size * 12;
 
                 if (upperNodes == NULL || upperNodes->GetSize() < size){
 
@@ -94,7 +103,7 @@ namespace OpenEngine {
                 IDataBlockPtr p = upperNodes->GetDataBlock("position");
                 IDataBlockPtr c = upperNodes->GetDataBlock("color");
 
-                photonMap->upperNodes.MapToDataBlocks(p.get(), c.get());
+                photonMap->upperNodes->MapToDataBlocks(p.get(), c.get());
 
                 glEnableClientState(GL_VERTEX_ARRAY);
                 glBindBuffer(GL_ARRAY_BUFFER, p->GetID());

@@ -16,63 +16,26 @@ namespace OpenEngine {
         namespace CUDA {
             
             Segments::Segments()
-                : maxSize(0), size(0) {}
+                : maxSize(0){}
 
             Segments::Segments(int i)
-                : maxSize(i), size(i){
-                cudaMalloc(&nodeIDs, maxSize * sizeof(int));
-                cudaMalloc(&photonIndices, maxSize * sizeof(int));
-                cudaMalloc(&photonRanges, maxSize * sizeof(int));
-
-                cudaMalloc(&aabbMin, maxSize * sizeof(point));
-                cudaMalloc(&aabbMax, maxSize * sizeof(point));
+                : maxSize(i){
                 
-                cudaMalloc(&prefixSum, maxSize * sizeof(int));
+                nodeIDs = new CUDADataBlock<1, int>(i);
+                photonInfo = new CUDADataBlock<1, int2>(i);
+                aabbMin = new CUDADataBlock<1, point>(i);
+                aabbMax = new CUDADataBlock<1, point>(i);
+                prefixSum = new CUDADataBlock<1, int>(i);
             }
 
             void Segments::Resize(int i){
-                int copySize = min(i, size);
-                
-                int* tempInt;
-                cudaMalloc(&tempInt, i * sizeof(int));
-                cudaMemcpy(tempInt, nodeIDs, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
-                cudaFree(nodeIDs);
-                nodeIDs = tempInt;
-                CHECK_FOR_CUDA_ERROR();
-
-                cudaMalloc(&tempInt, i * sizeof(int));
-                cudaMemcpy(tempInt, photonIndices, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
-                cudaFree(photonIndices);
-                photonIndices = tempInt;
-                CHECK_FOR_CUDA_ERROR();
-
-                cudaMalloc(&tempInt, i * sizeof(int));
-                cudaMemcpy(tempInt, photonRanges, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
-                cudaFree(photonRanges);
-                photonRanges = tempInt;
-                CHECK_FOR_CUDA_ERROR();
-
-                point *tempPoint;
-                cudaMalloc(&tempPoint, i * sizeof(point));
-                cudaMemcpy(tempPoint, aabbMin, copySize * sizeof(point), cudaMemcpyDeviceToDevice);
-                cudaFree(aabbMin);
-                aabbMin = tempPoint;
-                CHECK_FOR_CUDA_ERROR();
-
-                cudaMalloc(&tempPoint, i * sizeof(point));
-                cudaMemcpy(tempPoint, aabbMax, copySize * sizeof(point), cudaMemcpyDeviceToDevice);
-                cudaFree(aabbMax);
-                aabbMax = tempPoint;
-                CHECK_FOR_CUDA_ERROR();
-
-                cudaMalloc(&tempInt, i * sizeof(int));
-                cudaMemcpy(tempInt, prefixSum, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
-                cudaFree(prefixSum);
-                prefixSum = tempInt;
-                CHECK_FOR_CUDA_ERROR();
+                nodeIDs->Resize(i);
+                photonInfo->Resize(i);
+                aabbMin->Resize(i);
+                aabbMax->Resize(i);
+                prefixSum->Resize(i);
                 
                 maxSize = i;
-                size = copySize;
             }
 
         }

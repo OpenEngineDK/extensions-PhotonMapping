@@ -31,7 +31,7 @@ namespace OpenEngine {
             
             class GeometryList : public virtual Scene::ISceneNodeVisitor {
             protected:
-                unsigned int maxSize;
+                int maxSize, size;
 
                 Resources::CUDA::CUDADataBlock<1, float4> *p0, *p1, *p2;
                 Resources::CUDA::CUDADataBlock<1, float4> *n0, *n1, *n2;
@@ -46,13 +46,17 @@ namespace OpenEngine {
                 GeometryList();
                 GeometryList(int size);
 
-                void Resize(int size);
+                int GetSize() const { return size; }
+
+                void Resize(int i);
+                void Extend(int i);
 
                 void AddMesh(Geometry::MeshPtr mesh, 
                              Math::Matrix<4, 4, float> ModelView);
 
-                void AddScene(Scene::ISceneNode* node);
+                void CollectGeometry(Scene::ISceneNode* node);
 
+                void VisitRenderStateNode(Scene::RenderStateNode* node);
                 void VisitTransformationNode(Scene::TransformationNode* node);
                 void VisitMeshNode(Scene::MeshNode* node);
                 

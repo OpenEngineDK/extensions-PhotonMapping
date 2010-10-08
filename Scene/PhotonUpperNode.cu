@@ -82,7 +82,7 @@ namespace OpenEngine {
             unsigned int blocks, threads;
             Calc1DKernelDimensions(s, blocks, threads);
             //logger.info << "blocks " << blocks << ", threads " << threads << logger.end;
-            UpperNodeMapToGL<<<blocks, threads/2>>>(aabbMin, aabbMax, splitPos, info, posv, colv, s);
+            UpperNodeMapToGL<<<blocks, threads/2>>>(aabbMin->GetDeviceData(), aabbMax->GetDeviceData(), splitPos->GetDeviceData(), info->GetDeviceData(), posv, colv, s);
             CHECK_FOR_CUDA_ERROR();
 
             cudaGraphicsUnmapResources(1, &pResource, 0);
@@ -100,11 +100,11 @@ namespace OpenEngine {
                     
             out << "Upper node " << i << ":\n";
             char h_info;
-            cudaMemcpy(&h_info, info + i, sizeof(char), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&h_info, info->GetDeviceData() + i, sizeof(char), cudaMemcpyDeviceToHost);
             CHECK_FOR_CUDA_ERROR();
                     
             float h_pos;
-            cudaMemcpy(&h_pos, splitPos + i, sizeof(float), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&h_pos, splitPos->GetDeviceData() + i, sizeof(float), cudaMemcpyDeviceToHost);
             CHECK_FOR_CUDA_ERROR();
             switch(h_info){
             case X:
@@ -128,23 +128,16 @@ namespace OpenEngine {
                    
             if (!isLeaf){
                 point h_aabbmin, h_aabbmax;
-                cudaMemcpy(&h_aabbmin, aabbMin + i, sizeof(point), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&h_aabbmax, aabbMax + i, sizeof(point), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&h_aabbmin, aabbMin->GetDeviceData() + i, sizeof(point), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&h_aabbmax, aabbMax->GetDeviceData() + i, sizeof(point), cudaMemcpyDeviceToHost);
                 CHECK_FOR_CUDA_ERROR();
                 out << "Axis aligned bounding box: " << Utils::CUDA::Convert::ToString(h_aabbmin);
                 out << " -> " << Utils::CUDA::Convert::ToString(h_aabbmax) << "\n";
             }
 
-            /*                    
-            if (i != 0){
-                int p;
-                cudaMemcpy(&p, parents + i, sizeof(int), cudaMemcpyDeviceToHost);
-                out << "Has parent " << p << " and ";
-                }*/
-                    
             int h_left, h_right;
-            cudaMemcpy(&h_left, left + i, sizeof(int), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&h_right, right + i, sizeof(int), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&h_left, left->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&h_right, right->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
             CHECK_FOR_CUDA_ERROR();
             if (!isLeaf){
                 out << "Has children " << h_left << " and " << h_right << "\n";
@@ -162,14 +155,6 @@ namespace OpenEngine {
             int2 info;
             cudaMemcpy(&info, photonInfo+i, sizeof(int2), cudaMemcpyDeviceToHost);
 
-            //logger.info << "Index " << info.x << ", range " << info.y << logger.end;
-            
-            /*
-            unsigned int index,size;
-            cudaMemcpy(&index, photonIndex+i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&size, range+i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
-            */
-
             point pos[info.y];
             cudaMemcpy(&pos, photons.pos+info.x, 
                        info.y*sizeof(point), cudaMemcpyDeviceToHost);
@@ -183,42 +168,5 @@ namespace OpenEngine {
             return out.str();
         }
 
-        /*
-        void PhotonUpperNode::CheckBoundingBox(unsigned int i, PhotonNode photons){
-            unsigned int photonStart;
-            cudaMemcpy(&photonStart, photonIndex + i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
-            unsigned int photonRange;
-            cudaMemcpy(&photonRange, range + i, sizeof(unsigned int), cudaMemcpyDeviceToHost);
-                    
-            point positions[photonRange];
-            cudaMemcpy(positions, photons.pos + photonStart, photonRange * sizeof(point), cudaMemcpyDeviceToHost);
-            point hostMax = positions[0];
-            point hostMin = positions[0];
-            for (unsigned int p = 1; p < photonRange; ++p){
-                hostMax = make_float3(max(hostMax.x, positions[p].x),
-                                      max(hostMax.y, positions[p].y),
-                                      max(hostMax.z, positions[p].z));
-                hostMin = make_float3(min(hostMin.x, positions[p].x),
-                                      min(hostMin.y, positions[p].y),
-                                      min(hostMin.z, positions[p].z));
-            }
-                    
-            point gpuMax;
-            point gpuMin;
-            cudaMemcpy(&gpuMax, aabbMax + i, sizeof(point), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&gpuMin, aabbMin + i, sizeof(point), cudaMemcpyDeviceToHost);
-    
-            if (hostMax.x != gpuMax.x || hostMax.y != gpuMax.y || hostMax.z != gpuMax.z){
-                logger.info << "CPU max " << Utils::CUDA::Convert::ToString(hostMax);
-                logger.info << " != GPU max " << Utils::CUDA::Convert::ToString(gpuMax) << logger.end;
-            }
-                    
-            if (hostMin.x != gpuMin.x || hostMin.y != gpuMin.y || hostMin.z != gpuMin.z){
-                logger.info << "CPU min " << Utils::CUDA::Convert::ToString(hostMin);
-                logger.info << " != GPU min " << Utils::CUDA::Convert::ToString(gpuMin) << logger.end;
-            }
-
-        }
-        */
     }
 }

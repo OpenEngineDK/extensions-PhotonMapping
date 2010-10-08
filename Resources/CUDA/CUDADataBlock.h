@@ -27,7 +27,7 @@ namespace OpenEngine {
                     : IDataBlock(s, d, ARRAY, DYNAMIC) {
                     if (d == NULL){
                         cudaMalloc(&this->data, N * s * sizeof(T));
-#ifdef OE_SAFE
+#if OE_SAFE
                         cudaMemset(this->data, 127, N * s * sizeof(T));
 #endif
                     }
@@ -53,6 +53,15 @@ namespace OpenEngine {
                 inline T* GetDeviceData() const{
                     return (T*) this->data;
                 }
+                inline void SetDeviceData(const T* data) { 
+                    cudaFree(this->data);
+                    this->data = data;
+                }
+                inline void SetDeviceData(const T* data, unsigned int size) { 
+                    cudaFree(this->data);
+                    this->data = data;
+                    this->size = size;
+                }
 
                 void Resize(unsigned int i){
                     T *temp;
@@ -60,7 +69,7 @@ namespace OpenEngine {
                     unsigned int copySize = min(i, this->size);
 
                     cudaMalloc(&temp, i * N *sizeof(T));
-#ifdef OE_SAFE
+#if OE_SAFE
                     cudaMemset(temp, 127, i * N * sizeof(T));
 #endif
                     cudaMemcpy(temp, this->data, copySize * N * sizeof(T), cudaMemcpyDeviceToDevice);

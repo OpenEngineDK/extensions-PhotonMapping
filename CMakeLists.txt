@@ -15,6 +15,8 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Utils/CUDA/Segments.cu
   Utils/CUDA/SplittingPlanes.cu
   Utils/CUDA/GeometryList.cu
+  Utils/CUDA/TriangleMap.cu
+  Utils/CUDA/TriangleMapUpperNode.cu
   Utils/CUDA/PhotonMap.cu
   Utils/CUDA/PhotonMapCheck.cu
   Utils/CUDA/PhotonMapLowerNodes.cu

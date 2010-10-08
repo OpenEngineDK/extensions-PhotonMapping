@@ -38,9 +38,6 @@ namespace OpenEngine {
 
             std::string ToString(unsigned int i);
             std::string PhotonsToString(unsigned int i, PhotonNode photons);
-            /*                    
-            void CheckBoundingBox(unsigned int i, PhotonNode photons);
-            */
         };
 
     }

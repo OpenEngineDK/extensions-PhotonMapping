@@ -16,7 +16,7 @@
 
 #define fInfinity 0x7f800000
 
-#ifdef OE_SAFE
+#if OE_SAFE
 #define cudaSafeMalloc(ptr, size); cudaMalloc(ptr, size); cudaMemset(*ptr, 127, size);
 #else
 #define cudaSafeMalloc(ptr, size); cudaMalloc(ptr, size);

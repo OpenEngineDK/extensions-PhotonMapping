@@ -23,14 +23,14 @@ namespace OpenEngine {
             
             void PhotonMap::VerifyMap(){
                 char info;
-                cudaMemcpy(&info, upperNodes.info, sizeof(char), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&info, upperNodes->info->GetDeviceData(), sizeof(char), cudaMemcpyDeviceToHost);
 
                 float splitPos;
-                cudaMemcpy(&splitPos, upperNodes.splitPos, sizeof(float), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&splitPos, upperNodes->splitPos->GetDeviceData(), sizeof(float), cudaMemcpyDeviceToHost);
 
                 point aabbMin, aabbMax;
-                cudaMemcpy(&aabbMin, upperNodes.aabbMin, sizeof(point), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&aabbMax, upperNodes.aabbMax, sizeof(point), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&aabbMin, upperNodes->aabbMin->GetDeviceData(), sizeof(point), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&aabbMax, upperNodes->aabbMax->GetDeviceData(), sizeof(point), cudaMemcpyDeviceToHost);
 
                 point aabbMinAdjusted = aabbMin, aabbMaxAdjusted = aabbMax;
                 switch(info){
@@ -46,14 +46,14 @@ namespace OpenEngine {
                 }
 
                 int left, right;
-                cudaMemcpy(&left, upperNodes.left, sizeof(int), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&right, upperNodes.right, sizeof(int), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&left, upperNodes->GetLeftData(), sizeof(int), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&right, upperNodes->GetRightData(), sizeof(int), cudaMemcpyDeviceToHost);
 
                 int leftSize = VerifyUpperNode(left, aabbMin, aabbMaxAdjusted);
                 int rightSize = VerifyUpperNode(right, aabbMinAdjusted, aabbMax);
 
                 int2 photonInfo;
-                cudaMemcpy(&photonInfo, upperNodes.photonInfo, sizeof(int2), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&photonInfo, upperNodes->photonInfo->GetDeviceData(), sizeof(int2), cudaMemcpyDeviceToHost);
 
                 if (leftSize + rightSize != photonInfo.y)
                     throw Exception("Root nodes size " + 
@@ -66,14 +66,14 @@ namespace OpenEngine {
             int PhotonMap::VerifyUpperNode(int index,
                                            point parentAABBMin, point parentAABBMax){
                 char info;
-                cudaMemcpy(&info, upperNodes.info+index, sizeof(char), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&info, upperNodes->info->GetDeviceData()+index, sizeof(char), cudaMemcpyDeviceToHost);
                 
                 int2 photonInfo;
-                cudaMemcpy(&photonInfo, upperNodes.photonInfo+index, sizeof(int2), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&photonInfo, upperNodes->photonInfo->GetDeviceData()+index, sizeof(int2), cudaMemcpyDeviceToHost);
                     
                 float4 aabbMin, aabbMax;
-                cudaMemcpy(&aabbMin, upperNodes.aabbMin+index, sizeof(float4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&aabbMax, upperNodes.aabbMax+index, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&aabbMin, upperNodes->aabbMin->GetDeviceData()+index, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&aabbMax, upperNodes->aabbMax->GetDeviceData()+index, sizeof(float4), cudaMemcpyDeviceToHost);
                 
                 if (!aabbContains(parentAABBMin, parentAABBMax, aabbMin))
                     throw Exception("Node " + Utils::Convert::ToString(index) +
@@ -114,14 +114,14 @@ namespace OpenEngine {
                                         " -> " + Utils::CUDA::Convert::ToString(aabbMax) + ".");
 
                     int child;
-                    cudaMemcpy(&child, upperNodes.left+index, sizeof(int), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&child, upperNodes->GetLeftData()+index, sizeof(int), cudaMemcpyDeviceToHost);
 
                     VerifyLowerNode(child, calcedMin, calcedMax);
 
                 }else{
                     // Check parent info
                     float splitPos;
-                    cudaMemcpy(&splitPos, upperNodes.splitPos+index, sizeof(float), cudaMemcpyDeviceToHost);                    
+                    cudaMemcpy(&splitPos, upperNodes->splitPos->GetDeviceData()+index, sizeof(float), cudaMemcpyDeviceToHost);                    
 
                     point aabbMinAdjusted = aabbMin, aabbMaxAdjusted = aabbMax;
                     switch(info){
@@ -137,8 +137,8 @@ namespace OpenEngine {
                     }
                     
                     int left, right;
-                    cudaMemcpy(&left, upperNodes.left+index, sizeof(int), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(&right, upperNodes.right+index, sizeof(int), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&left, upperNodes->GetLeftData()+index, sizeof(int), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&right, upperNodes->GetRightData()+index, sizeof(int), cudaMemcpyDeviceToHost);
 
                     int leftSize = VerifyUpperNode(left, aabbMin, aabbMaxAdjusted);
                     int rightSize = VerifyUpperNode(right, aabbMinAdjusted, aabbMax);
@@ -159,10 +159,10 @@ namespace OpenEngine {
                                            point parentAABBMin, point parentAABBMax){
 
                 char info;
-                cudaMemcpy(&info, lowerNodes.info+index, sizeof(char), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&info, lowerNodes->info->GetDeviceData()+index, sizeof(char), cudaMemcpyDeviceToHost);
                 
                 int2 photonInfo;
-                cudaMemcpy(&photonInfo, lowerNodes.photonInfo+index, sizeof(int2), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&photonInfo, lowerNodes->photonInfo->GetDeviceData()+index, sizeof(int2), cudaMemcpyDeviceToHost);
                 
                 int photonAmount = bitcount(photonInfo.y);
 
@@ -202,7 +202,7 @@ namespace OpenEngine {
                 }else{ // Check parent info
 
                     float splitPos;
-                    cudaMemcpy(&splitPos, lowerNodes.splitPos+index, sizeof(float), cudaMemcpyDeviceToHost);                    
+                    cudaMemcpy(&splitPos, lowerNodes->splitPos+index, sizeof(float), cudaMemcpyDeviceToHost);                    
 
                     point aabbMinAdjusted = aabbMin, aabbMaxAdjusted = aabbMax;
                     switch(info){
@@ -218,8 +218,8 @@ namespace OpenEngine {
                     }
                     
                     int left, right;
-                    cudaMemcpy(&left, lowerNodes.left+index, sizeof(int), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(&right, lowerNodes.right+index, sizeof(int), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&left, lowerNodes->GetLeftData()+index, sizeof(int), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&right, lowerNodes->GetRightData()+index, sizeof(int), cudaMemcpyDeviceToHost);
 
                     int leftSize = VerifyLowerNode(left, aabbMin, aabbMaxAdjusted);
                     int rightSize = VerifyLowerNode(right, aabbMinAdjusted, aabbMax);

@@ -27,37 +27,37 @@ namespace OpenEngine {
 
                 logger.info << "Preprocess " << upperNodeLeafList.size << " lower nodes" << logger.end;
                 
-                if (lowerNodes.maxSize < upperNodeLeafList.size)
-                    lowerNodes.Resize(upperNodeLeafList.size);
+                if (lowerNodes->maxSize < upperNodeLeafList.size)
+                    lowerNodes->Resize(upperNodeLeafList.size);
 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(upperNodeLeafList.size, blocks, threads);
                 START_TIMER(timerID);
                 CreateLowerNodes<<<blocks, threads>>>(upperNodeLeafList.leafIDs,
-                                                      upperNodes.aabbMin,
-                                                      upperNodes.aabbMax,
-                                                      upperNodes.photonInfo,
-                                                      upperNodes.left,
-                                                      upperNodes.right,
-                                                      lowerNodes.info,
-                                                      lowerNodes.photonInfo,
-                                                      lowerNodes.extendedVolume,
+                                                      upperNodes->aabbMin->GetDeviceData(),
+                                                      upperNodes->aabbMax->GetDeviceData(),
+                                                      upperNodes->photonInfo->GetDeviceData(),
+                                                      upperNodes->GetLeftData(),
+                                                      upperNodes->GetRightData(),
+                                                      lowerNodes->info->GetDeviceData(),
+                                                      lowerNodes->photonInfo->GetDeviceData(),
+                                                      lowerNodes->extendedVolume,
                                                       upperNodeLeafList.size);
                 PRINT_TIMER(timerID, "Create Lower Nodes");
                 CHECK_FOR_CUDA_ERROR();
-                lowerNodes.size = upperNodeLeafList.size;
+                lowerNodes->size = upperNodeLeafList.size;
 
                 // Calculate all splitting planes.
-                Calc1DKernelDimensions(lowerNodes.size * 32, blocks, threads);
+                Calc1DKernelDimensions(lowerNodes->size * 32, blocks, threads);
                 int smemSize = 512 * sizeof(float4);
                 START_TIMER(timerID);
                 CreateSplittingPlanes<<<blocks, threads, smemSize>>>
-                    (lowerNodes.splitTriangleSetX,
-                     lowerNodes.splitTriangleSetY,
-                     lowerNodes.splitTriangleSetZ,
-                     lowerNodes.photonInfo,
+                    (lowerNodes->splitTriangleSetX,
+                     lowerNodes->splitTriangleSetY,
+                     lowerNodes->splitTriangleSetZ,
+                     lowerNodes->photonInfo->GetDeviceData(),
                      photons.pos,
-                     lowerNodes.size);
+                     lowerNodes->size);
                 PRINT_TIMER(timerID, "Splitting plane creation");
                 CHECK_FOR_CUDA_ERROR();
             }
@@ -70,8 +70,8 @@ namespace OpenEngine {
                 logger.info << "=== Process " << activeRange << " Lower Nodes Starting at " << activeIndex << " ===" << logger.end;
 
                 // Check that there is room for the new children
-                if (lowerNodes.maxSize < lowerNodes.size + activeRange * 2)
-                    lowerNodes.Resize(lowerNodes.size + activeRange * 2);
+                if (lowerNodes->maxSize < lowerNodes->size + activeRange * 2)
+                    lowerNodes->Resize(lowerNodes->size + activeRange * 2);
 
                 cudaMemcpyToSymbol(d_activeNodeRange, &activeRange, sizeof(int));
 
@@ -83,11 +83,10 @@ namespace OpenEngine {
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activeRange, blocks, threads);
                 START_TIMER(timerID);
-                CalcSimpleSplittingPlane<<<blocks, threads>>>(lowerNodes.info + activeIndex,
-                //CalcVVHSplittingPlane<<<blocks, threads>>>(lowerNodes.info + activeIndex,
-                                                              lowerNodes.splitPos + activeIndex,
-                                                              lowerNodes.photonInfo + activeIndex,
-                                                              lowerNodes.splitTriangleSet,
+                CalcSimpleSplittingPlane<<<blocks, threads>>>(lowerNodes->info->GetDeviceData() + activeIndex,
+                                                              lowerNodes->splitPos->GetDeviceData() + activeIndex,
+                                                              lowerNodes->photonInfo->GetDeviceData() + activeIndex,
+                                                              lowerNodes->splitTriangleSet,
                                                               photons.pos,
                                                               leafSide);
                 PRINT_TIMER(timerID, "Lower node splitting plane calculation");

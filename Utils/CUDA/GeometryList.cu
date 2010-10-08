@@ -11,11 +11,13 @@
 
 #include <Geometry/Mesh.h>
 #include <Geometry/GeometrySet.h>
+#include <Math/CUDA/Matrix.h>
 #include <Scene/ISceneNode.h>
 #include <Scene/MeshNode.h>
+#include <Scene/RenderStateNode.h>
 #include <Scene/TransformationNode.h>
 #include <Utils/CUDA/Utils.h>
-#include <Math/CUDA/Matrix.h>
+#include <Utils/CUDA/Convert.h>
 
 using namespace OpenEngine::Geometry;
 using namespace OpenEngine::Math;
@@ -28,10 +30,10 @@ namespace OpenEngine {
         namespace CUDA {
 
             GeometryList::GeometryList()
-                : maxSize(0) {}
+                : maxSize(0), size(0) {}
 
             GeometryList::GeometryList(int size)
-                : maxSize(size) {
+                : maxSize(size), size(0) {
 
                 p0 = new CUDADataBlock<1, float4>(maxSize);
                 p1 = new CUDADataBlock<1, float4>(maxSize);
@@ -51,21 +53,33 @@ namespace OpenEngine {
                 surfaceArea = new CUDADataBlock<1, float>(maxSize);
             }
 
-            void GeometryList::Resize(int size){
-                
+            void GeometryList::Resize(int i){
+                p0->Resize(i); p1->Resize(i); p2->Resize(i);
+                n0->Resize(i); n1->Resize(i); n2->Resize(i);
+                c0->Resize(i); c1->Resize(i); c2->Resize(i);
+                aabbMin->Resize(i); aabbMax->Resize(i);
+                surfaceArea->Resize(i);
+
+                maxSize = i;
+                size = min(size, i);
             }
 
-            __global__ void AddMesh(unsigned int *indices,
-                                    float3 *verticesIn,
-                                    float3 *normalsIn,
-                                    float4 *colorsIn,
-                                    Matrix44f modelMat,
-                                    Matrix33f normalMat,
-                                    float4 *p0, float4 *p1, float4 *p2,
-                                    float4 *n0, float4 *n1, float4 *n2,
-                                    uchar4 *c0, uchar4 *c1, uchar4 *c2,
-                                    float *surfaceArea,
-                                    int size){
+            void GeometryList::Extend(int i){
+                if (maxSize < i)
+                    Resize(i);
+            }
+
+            __global__ void AddMeshKernel(unsigned int *indices,
+                                          float3 *verticesIn,
+                                          float3 *normalsIn,
+                                          float4 *colorsIn,
+                                          Matrix44f modelMat,
+                                          Matrix33f normalMat,
+                                          float4 *p0, float4 *p1, float4 *p2,
+                                          float4 *n0, float4 *n1, float4 *n2,
+                                          uchar4 *c0, uchar4 *c1, uchar4 *c2,
+                                          float *surfaceArea,
+                                          int size){
                 
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -74,7 +88,6 @@ namespace OpenEngine {
                     const unsigned int i0 = indices[i];
                     const unsigned int i1 = indices[i+1];
                     const unsigned int i2 = indices[i+2];
-                    
                     const float3 v0 = verticesIn[i0];
                     const float3 v1 = verticesIn[i1];
                     const float3 v2 = verticesIn[i2];
@@ -104,34 +117,55 @@ namespace OpenEngine {
                     IDataBlockPtr normals = geom->GetDataBlock("normal");
                     IDataBlockPtr colors = geom->GetDataBlock("color");
 
-                    if (p0->GetSize() + indices->GetSize() < maxSize)
-                        Resize(p0->GetSize() + indices->GetSize());
+                    unsigned int triangles = indices->GetSize() / 3;
+                    Extend(size + triangles);
                     
                     cudaGraphicsResource *iResource, *vResource, *nResource, *cResource;
                     cudaGraphicsGLRegisterBuffer(&iResource, indices->GetID(), cudaGraphicsMapFlagsReadOnly);
+                    cudaGraphicsMapResources(1, &iResource, 0);
+                    CHECK_FOR_CUDA_ERROR();
                     cudaGraphicsGLRegisterBuffer(&vResource, vertices->GetID(), cudaGraphicsMapFlagsReadOnly);
+                    cudaGraphicsMapResources(1, &vResource, 0);
+                    CHECK_FOR_CUDA_ERROR();
                     cudaGraphicsGLRegisterBuffer(&nResource, normals->GetID(), cudaGraphicsMapFlagsReadOnly);
+                    cudaGraphicsMapResources(1, &nResource, 0);
+                    CHECK_FOR_CUDA_ERROR();
                     cudaGraphicsGLRegisterBuffer(&cResource, colors->GetID(), cudaGraphicsMapFlagsReadOnly);
+                    cudaGraphicsMapResources(1, &cResource, 0);
                     CHECK_FOR_CUDA_ERROR();
                     
                     size_t bytes;
                     unsigned int* in;
                     cudaGraphicsResourceGetMappedPointer((void**)&in, &bytes,
                                                          iResource);
+                    CHECK_FOR_CUDA_ERROR();
                     float3* pos;
                     cudaGraphicsResourceGetMappedPointer((void**)&pos, &bytes,
                                                          vResource);
+                    CHECK_FOR_CUDA_ERROR();
                     float3* norms;
                     cudaGraphicsResourceGetMappedPointer((void**)&norms, &bytes,
                                                          nResource);
+                    CHECK_FOR_CUDA_ERROR();
                     float4* cols;
                     cudaGraphicsResourceGetMappedPointer((void**)&cols, &bytes,
                                                          cResource);
+                    CHECK_FOR_CUDA_ERROR();
 
                     unsigned int blocks, threads;
                     Calc1DKernelDimensions(indices->GetSize(), blocks, threads);
                     Math::CUDA::Matrix44f mat = Math::CUDA::Matrix44f(modelMat);
-                    //AddMesh();
+                    Math::CUDA::Matrix33f normMat = Math::CUDA::Matrix33f(mat);
+                    AddMeshKernel<<<blocks, threads>>>(in, pos, norms, cols,
+                                                       mat, normMat,
+                                                       p0->GetDeviceData() + size, p1->GetDeviceData() + size, p2->GetDeviceData() + size,
+                                                       n0->GetDeviceData() + size, n1->GetDeviceData() + size, n2->GetDeviceData() + size,
+                                                       c0->GetDeviceData() + size, c1->GetDeviceData() + size, c2->GetDeviceData() + size,
+                                                       surfaceArea->GetDeviceData() + size,
+                                                       triangles);
+                    CHECK_FOR_CUDA_ERROR();
+
+                    size += triangles;
 
                     cudaGraphicsUnmapResources(1, &iResource, 0);
                     cudaGraphicsUnmapResources(1, &vResource, 0);
@@ -150,9 +184,13 @@ namespace OpenEngine {
                 }
             }
             
-            void GeometryList::AddScene(ISceneNode* node){
+            void GeometryList::CollectGeometry(ISceneNode* node){
                 currentModelMat = Matrix<4,4, float>();
                 node->Accept(*this);
+            }
+
+            void GeometryList::VisitRenderStateNode(RenderStateNode* node){
+                node->VisitSubNodes(*this);
             }
 
             void GeometryList::VisitTransformationNode(TransformationNode* node){
