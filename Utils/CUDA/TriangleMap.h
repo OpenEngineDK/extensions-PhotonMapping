@@ -30,21 +30,29 @@ namespace OpenEngine {
                 Scene::ISceneNode* scene;
                 GeometryList* geom;
 
-                CUDADataBlock<1, point> *tempAabbMin;
-                CUDADataBlock<1, point> *tempAabbMax;
-
                 Scene::TriangleUpperNode* upperNodes;
                 Scene::TriangleLowerNode* lowerNodes;
 
+                int triangles;
+                CUDPPConfiguration scanConfig;
+                CUDPPHandle scanHandle;
+
+                CUDADataBlock<1, point> *tempAabbMin;
+                CUDADataBlock<1, point> *tempAabbMax;
+
                 Segments segments;
+                CUDADataBlock<1, int> *nodeSegments;
                 
             public:
                 TriangleMap(Scene::ISceneNode* scene);
 
                 void Create();
+                void Setup();
 
                 void ProcessUpperNodes(int activeIndex, int activeRange, 
                                        int &leafsCreated, int &childrenCreated);
+
+                void Segment(int activeIndex, int activeRange);
             };
 
         }

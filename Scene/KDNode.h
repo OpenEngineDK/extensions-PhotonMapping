@@ -49,7 +49,7 @@ namespace OpenEngine {
             float* GetSplitPositionData() { return splitPos->GetDeviceData(); }
             point* GetAabbMinimumData() { return aabbMin->GetDeviceData(); }
             point* GetAabbMaximumData() { return aabbMax->GetDeviceData(); }
-            int2* GetPhotonInfoData() { return photonInfo->GetDeviceData(); }
+            int2* GetPrimitiveInfoData() { return photonInfo->GetDeviceData(); }
             int* GetLeftData() { return left->GetDeviceData(); }
             int* GetRightData() { return right->GetDeviceData(); }
             
