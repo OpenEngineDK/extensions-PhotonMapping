@@ -22,7 +22,7 @@ namespace OpenEngine {
                 : maxSize(i){
                 
                 nodeIDs = new CUDADataBlock<1, int>(i);
-                photonInfo = new CUDADataBlock<1, int2>(i);
+                primitiveInfo = new CUDADataBlock<1, int2>(i);
                 aabbMin = new CUDADataBlock<1, point>(i);
                 aabbMax = new CUDADataBlock<1, point>(i);
                 prefixSum = new CUDADataBlock<1, int>(i);
@@ -30,7 +30,7 @@ namespace OpenEngine {
 
             void Segments::Resize(int i){
                 nodeIDs->Resize(i);
-                photonInfo->Resize(i);
+                primitiveInfo->Resize(i);
                 aabbMin->Resize(i);
                 aabbMax->Resize(i);
                 prefixSum->Resize(i);

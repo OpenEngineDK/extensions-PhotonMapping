@@ -25,9 +25,9 @@ namespace OpenEngine {
                 static const int SEGMENT_SIZE = 256;
                 
                 CUDADataBlock<1, int> *nodeIDs;
-                CUDADataBlock<1, int2> *photonInfo;
+                CUDADataBlock<1, int2> *primitiveInfo;
                 // Variables for holding the intermediate min/max values
-                CUDADataBlock<1, point> *aabbMin, *aabbMax;
+                CUDADataBlock<1, float4> *aabbMin, *aabbMax;
                 CUDADataBlock<1, int> *prefixSum; // prefix sum.
 
                 int maxSize, size;
@@ -37,7 +37,12 @@ namespace OpenEngine {
                 Segments(int i);
 
                 void Resize(int i);
-                
+
+                int* GetOwnerData() const { return nodeIDs->GetDeviceData(); }
+                int2* GetPrimitiveInfoData() const {return primitiveInfo->GetDeviceData(); }
+                float4* GetAabbMinData() const { return aabbMin->GetDeviceData(); }
+                float4* GetAabbMaxData() const { return aabbMax->GetDeviceData(); }
+
             };
 
         }

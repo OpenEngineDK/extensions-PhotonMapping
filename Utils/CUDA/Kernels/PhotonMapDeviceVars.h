@@ -20,6 +20,7 @@ namespace Kernels {
 
     __constant__ int d_photonNodes;
 
+    __constant__ int d_segments;
     __constant__ int d_activeNodeIndex;
     __constant__ int d_activeNodeRange;
     __constant__ int d_childIndex;

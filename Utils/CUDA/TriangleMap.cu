@@ -18,6 +18,10 @@ namespace OpenEngine {
 
             TriangleMap::TriangleMap(ISceneNode* scene) 
                 : scene(scene), triangles(1) {
+
+                // Initialized timer
+                cutCreateTimer(&timerID);
+
                 geom = new GeometryList(1);
                 upperNodes = new TriangleUpperNode(1);
 
@@ -30,6 +34,16 @@ namespace OpenEngine {
                 if (CUDPP_SUCCESS != res)
                     throw Core::Exception("Error creating CUDPP scanPlan");
 
+                scanInclConfig.algorithm = CUDPP_SCAN;
+                scanInclConfig.op = CUDPP_ADD;
+                scanInclConfig.datatype = CUDPP_INT;
+                scanInclConfig.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_INCLUSIVE;
+
+                res = cudppPlan(&scanInclHandle, scanInclConfig, 1, 1, 0);
+                if (CUDPP_SUCCESS != res)
+                    throw Core::Exception("Error creating CUDPP inclusive scanPlan");
+                
+
                 tempAabbMin = new CUDADataBlock<1, point>(1);
                 tempAabbMax = new CUDADataBlock<1, point>(1);
                 segments = Segments(1);
@@ -39,42 +53,32 @@ namespace OpenEngine {
             void TriangleMap::Create(){
 
                 Setup();
-
-                int activeIndex = 0, activeRange = 1;
-                int newActiveIndex, childrenCreated;
                 
-                while (activeRange > 0){
-                    ProcessUpperNodes(activeIndex, activeRange, 
-                                      newActiveIndex, childrenCreated);
-
-                    // @TODO Isn't active index = upperNodes.size - childrenCreated?
-                    activeIndex = newActiveIndex;
-                    activeRange = childrenCreated;
-                }
+                CreateUpperNodes();
             }
 
             void TriangleMap::Setup(){
                 int oldTris = triangles;
                 
                 geom->CollectGeometry(scene);
-                int tris = geom->GetSize();
+                triangles = geom->GetSize();
 
-                logger.info << "Triangles " << tris << logger.end;
+                logger.info << "Triangles " << triangles << logger.end;
                 
-                tempAabbMin->Resize(tris);
-                tempAabbMax->Resize(tris);
+                tempAabbMin->Resize(triangles);
+                tempAabbMax->Resize(triangles);
 
-                int approxSize = (2 * tris / TriangleLowerNode::MAX_SIZE) - 1;
+                int approxSize = (2 * triangles / TriangleLowerNode::MAX_SIZE) - 1;
                 upperNodes->Resize(approxSize);
 
-                segments.Resize(tris / Segments::SEGMENT_SIZE);
+                segments.Resize(triangles / Segments::SEGMENT_SIZE);
 
-                if (oldTris < tris){
+                if (oldTris < triangles){
                     //CUDPPResult res = cudppDestroyPlan(scanHandle);
                     //if (CUDPP_SUCCESS != res)
                     //throw Core::Exception("Error deleting CUDPP scanPlan");
                     
-                    CUDPPResult res = cudppPlan(&scanHandle, scanConfig, tris+1, 1, 0);
+                    CUDPPResult res = cudppPlan(&scanHandle, scanConfig, triangles+1, 1, 0);
                     if (CUDPP_SUCCESS != res)
                         throw Core::Exception("Error creating CUDPP scanPlan");
                 }

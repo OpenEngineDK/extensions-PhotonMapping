@@ -27,6 +27,8 @@ namespace OpenEngine {
 
             class TriangleMap {
             public:
+                unsigned int timerID;
+
                 Scene::ISceneNode* scene;
                 GeometryList* geom;
 
@@ -36,6 +38,9 @@ namespace OpenEngine {
                 int triangles;
                 CUDPPConfiguration scanConfig;
                 CUDPPHandle scanHandle;
+
+                CUDPPConfiguration scanInclConfig;
+                CUDPPHandle scanInclHandle;
 
                 CUDADataBlock<1, point> *tempAabbMin;
                 CUDADataBlock<1, point> *tempAabbMax;
@@ -48,6 +53,8 @@ namespace OpenEngine {
 
                 void Create();
                 void Setup();
+
+                void CreateUpperNodes();
 
                 void ProcessUpperNodes(int activeIndex, int activeRange, 
                                        int &leafsCreated, int &childrenCreated);
