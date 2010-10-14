@@ -29,8 +29,9 @@ namespace OpenEngine {
                 scanConfig.op = CUDPP_ADD;
                 scanConfig.datatype = CUDPP_INT;
                 scanConfig.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_EXCLUSIVE;
-
-                CUDPPResult res = cudppPlan(&scanHandle, scanConfig, triangles+1, 1, 0);
+                scanSize = triangles+1;
+                
+                CUDPPResult res = cudppPlan(&scanHandle, scanConfig, scanSize, 1, 0);
                 if (CUDPP_SUCCESS != res)
                     throw Core::Exception("Error creating CUDPP scanPlan");
 
@@ -38,16 +39,24 @@ namespace OpenEngine {
                 scanInclConfig.op = CUDPP_ADD;
                 scanInclConfig.datatype = CUDPP_INT;
                 scanInclConfig.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_INCLUSIVE;
+                scanInclSize = 1;
 
-                res = cudppPlan(&scanInclHandle, scanInclConfig, 1, 1, 0);
+                res = cudppPlan(&scanInclHandle, scanInclConfig, scanInclSize, 1, 0);
                 if (CUDPP_SUCCESS != res)
                     throw Core::Exception("Error creating CUDPP inclusive scanPlan");
                 
-
-                tempAabbMin = new CUDADataBlock<1, point>(1);
-                tempAabbMax = new CUDADataBlock<1, point>(1);
+                aabbMin = new CUDADataBlock<1, float4>(1);
+                aabbMax = new CUDADataBlock<1, float4>(1);
+                tempAabbMin = new CUDADataBlock<1, float4>(1);
+                tempAabbMax = new CUDADataBlock<1, float4>(1);
                 segments = Segments(1);
                 nodeSegments = new CUDADataBlock<1, int>(1);
+
+                splitSide = new CUDADataBlock<1, int>(1);
+                splitAddr = new CUDADataBlock<1, int>(1);
+                leafSide = new CUDADataBlock<1, int>(1);
+                leafAddr = new CUDADataBlock<1, int>(1);
+                childSize = new CUDADataBlock<1, int2>(1);
             }
 
             void TriangleMap::Create(){
@@ -65,6 +74,8 @@ namespace OpenEngine {
 
                 logger.info << "Triangles " << triangles << logger.end;
                 
+                aabbMin->Resize(triangles);
+                aabbMax->Resize(triangles);
                 tempAabbMin->Resize(triangles);
                 tempAabbMax->Resize(triangles);
 
@@ -78,7 +89,8 @@ namespace OpenEngine {
                     //if (CUDPP_SUCCESS != res)
                     //throw Core::Exception("Error deleting CUDPP scanPlan");
                     
-                    CUDPPResult res = cudppPlan(&scanHandle, scanConfig, triangles+1, 1, 0);
+                    scanSize = triangles+1;
+                    CUDPPResult res = cudppPlan(&scanHandle, scanConfig, scanSize, 1, 0);
                     if (CUDPP_SUCCESS != res)
                         throw Core::Exception("Error creating CUDPP scanPlan");
                 }

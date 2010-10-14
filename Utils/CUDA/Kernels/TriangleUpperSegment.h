@@ -35,6 +35,8 @@ namespace Kernels {
             int index = startAddrs[id];
             owners[index] = 1;
         }
+        if (id == 1)
+            owners[0] = d_activeNodeIndex;
     }
 
     __global__ void CalcSegmentPrimitives(int *owners,
@@ -47,7 +49,7 @@ namespace Kernels {
         if (id < d_segments){
             // @TODO node prim info can be placed in shared memory?
             const int nodeID = owners[id];
-            const int offset = Segments::SEGMENT_SIZE * (id - nodeSegmentAddrs[nodeID]);
+            const int offset = Segments::SEGMENT_SIZE * (id - nodeSegmentAddrs[nodeID - d_activeNodeIndex]);
             const int2 primInfo = nodePrimInfo[nodeID];
             const int index = primInfo.x + offset;
             const int range = min(Segments::SEGMENT_SIZE, primInfo.y - offset);

@@ -88,4 +88,18 @@ inline __host__ __device__ float3 min(float3 v, float3 u){
                        min(v.z, u.z));
 }
 
+inline __host__ __device__ float4 max(float4 v, float4 u){
+    return make_float4(max(v.x, u.x),
+                       max(v.y, u.y),
+                       max(v.z, u.z),
+                       max(v.w, u.w));
+}
+
+inline __host__ __device__ float4 min(float4 v, float4 u){
+    return make_float4(min(v.x, u.x),
+                       min(v.y, u.y),
+                       min(v.z, u.z),
+                       min(v.w, u.w));
+}
+
 #endif // _CUDA_PHOTON_UTILS_H_

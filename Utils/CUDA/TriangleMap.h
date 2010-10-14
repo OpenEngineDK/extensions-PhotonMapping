@@ -18,6 +18,8 @@
 
 #include <Meta/CUDPP.h>
 
+#define CPU_VERIFY true
+
 namespace OpenEngine {
     namespace Scene {
         class ISceneNode;
@@ -38,15 +40,26 @@ namespace OpenEngine {
                 int triangles;
                 CUDPPConfiguration scanConfig;
                 CUDPPHandle scanHandle;
+                int scanSize;
 
                 CUDPPConfiguration scanInclConfig;
                 CUDPPHandle scanInclHandle;
+                int scanInclSize;
 
-                CUDADataBlock<1, point> *tempAabbMin;
-                CUDADataBlock<1, point> *tempAabbMax;
+                CUDADataBlock<1, float4> *aabbMin;
+                CUDADataBlock<1, float4> *aabbMax;
+                CUDADataBlock<1, float4> *tempAabbMin;
+                CUDADataBlock<1, float4> *tempAabbMax;
 
                 Segments segments;
                 CUDADataBlock<1, int> *nodeSegments;
+
+                // Split vars
+                CUDADataBlock<1, int> *splitSide;
+                CUDADataBlock<1, int> *splitAddr;
+                CUDADataBlock<1, int> *leafSide;
+                CUDADataBlock<1, int> *leafAddr;
+                CUDADataBlock<1, int2> *childSize; // Use upperNodes arrays?
                 
             public:
                 TriangleMap(Scene::ISceneNode* scene);
@@ -57,9 +70,14 @@ namespace OpenEngine {
                 void CreateUpperNodes();
 
                 void ProcessUpperNodes(int activeIndex, int activeRange, 
-                                       int &leafsCreated, int &childrenCreated);
+                                       int &childrenCreated);
 
                 void Segment(int activeIndex, int activeRange);
+
+                void ReduceAabb(int activeIndex, int activeRange);
+
+                void CreateChildren(int activeIndex, int activeRange,
+                                    int &childrenCreated);
             };
 
         }

@@ -19,6 +19,7 @@ namespace CUDA {
 namespace Kernels {
 
     __constant__ int d_photonNodes;
+    __constant__ int d_triangles;
 
     __constant__ int d_segments;
     __constant__ int d_activeNodeIndex;
