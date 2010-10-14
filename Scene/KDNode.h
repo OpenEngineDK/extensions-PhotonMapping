@@ -47,8 +47,8 @@ namespace OpenEngine {
 
             char* GetInfoData() { return info->GetDeviceData(); }
             float* GetSplitPositionData() { return splitPos->GetDeviceData(); }
-            point* GetAabbMinimumData() { return aabbMin->GetDeviceData(); }
-            point* GetAabbMaximumData() { return aabbMax->GetDeviceData(); }
+            point* GetAabbMinData() { return aabbMin->GetDeviceData(); }
+            point* GetAabbMaxData() { return aabbMax->GetDeviceData(); }
             int2* GetPrimitiveInfoData() { return photonInfo->GetDeviceData(); }
             int* GetLeftData() { return left->GetDeviceData(); }
             int* GetRightData() { return right->GetDeviceData(); }

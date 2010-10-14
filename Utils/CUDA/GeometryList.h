@@ -16,6 +16,8 @@
 #include <Scene/ISceneNodeVisitor.h>
 #include <Resources/CUDA/CUDADataBlock.h>
 
+#include <string>
+
 namespace OpenEngine {
     namespace Geometry {
         class Mesh;
@@ -50,6 +52,11 @@ namespace OpenEngine {
 
                 void Resize(int i);
                 void Extend(int i);
+
+                float4* GetAabbMinData() const { return aabbMin->GetDeviceData(); }
+                float4* GetAabbMaxData() const { return aabbMax->GetDeviceData(); }
+                
+                std::string ToString(unsigned int i) const;
 
                 void AddMesh(Geometry::MeshPtr mesh, 
                              Math::Matrix<4, 4, float> ModelView);

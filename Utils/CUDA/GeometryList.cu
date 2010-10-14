@@ -19,6 +19,8 @@
 #include <Utils/CUDA/Utils.h>
 #include <Utils/CUDA/Convert.h>
 
+#include <sstream>
+
 using namespace OpenEngine::Geometry;
 using namespace OpenEngine::Math;
 using namespace OpenEngine::Math::CUDA;
@@ -69,6 +71,35 @@ namespace OpenEngine {
                     Resize(i);
             }
 
+            std::string GeometryList::ToString(unsigned int i) const {
+                std::ostringstream out;
+
+                out <<  "Triangle #" << i << "\n";
+
+                float4 h_p0, h_p1, h_p2;
+                cudaMemcpy(&h_p0, p0->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&h_p1, p1->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&h_p2, p2->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                out << "Points: " << Utils::CUDA::Convert::ToString(h_p0) << ", " << Utils::CUDA::Convert::ToString(h_p1) << " & " << Utils::CUDA::Convert::ToString(h_p2) << "\n";
+
+                float4 h_n0, h_n1, h_n2;
+                cudaMemcpy(&h_n0, n0->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&h_n1, n1->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&h_n2, n2->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                out << "Normals: " << Utils::CUDA::Convert::ToString(h_n0) << ", " << Utils::CUDA::Convert::ToString(h_n1) << " & " << Utils::CUDA::Convert::ToString(h_n2) << "\n";
+
+                float4 h_aabbMin, h_aabbMax;
+                cudaMemcpy(&h_aabbMin, aabbMin->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&h_aabbMax, aabbMax->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                out << "aabb: " << Utils::CUDA::Convert::ToString(h_aabbMin) << " -> " << Utils::CUDA::Convert::ToString(h_aabbMax) << "\n";
+
+                float area;
+                cudaMemcpy(&area, surfaceArea->GetDeviceData() + i, sizeof(float), cudaMemcpyDeviceToHost);
+                out << "surface area: " << area << "\n";
+                
+                return out.str();
+            }
+
             __global__ void AddMeshKernel(unsigned int *indices,
                                           float3 *verticesIn,
                                           float3 *normalsIn,
@@ -78,6 +109,7 @@ namespace OpenEngine {
                                           float4 *p0, float4 *p1, float4 *p2,
                                           float4 *n0, float4 *n1, float4 *n2,
                                           uchar4 *c0, uchar4 *c1, uchar4 *c2,
+                                          float4* aabbMin, float4* aabbMax,
                                           float *surfaceArea,
                                           int size){
                 
@@ -93,9 +125,13 @@ namespace OpenEngine {
                     const float3 v2 = verticesIn[i2];
                     surfaceArea[id] = 0.5f * length(cross(v1-v0, v2-v0));
                     
-                    p0[id] = modelMat * make_float4(v0, 1.0f);
-                    p1[id] = modelMat * make_float4(v1, 1.0f);
-                    p2[id] = modelMat * make_float4(v2, 1.0f);
+                    float4 minV, maxV;
+                    minV = maxV = p0[id] = modelMat * make_float4(v0, 1.0f);
+                    float4 p = p1[id] = modelMat * make_float4(v1, 1.0f);
+                    minV = min(minV, p); maxV = max(maxV, p);
+                    p = p2[id] = modelMat * make_float4(v2, 1.0f);
+                    aabbMin[id] = min(minV, p); 
+                    aabbMax[id] = max(maxV, p);
                     
                     n0[id] = make_float4(normalMat * normalsIn[i0], 0);
                     n1[id] = make_float4(normalMat * normalsIn[i1], 0);
@@ -154,13 +190,14 @@ namespace OpenEngine {
 
                     unsigned int blocks, threads;
                     Calc1DKernelDimensions(indices->GetSize(), blocks, threads);
-                    Math::CUDA::Matrix44f mat = Math::CUDA::Matrix44f(modelMat);
+                    Math::CUDA::Matrix44f mat = Math::CUDA::Matrix44f(modelMat.GetInverse());
                     Math::CUDA::Matrix33f normMat = Math::CUDA::Matrix33f(mat);
                     AddMeshKernel<<<blocks, threads>>>(in, pos, norms, cols,
                                                        mat, normMat,
                                                        p0->GetDeviceData() + size, p1->GetDeviceData() + size, p2->GetDeviceData() + size,
                                                        n0->GetDeviceData() + size, n1->GetDeviceData() + size, n2->GetDeviceData() + size,
                                                        c0->GetDeviceData() + size, c1->GetDeviceData() + size, c2->GetDeviceData() + size,
+                                                       aabbMin->GetDeviceData() + size, aabbMax->GetDeviceData() + size, 
                                                        surfaceArea->GetDeviceData() + size,
                                                        triangles);
                     CHECK_FOR_CUDA_ERROR();
