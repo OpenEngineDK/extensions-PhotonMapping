@@ -63,20 +63,26 @@ namespace OpenEngine {
                     this->size = size;
                 }
 
-                void Resize(unsigned int i){
-                    T *temp;
-                    
-                    unsigned int copySize = min(i, this->size);
-
-                    cudaMalloc(&temp, i * N *sizeof(T));
+                void Resize(unsigned int i, bool dataPersistent = true){
+                    if (dataPersistent){
+                        T *temp;
+                        
+                        unsigned int copySize = min(i, this->size);
+                        
+                        cudaMalloc(&temp, i * N *sizeof(T));
 #if OE_SAFE
-                    cudaMemset(temp, 127, i * N * sizeof(T));
+                        cudaMemset(temp, 127, i * N * sizeof(T));
 #endif
-                    cudaMemcpy(temp, this->data, copySize * N * sizeof(T), cudaMemcpyDeviceToDevice);
-                    cudaFree(this->data);
-                    this->data = temp;
-                    CHECK_FOR_CUDA_ERROR();
-
+                        cudaMemcpy(temp, this->data, copySize * N * sizeof(T), cudaMemcpyDeviceToDevice);
+                        cudaFree(this->data);
+                        this->data = temp;
+                        CHECK_FOR_CUDA_ERROR();
+                        
+                    }else{
+                        cudaFree(this->data);
+                        cudaMalloc(&this->data, i * N *sizeof(T));
+                        CHECK_FOR_CUDA_ERROR();
+                    }
                     this->size = i;
                 }
 
