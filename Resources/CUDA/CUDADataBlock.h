@@ -86,6 +86,11 @@ namespace OpenEngine {
                     this->size = i;
                 }
 
+                void Extend(unsigned int i, bool dataPersistent = true){
+                    if (size < i)
+                        Resize(i, dataPersistent);
+                }
+
                 void GetElement(unsigned int i, Math::Vector<2, float> &element) {throw Exception("Not implemented");}
                 void GetElement(unsigned int i, Math::Vector<3, float> &element) {throw Exception("Not implemented");}
                 void GetElement(unsigned int i, Math::Vector<4, float> &element) {throw Exception("Not implemented");}

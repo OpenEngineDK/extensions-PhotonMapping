@@ -7,11 +7,16 @@
 // See the GNU General Public License for more details (see LICENSE). 
 //--------------------------------------------------------------------
 
+#ifndef _UPPER_NODE_BB_H_
+#define _UPPER_NODE_BB_H_
+
 #include <Meta/CUDA.h>
 #include <Utils/CUDA/Point.h>
 #include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
+#include <Scene/KDNode.h>
 
 namespace OpenEngine {
+    using namespace Scene;
 namespace Utils {
 namespace CUDA {
 namespace Kernels {
@@ -40,7 +45,7 @@ namespace Kernels {
                                      zSorted[photonEnd].z);
         }
     }
-    
+
     __global__ void ConstantTimeBoundingBox(int2 *photonInfo, // [index, range]
                                             point *aabbMin, point *aabbMax,
                                             int *xSortedIndex, int *ySortedIndex, int *zSortedIndex,
@@ -92,3 +97,5 @@ namespace Kernels {
 }
 }
 }
+
+#endif

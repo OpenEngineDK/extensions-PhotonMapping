@@ -27,6 +27,8 @@ namespace OpenEngine {
             void TriangleMap::CreateUpperNodes(){
                 int activeIndex = 0, activeRange = 1;
                 int childrenCreated;
+                
+                upperLeafPrimitives = 0;
 
                 // Setup root node!
                 int2 i = make_int2(0, triangles);
@@ -38,16 +40,22 @@ namespace OpenEngine {
                 Calc1DKernelDimensions(triangles, blocks, threads);
                 AddIndexToAabb<<<blocks, threads>>>(geom->GetAabbMinData(), geom->GetSize(), aabbMin->GetDeviceData());
                 // @OPT Just switch the arrays.
-                cudaMemcpy(aabbMax->GetDeviceData(), geom->GetAabbMaxData(), triangles * sizeof(float4), cudaMemcpyDeviceToDevice);
+                cudaMemcpy(aabbMax->GetDeviceData(), geom->GetAabbMaxData(), 
+                           triangles * sizeof(float4), cudaMemcpyDeviceToDevice);
                 CHECK_FOR_CUDA_ERROR();                
 
-                while (activeRange > 0){
+                int level = 0;
+                while (activeRange > 0 && level != 16){
                     ProcessUpperNodes(activeIndex, activeRange, 
                                       childrenCreated);
+
+                    //for (int i = 0; i < activeRange; ++i)
+                    //logger.info << upperNodes->ToString(i + activeIndex) << logger.end;
 
                     // @TODO Isn't active index = upperNodes.size - childrenCreated?
                     activeIndex = upperNodes->size - childrenCreated;
                     activeRange = childrenCreated;
+                    level++;
                 }
 
             }
@@ -210,7 +218,7 @@ namespace OpenEngine {
                 /*
                 for (int i = 0; i < activeRange; ++i){
                     logger.info << "Node" << i + activeIndex << "'s bb " << Utils::CUDA::Convert::ToString(cpuMin[i]) << " -> " << Utils::CUDA::Convert::ToString(cpuMax[i]) << logger.end;
-                    }*/
+                }*/
 
 #endif
 
@@ -246,8 +254,8 @@ namespace OpenEngine {
 
                 // Calc splitting planes.
                 Calc1DKernelDimensions(activeRange, blocks, threads);
-                CalcUpperNodeSplitInfo<<<blocks, threads>>>(aabbMin->GetDeviceData(),
-                                                            aabbMax->GetDeviceData(),
+                CalcUpperNodeSplitInfo<<<blocks, threads>>>(upperNodes->GetAabbMinData() + activeIndex,
+                                                            upperNodes->GetAabbMaxData() + activeIndex,
                                                             upperNodes->GetSplitPositionData() + activeIndex,
                                                             upperNodes->GetInfoData() + activeIndex);
                 CHECK_FOR_CUDA_ERROR();
@@ -255,7 +263,7 @@ namespace OpenEngine {
 
             void TriangleMap::CreateChildren(int activeIndex, int activeRange,
                                              int &childrenCreated){
-                unsigned int blocks, threads;
+                unsigned int blocks = NextPow2(segments.size), threads = Segments::SEGMENT_SIZE;
 
                 /*
                 if (activeIndex > 0){
@@ -269,16 +277,15 @@ namespace OpenEngine {
                 if (leafSide->GetSize() < (unsigned int)triangles * 2) leafSide->Resize(triangles * 2, false);
                 if (leafAddr->GetSize() < (unsigned int)triangles * 2 + 1) leafAddr->Resize(triangles * 2 + 1, false);
                 if (childSize->GetSize() < (unsigned int)activeRange) childSize->Resize(activeRange, false);
-
-                blocks = NextPow2(segments.size);
+                if (upperNodes->maxSize < upperNodes->size + activeRange * 2) upperNodes->Resize(upperNodes->size + activeRange * 2);
                 //START_TIMER(timerID);
-                SetSplitSide<<<blocks, segments.SEGMENT_SIZE>>>(segments.GetPrimitiveInfoData(),
-                                                        segments.GetOwnerData(),
-                                                        upperNodes->GetInfoData(),
-                                                        upperNodes->GetSplitPositionData(),
-                                                        aabbMin->GetDeviceData(),
-                                                        aabbMax->GetDeviceData(),
-                                                        splitSide->GetDeviceData());
+                SetSplitSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                  segments.GetOwnerData(),
+                                                  upperNodes->GetInfoData(),
+                                                  upperNodes->GetSplitPositionData(),
+                                                  aabbMin->GetDeviceData(),
+                                                  aabbMax->GetDeviceData(),
+                                                  splitSide->GetDeviceData());
                 //PRINT_TIMER(timerID, "Set split Side");
                 CHECK_FOR_CUDA_ERROR();
 
@@ -296,34 +303,98 @@ namespace OpenEngine {
                 CalcNodeChildSize<<<hatte, traade>>>(upperNodes->GetPrimitiveInfoData() + activeIndex,
                                                    splitAddr->GetDeviceData(),
                                                    childSize->GetDeviceData());
-
-                cudaMemcpyFromSymbol(&createdLeafs, d_createdLeafs, sizeof(bool));
-
-                logger.info << "sizes " << Utils::CUDA::Convert::ToString(childSize->GetDeviceData(), activeRange)<< logger.end;
-
                 CHECK_FOR_CUDA_ERROR();
+                cudaMemcpyFromSymbol(&createdLeafs, d_createdLeafs, sizeof(bool));
 
                 if (createdLeafs){
                     logger.info << "Created leafs" << logger.end;
 
-                    SetPrimitiveLeafSide
-                        <<<blocks, Segments::SEGMENT_SIZE>>>(segments.GetPrimitiveInfoData(),
-                                                             segments.GetOwnerData(),
-                                                             childSize->GetDeviceData(),
-                                                             leafSide->GetDeviceData());
+                    SetPrimitiveLeafSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                              segments.GetOwnerData(),
+                                                              childSize->GetDeviceData(),
+                                                              splitSide->GetDeviceData(),
+                                                              leafSide->GetDeviceData());
                     CHECK_FOR_CUDA_ERROR();
                     
                     cudppScan(scanHandle, leafAddr->GetDeviceData(), leafSide->GetDeviceData(), triangles * 2 + 1);
 
-                    logger.info << "leafAddr: " << Utils::CUDA::Convert::ToString(leafAddr->GetDeviceData(), 25) << logger.end;
+                    /*
+                    logger.info << "SetPrimitiveLeafSide<<<" << blocks << ", " << Segments::SEGMENT_SIZE << ">>>" << logger.end;
+                    logger.info << "Segments primitive info: " << Utils::CUDA::Convert::ToString(segments.GetPrimitiveInfoData(), segments.size) << logger.end;
+                    logger.info << "Segments owner: " << Utils::CUDA::Convert::ToString(segments.GetOwnerData(), segments.size) << logger.end;
+                    logger.info << "Child sizes: " << Utils::CUDA::Convert::ToString(childSize->GetDeviceData(), activeRange) << logger.end;
+                    logger.info << "Split side: " << Utils::CUDA::Convert::ToString(splitSide->GetDeviceData()+triangles-100, 200) << logger.end;
+                    logger.info << "===" << logger.end;
+                    logger.info << "Leaf side: " << Utils::CUDA::Convert::ToString(leafSide->GetDeviceData()+triangles-100, 200) << logger.end;
+                    logger.info << "Leaf addr: " << Utils::CUDA::Convert::ToString(leafAddr->GetDeviceData()+triangles-100, 200) << logger.end;
+                    */
 
                     int leafTriangles;
                     cudaMemcpy(&leafTriangles, leafAddr->GetDeviceData() + triangles * 2, sizeof(int), cudaMemcpyDeviceToHost);
-
                     logger.info << "leaf triangles: " << leafTriangles << logger.end;
                     
-                    throw Exception("Leaf creation not implemented.");
+                    newTriangles -= leafTriangles;
 
+                    if (tempAabbMin->GetSize() < (unsigned int) newTriangles) tempAabbMin->Resize(newTriangles);
+                    if (tempAabbMax->GetSize() < (unsigned int) newTriangles) tempAabbMax->Resize(newTriangles);
+                    if (geom->GetAabbMin()->GetSize() < (unsigned int) upperLeafPrimitives + leafTriangles)
+                        geom->GetAabbMin()->Resize(upperLeafPrimitives + leafTriangles);
+                    if (geom->GetAabbMax()->GetSize() < (unsigned int) upperLeafPrimitives + leafTriangles)
+                        geom->GetAabbMax()->Resize(upperLeafPrimitives + leafTriangles);
+
+                    SplitTriangles<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                        segments.GetOwnerData(),
+                                                        upperNodes->GetInfoData(),
+                                                        upperNodes->GetSplitPositionData(),
+                                                        splitSide->GetDeviceData(),
+                                                        splitAddr->GetDeviceData(),
+                                                        leafSide->GetDeviceData(),
+                                                        leafAddr->GetDeviceData(),
+                                                        aabbMin->GetDeviceData(),
+                                                        aabbMax->GetDeviceData(),
+                                                        tempAabbMin->GetDeviceData(),
+                                                        tempAabbMax->GetDeviceData(),
+                                                        geom->GetAabbMinData() + upperLeafPrimitives,
+                                                        geom->GetAabbMaxData() + upperLeafPrimitives);
+                    CHECK_FOR_CUDA_ERROR();
+                    std::swap(aabbMin, tempAabbMin);
+                    std::swap(aabbMax, tempAabbMax);
+                    
+                    // @TODO handle leaf nodes, probably add indices
+                    // to an array for future processing.
+
+                    MarkNodeLeafs<<<hatte, traade>>>(childSize->GetDeviceData(),
+                                                     leafSide->GetDeviceData());
+                    CHECK_FOR_CUDA_ERROR();
+                    cudppScan(scanHandle, splitSide->GetDeviceData(), leafSide->GetDeviceData(), activeRange * 2 + 1);
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    int leafNodes;
+                    cudaMemcpy(&leafNodes, splitSide->GetDeviceData() + activeRange * 2, sizeof(int), cudaMemcpyDeviceToHost);
+                    logger.info << "leaf nodes: " << leafNodes << logger.end;
+
+                    /*                                        
+                    logger.info << "CreateChildren<<<" << hatte << ", " << traade << ">>>" << logger.end;
+                    logger.info << "primitive info " << Convert::ToString(upperNodes->GetPrimitiveInfoData() + activeIndex, activeRange) << logger.end;
+                    logger.info << "child size " << Convert::ToString(childSize->GetDeviceData(), activeRange) << logger.end;
+                    logger.info << "Node leaf addrs " << Convert::ToString(splitSide->GetDeviceData(), activeRange * 2 + 1) << logger.end;
+                    */
+                    Kernels::CreateChildren
+                        <<<hatte, traade>>>(upperNodes->GetPrimitiveInfoData() + activeIndex,
+                                            childSize->GetDeviceData(),
+                                            splitAddr->GetDeviceData(),
+                                            leafAddr->GetDeviceData(),
+                                            splitSide->GetDeviceData(),
+                                            upperNodes->GetLeftData() + activeIndex,
+                                            upperNodes->GetRightData() + activeIndex,
+                                            upperLeafPrimitives);
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    upperLeafPrimitives += leafTriangles;
+                    triangles = newTriangles;
+                    upperNodes->size += activeRange * 2;
+                    childrenCreated = activeRange * 2 - leafNodes;
+                    
                 }else{
                     logger.info << "No leafs created" << logger.end;
 
@@ -342,17 +413,16 @@ namespace OpenEngine {
                     //logger.info << "Right " << Utils::CUDA::Convert::ToString(upperNodes->GetRightData() + activeIndex, activeRange) << logger.end;
                     //logger.info << "Children primitive info: " << Utils::CUDA::Convert::ToString(upperNodes->GetPrimitiveInfoData() + activeIndex + activeRange, activeRange * 2) << logger.end;
 
-                    SplitTriangles
-                        <<<blocks, Segments::SEGMENT_SIZE>>>(segments.GetPrimitiveInfoData(),
-                                                             segments.GetOwnerData(),
-                                                             upperNodes->GetInfoData(),
-                                                             upperNodes->GetSplitPositionData(),
-                                                             splitSide->GetDeviceData(),
-                                                             splitAddr->GetDeviceData(),
-                                                             aabbMin->GetDeviceData(),
-                                                             aabbMax->GetDeviceData(),
-                                                             tempAabbMin->GetDeviceData(),
-                                                             tempAabbMax->GetDeviceData());
+                    SplitTriangles<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                        segments.GetOwnerData(),
+                                                        upperNodes->GetInfoData(),
+                                                        upperNodes->GetSplitPositionData(),
+                                                        splitSide->GetDeviceData(),
+                                                        splitAddr->GetDeviceData(),
+                                                        aabbMin->GetDeviceData(),
+                                                        aabbMax->GetDeviceData(),
+                                                        tempAabbMin->GetDeviceData(),
+                                                        tempAabbMax->GetDeviceData());
                     CHECK_FOR_CUDA_ERROR();
 
                     std::swap(aabbMin, tempAabbMin);
@@ -363,7 +433,45 @@ namespace OpenEngine {
                     triangles = newTriangles;
                 }
 
+                /*
+                if (activeIndex == 7){
+                    logger.info <<
+                }
+                */
+
 #if CPU_VERIFY
+                // Check that all primitive bounding boxes are tight or inside the primitive
+                
+                float4 primAabbMin[triangles];
+                cudaMemcpy(primAabbMin, aabbMin->GetDeviceData(), triangles * sizeof(float4), cudaMemcpyDeviceToHost);
+                float4 primAabbMax[triangles];
+                cudaMemcpy(primAabbMax, aabbMax->GetDeviceData(), triangles * sizeof(float4), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+                for (int i = 0; i < triangles; ++i){
+                    int index = primAabbMin[i].w;
+                    float4 p0, p1, p2;
+                    cudaMemcpy(&p0, geom->p0->GetDeviceData() + index, sizeof(float4), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&p1, geom->p1->GetDeviceData() + index, sizeof(float4), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&p2, geom->p2->GetDeviceData() + index, sizeof(float4), cudaMemcpyDeviceToHost);
+
+                    float4 aabbMin = min(p0, min(p1, p2));
+                    float4 aabbMax = max(p0, max(p1, p2));
+
+                    if (primAabbMin[i].x < aabbMin.x || 
+                        primAabbMin[i].y < aabbMin.y || 
+                        primAabbMin[i].z < aabbMin.z ||
+                        aabbMax.x < primAabbMax[i].x ||
+                        aabbMax.y < primAabbMax[i].y ||
+                        aabbMax.z < primAabbMax[i].z)
+                        throw Exception("Element " + Utils::Convert::ToString(i) + 
+                                        " with cornors " + Convert::ToString(p0) +
+                                        ", " + Convert::ToString(p1) + " and " + Convert::ToString(p2) +
+                                        " is not strictly contained in aabb " + Convert::ToString(primAabbMin[i]) +
+                                        " -> " + Convert::ToString(primAabbMax[i]));
+                }
+                CHECK_FOR_CUDA_ERROR();
+
+                // Check that the nodes aabb cover all their respective primitives.
                 for (int i = activeIndex; i < activeIndex + activeRange; ++i){
                     char axis;
                     cudaMemcpy(&axis, upperNodes->GetInfoData() + i, sizeof(char), cudaMemcpyDeviceToHost);
@@ -380,23 +488,30 @@ namespace OpenEngine {
                         
                     int2 leftPrimInfo;
                     cudaMemcpy(&leftPrimInfo, upperNodes->GetPrimitiveInfoData() + leftIndex, sizeof(int2), cudaMemcpyDeviceToHost);
-                        
+
                     float4 leftAabbMin = parentAabbMin;
                     float4 leftAabbMax = make_float4(axis == KDNode::X ? splitPos : parentAabbMax.x,
                                                      axis == KDNode::Y ? splitPos : parentAabbMax.y,
                                                      axis == KDNode::Z ? splitPos : parentAabbMax.z,
                                                      parentAabbMax.w);
 
+                    bool leftIsLeaf = leftPrimInfo.y < TriangleLowerNode::MAX_SIZE;
                     for (int j = leftPrimInfo.x; j < leftPrimInfo.x + leftPrimInfo.y; ++j){
                         float4 primMin, primMax;
-                        cudaMemcpy(&primMin, aabbMin->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&primMax, aabbMax->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                        if (leftIsLeaf){
+                            cudaMemcpy(&primMin, geom->GetAabbMinData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                            cudaMemcpy(&primMax, geom->GetAabbMaxData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                        }else{
+                            cudaMemcpy(&primMin, aabbMin->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                            cudaMemcpy(&primMax, aabbMax->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                        }
                             
                         if (!aabbContains(leftAabbMin, leftAabbMax, primMin))
                             throw Core::Exception("primitive  " + Utils::Convert::ToString(j) + 
                                                   "'s min " + Utils::CUDA::Convert::ToString(primMin) +
-                                                  " not included in left aabb " + Utils::CUDA::Convert::ToString(leftAabbMin)
-                                                  + " -> " + Utils::CUDA::Convert::ToString(leftAabbMax));
+                                                  " not included in node " + Utils::Convert::ToString(leftIndex) + 
+                                                  "'s aabb " + Utils::CUDA::Convert::ToString(leftAabbMin) +
+                                                  " -> " + Utils::CUDA::Convert::ToString(leftAabbMax));
 
                         if (!aabbContains(leftAabbMin, leftAabbMax, primMax))
                             throw Core::Exception("primitive  " + Utils::Convert::ToString(j) + 
@@ -419,10 +534,16 @@ namespace OpenEngine {
                                                       parentAabbMin.w);
                     float4 rightAabbMax = parentAabbMax;
 
+                    bool rightIsLeaf = rightPrimInfo.y < TriangleLowerNode::MAX_SIZE;
                     for (int j = rightPrimInfo.x; j < rightPrimInfo.x + rightPrimInfo.y; ++j){
                         float4 primMin, primMax;
-                        cudaMemcpy(&primMin, aabbMin->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&primMax, aabbMax->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                        if (rightIsLeaf){
+                            cudaMemcpy(&primMin, geom->GetAabbMinData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                            cudaMemcpy(&primMax, geom->GetAabbMaxData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                        }else{
+                            cudaMemcpy(&primMin, aabbMin->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                            cudaMemcpy(&primMax, aabbMax->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                        }
                         CHECK_FOR_CUDA_ERROR();
                             
                         if (!aabbContains(rightAabbMin, rightAabbMax, primMin))

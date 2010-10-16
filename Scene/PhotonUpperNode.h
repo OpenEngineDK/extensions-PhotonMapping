@@ -12,7 +12,6 @@
 
 #include <Meta/CUDA.h>
 #include <Scene/KDNode.h>
-#include <string>
 #include <Utils/CUDA/Convert.h>
 #include <Scene/PhotonNode.h>
 
@@ -24,8 +23,7 @@ namespace OpenEngine {
 
         class PhotonUpperNode : public KDNode {
         public:
-            //int *photonRanges;//, *tempRange; // Range of photons that the node spans
-            int *parents;//, *tempParent;
+            //int *parents;//, *tempParent;
 
         public:
             PhotonUpperNode();
@@ -36,7 +34,6 @@ namespace OpenEngine {
             void MapToDataBlocks(Resources::IDataBlock* vertices,
                                  Resources::IDataBlock* colors);
 
-            std::string ToString(unsigned int i);
             std::string PhotonsToString(unsigned int i, PhotonNode photons);
         };
 

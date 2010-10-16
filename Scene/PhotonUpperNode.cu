@@ -14,8 +14,6 @@
 
 #include <Logging/Logger.h>
 
-#include <sstream>
-
 using namespace OpenEngine::Resources;
 using namespace OpenEngine::Utils::CUDA::Kernels;
 
@@ -30,18 +28,17 @@ namespace OpenEngine {
 
             logger.info << "Photon upper node inital max: " << size<< logger.end;
 
-            cudaSafeMalloc(&parents, maxSize * sizeof(int));
+            //cudaSafeMalloc(&parents, maxSize * sizeof(int));
 
             CHECK_FOR_CUDA_ERROR();
         }
 
         void PhotonUpperNode::Resize(int i){
             KDNode::Resize(i);
-            
+            /*            
             unsigned int copySize = this->size;
             
             int *tempInt;
-
             cudaSafeMalloc(&tempInt, i * sizeof(int));
             cudaMemcpy(tempInt, parents, copySize * sizeof(int), cudaMemcpyDeviceToDevice);
             cudaFree(parents);
@@ -50,6 +47,7 @@ namespace OpenEngine {
 
             maxSize = i;
             size = copySize;
+            */
         }
 
         void PhotonUpperNode::MapToDataBlocks(Resources::IDataBlock* position,
@@ -94,60 +92,6 @@ namespace OpenEngine {
             CHECK_FOR_CUDA_ERROR();
         }
                 
-        std::string PhotonUpperNode::ToString(unsigned int i){
-            bool isLeaf = false;
-            std::ostringstream out;
-                    
-            out << "Upper node " << i << ":\n";
-            char h_info;
-            cudaMemcpy(&h_info, info->GetDeviceData() + i, sizeof(char), cudaMemcpyDeviceToHost);
-            CHECK_FOR_CUDA_ERROR();
-                    
-            float h_pos;
-            cudaMemcpy(&h_pos, splitPos->GetDeviceData() + i, sizeof(float), cudaMemcpyDeviceToHost);
-            CHECK_FOR_CUDA_ERROR();
-            switch(h_info){
-            case X:
-                out << "Splits along the X plane at pos " << h_pos << "\n";
-                break;
-            case Y:
-                out << "Splits along the Y plane at pos " << h_pos << "\n";
-                break;
-            case Z:
-                out << "Splits along the Z plane at pos " << h_pos << "\n";
-                break;
-            case LEAF:
-                isLeaf = true;
-                out << "Is a leaf\n";
-                break;
-            }
-
-            int2 info;
-            cudaMemcpy(&info, photonInfo + i, sizeof(int2), cudaMemcpyDeviceToHost);
-            out << "Index " << info.x << " and range " << info.y << "\n";
-                   
-            if (!isLeaf){
-                point h_aabbmin, h_aabbmax;
-                cudaMemcpy(&h_aabbmin, aabbMin->GetDeviceData() + i, sizeof(point), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&h_aabbmax, aabbMax->GetDeviceData() + i, sizeof(point), cudaMemcpyDeviceToHost);
-                CHECK_FOR_CUDA_ERROR();
-                out << "Axis aligned bounding box: " << Utils::CUDA::Convert::ToString(h_aabbmin);
-                out << " -> " << Utils::CUDA::Convert::ToString(h_aabbmax) << "\n";
-            }
-
-            int h_left, h_right;
-            cudaMemcpy(&h_left, left->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&h_right, right->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
-            CHECK_FOR_CUDA_ERROR();
-            if (!isLeaf){
-                out << "Has children " << h_left << " and " << h_right << "\n";
-            }else{
-                out << "points to lowernode " << h_left << "\n";
-            }
-                    
-            return out.str();
-        }
-
         std::string PhotonUpperNode::PhotonsToString(unsigned int i, 
                                                      PhotonNode photons){
             std::ostringstream out;

@@ -60,6 +60,7 @@ namespace OpenEngine {
                 CUDADataBlock<1, int> *leafSide;
                 CUDADataBlock<1, int> *leafAddr;
                 CUDADataBlock<1, int2> *childSize; // Use upperNodes arrays?
+                int upperLeafPrimitives;
                 
             public:
                 TriangleMap(Scene::ISceneNode* scene);

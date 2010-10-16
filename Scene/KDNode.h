@@ -14,6 +14,8 @@
 #include <Utils/Cuda/Point.h>
 #include <Resources/CUDA/CUDADataBlock.h>
 
+#include <string>
+
 using namespace OpenEngine::Resources::CUDA;
 
 namespace OpenEngine {
@@ -52,6 +54,8 @@ namespace OpenEngine {
             int2* GetPrimitiveInfoData() { return photonInfo->GetDeviceData(); }
             int* GetLeftData() { return left->GetDeviceData(); }
             int* GetRightData() { return right->GetDeviceData(); }
+
+            std::string ToString(unsigned int i);
             
         };
         

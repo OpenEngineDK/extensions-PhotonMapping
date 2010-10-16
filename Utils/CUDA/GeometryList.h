@@ -32,7 +32,7 @@ namespace OpenEngine {
         namespace CUDA {
             
             class GeometryList : public virtual Scene::ISceneNodeVisitor {
-            protected:
+            public:
                 int maxSize, size;
 
                 Resources::CUDA::CUDADataBlock<1, float4> *p0, *p1, *p2;
@@ -52,6 +52,9 @@ namespace OpenEngine {
 
                 void Resize(int i);
                 void Extend(int i);
+
+                Resources::CUDA::CUDADataBlock<1, float4>* GetAabbMin() const { return aabbMin; }
+                Resources::CUDA::CUDADataBlock<1, float4>* GetAabbMax() const { return aabbMax; }
 
                 float4* GetAabbMinData() const { return aabbMin->GetDeviceData(); }
                 float4* GetAabbMaxData() const { return aabbMax->GetDeviceData(); }
