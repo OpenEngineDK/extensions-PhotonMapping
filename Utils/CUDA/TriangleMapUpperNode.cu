@@ -195,15 +195,30 @@ namespace OpenEngine {
 
 #endif
 
-                threads = min(blocks, activeCudaDevice.maxThreadsDim[0]);
-                //START_TIMER(timerID);
-                SegmentedReduce<<<1, threads>>>(segments.GetAabbMinData(),
-                                                segments.GetAabbMaxData(),
-                                                segments.GetOwnerData(),
-                                                upperNodes->GetAabbMinData(),
-                                                upperNodes->GetAabbMaxData());
-                //PRINT_TIMER(timerID, "Segmented reduce");
+                //threads = min(blocks, activeCudaDevice.maxThreadsDim[0]);
+                threads = min((segments.size / 32) * 32 + 32, activeCudaDevice.maxThreadsDim[0]);
+                START_TIMER(timerID);
+                if (threads <= 256){
+                    FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData(),
+                                                         segments.GetAabbMaxData(),
+                                                         segments.GetOwnerData(),
+                                                         upperNodes->GetAabbMinData() + activeIndex,
+                                                         upperNodes->GetAabbMaxData() + activeIndex);
+                    //logger.info << "threads " << threads << logger.end;
+                    //logger.info << "segments " << segments.size << logger.end;
+                }else
+                    SegmentedReduce0<<<1, threads>>>(segments.GetAabbMinData(),
+                                                     segments.GetAabbMaxData(),
+                                                     segments.GetOwnerData(),
+                                                     upperNodes->GetAabbMinData(),
+                                                     upperNodes->GetAabbMaxData());
+                PRINT_TIMER(timerID, "Segmented reduce");
                 CHECK_FOR_CUDA_ERROR();
+                
+                if (activeIndex == 92){
+                    for (int i = 0; i < segments.size; ++i)
+                        logger.info << "Segment " << i << "'s owner is " << segOwner[i] << " with max " << Convert::ToString(segMax[i]) << logger.end;                        
+                }
 
 #if CPU_VERIFY
                 float4 gpuMin[activeRange];
