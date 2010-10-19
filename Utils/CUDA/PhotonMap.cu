@@ -204,7 +204,7 @@ namespace OpenEngine {
                                               int &childrenCreated,
                                               int &activePhotons){
 
-                logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << activePhotons << " photons" << logger.end;
+                //logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << activePhotons << " photons" << logger.end;
 
                 // Check that there is room for the new children
                 if (upperNodes->maxSize < upperNodes->size + activeRange * 2)
