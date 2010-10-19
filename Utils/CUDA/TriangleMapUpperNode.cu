@@ -44,18 +44,12 @@ namespace OpenEngine {
                            triangles * sizeof(float4), cudaMemcpyDeviceToDevice);
                 CHECK_FOR_CUDA_ERROR();                
 
-                int level = 0;
-                while (activeRange > 0 && level != 16){
+                while (activeRange > 0){
                     ProcessUpperNodes(activeIndex, activeRange, 
                                       childrenCreated);
 
-                    //for (int i = 0; i < activeRange; ++i)
-                    //logger.info << upperNodes->ToString(i + activeIndex) << logger.end;
-
-                    // @TODO Isn't active index = upperNodes.size - childrenCreated?
                     activeIndex = upperNodes->size - childrenCreated;
                     activeRange = childrenCreated;
-                    level++;
                 }
 
             }
@@ -86,26 +80,18 @@ namespace OpenEngine {
                 if (nodeSegments->GetSize() < (unsigned int)activeRange+1)
                     nodeSegments->Resize(activeRange+1);
 
-                //logger.info <<" primitive info " << Utils::CUDA::Convert::ToString(upperNodes->GetPrimitiveInfoData() + activeIndex, activeRange) << logger.end;
-
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activeRange, blocks, threads);
                 NodeSegments<<<blocks, threads>>>(upperNodes->GetPrimitiveInfoData() + activeIndex,
                                                   nodeSegments->GetDeviceData());
 
-                //logger.info <<" node segments " << Utils::CUDA::Convert::ToString(nodeSegments->GetDeviceData(), activeRange) << logger.end;
-
                 CHECK_FOR_CUDA_ERROR();
                 cudppScan(scanHandle, nodeSegments->GetDeviceData(), nodeSegments->GetDeviceData(), activeRange+1);
-                
-                //logger.info <<" node segments addrs " << Utils::CUDA::Convert::ToString(nodeSegments->GetDeviceData(), activeRange+1) << logger.end;
 
                 int amountOfSegments;
                 cudaMemcpy(&amountOfSegments, nodeSegments->GetDeviceData() + activeRange, sizeof(int), cudaMemcpyDeviceToHost);
                 cudaMemcpyToSymbol(d_segments, nodeSegments->GetDeviceData() + activeRange, sizeof(int), 0, cudaMemcpyDeviceToDevice);
                 CHECK_FOR_CUDA_ERROR();
-
-                //logger.info << " Number of segments: " << amountOfSegments << logger.end;
 
                 if (segments.maxSize < amountOfSegments)
                     segments.Resize(amountOfSegments);
@@ -118,24 +104,19 @@ namespace OpenEngine {
 
                 cudppScan(scanInclHandle, segments.GetOwnerData(), segments.GetOwnerData(), amountOfSegments);
 
-                //logger.info << " Segment owners " << Utils::CUDA::Convert::ToString(segments.GetOwnerData(), amountOfSegments) << logger.end;
-
                 Calc1DKernelDimensions(amountOfSegments, blocks, threads);
                 CalcSegmentPrimitives<<<blocks, threads>>>(segments.GetOwnerData(),
                                                            nodeSegments->GetDeviceData(),
                                                            upperNodes->GetPrimitiveInfoData(),
                                                            segments.GetPrimitiveInfoData());
                 CHECK_FOR_CUDA_ERROR();
-
-                //logger.info << " Segment primitive info " << Utils::CUDA::Convert::ToString(segments.GetPrimitiveInfoData(), amountOfSegments) << logger.end;
-
             }
 
             void TriangleMap::ReduceAabb(int activeIndex, int activeRange){
                 
                 // Reduce aabb pr segment
                 unsigned int blocks = NextPow2(segments.size);
-                unsigned int threads = segments.SEGMENT_SIZE;
+                unsigned int threads = Segments::SEGMENT_SIZE;
                 unsigned int memSize = 2 * sizeof(float4) * segments.SEGMENT_SIZE;
 
                 //START_TIMER(timerID);
@@ -144,9 +125,6 @@ namespace OpenEngine {
                                                              segments.GetAabbMinData(), segments.GetAabbMaxData());
                 //PRINT_TIMER(timerID, "ReduceSegments");
                 CHECK_FOR_CUDA_ERROR();
-
-                //logger.info << "segment aabbMin: " << Utils::CUDA::Convert::ToString(segments.GetAabbMinData(), segments.size) << logger.end;
-                //logger.info << "segment aabbMax: " << Utils::CUDA::Convert::ToString(segments.GetAabbMaxData(), segments.size) << logger.end;
 
 #if CPU_VERIFY
                 int2 info[segments.size];
@@ -159,7 +137,7 @@ namespace OpenEngine {
                 float4 segMax[segments.size];
                 cudaMemcpy(segMax, segments.GetAabbMaxData(), 
                            segments.size * sizeof(float4), cudaMemcpyDeviceToHost);
-                
+
                 for (int i = 0; i < segments.size; ++i){
                     int index = info[i].x;
                     int range = info[i].y;
@@ -214,11 +192,6 @@ namespace OpenEngine {
                 }
                 cpuMin[owner0 - activeIndex] = localMin;
                 cpuMax[owner0 - activeIndex] = localMax;
-
-                /*
-                for (int i = 0; i < activeRange; ++i){
-                    logger.info << "Node" << i + activeIndex << "'s bb " << Utils::CUDA::Convert::ToString(cpuMin[i]) << " -> " << Utils::CUDA::Convert::ToString(cpuMax[i]) << logger.end;
-                }*/
 
 #endif
 
@@ -293,7 +266,7 @@ namespace OpenEngine {
 
                 int newTriangles;
                 cudaMemcpy(&newTriangles, splitAddr->GetDeviceData() + triangles * 2, sizeof(int), cudaMemcpyDeviceToHost);
-                logger.info << "new triangles " << newTriangles << logger.end;
+                //logger.info << "new triangles " << newTriangles << logger.end;
                 
                 bool createdLeafs = false;
                 cudaMemcpyToSymbol(d_createdLeafs, &createdLeafs, sizeof(bool));
@@ -307,7 +280,7 @@ namespace OpenEngine {
                 cudaMemcpyFromSymbol(&createdLeafs, d_createdLeafs, sizeof(bool));
 
                 if (createdLeafs){
-                    logger.info << "Created leafs" << logger.end;
+                    //logger.info << "Created leafs" << logger.end;
 
                     SetPrimitiveLeafSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                               segments.GetOwnerData(),
@@ -331,7 +304,7 @@ namespace OpenEngine {
 
                     int leafTriangles;
                     cudaMemcpy(&leafTriangles, leafAddr->GetDeviceData() + triangles * 2, sizeof(int), cudaMemcpyDeviceToHost);
-                    logger.info << "leaf triangles: " << leafTriangles << logger.end;
+                    //logger.info << "leaf triangles: " << leafTriangles << logger.end;
                     
                     newTriangles -= leafTriangles;
 
@@ -371,7 +344,7 @@ namespace OpenEngine {
                     
                     int leafNodes;
                     cudaMemcpy(&leafNodes, splitSide->GetDeviceData() + activeRange * 2, sizeof(int), cudaMemcpyDeviceToHost);
-                    logger.info << "leaf nodes: " << leafNodes << logger.end;
+                    //logger.info << "leaf nodes: " << leafNodes << logger.end;
 
                     /*                                        
                     logger.info << "CreateChildren<<<" << hatte << ", " << traade << ">>>" << logger.end;
@@ -396,7 +369,7 @@ namespace OpenEngine {
                     childrenCreated = activeRange * 2 - leafNodes;
                     
                 }else{
-                    logger.info << "No leafs created" << logger.end;
+                    //logger.info << "No leafs created" << logger.end;
 
                     if (tempAabbMin->GetSize() < (unsigned int) newTriangles) tempAabbMin->Resize(newTriangles);
                     if (tempAabbMax->GetSize() < (unsigned int) newTriangles) tempAabbMax->Resize(newTriangles);
@@ -432,12 +405,6 @@ namespace OpenEngine {
                     childrenCreated = activeRange * 2;
                     triangles = newTriangles;
                 }
-
-                /*
-                if (activeIndex == 7){
-                    logger.info <<
-                }
-                */
 
 #if CPU_VERIFY
                 // Check that all primitive bounding boxes are tight or inside the primitive
