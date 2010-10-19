@@ -28,7 +28,7 @@ namespace OpenEngine {
                 int activeIndex = 0, activeRange = 1;
                 int childrenCreated;
                 
-                upperLeafPrimitives = 0;
+                upperNodeLeafs = upperLeafPrimitives = 0;
 
                 // Setup root node!
                 int2 i = make_int2(0, triangles);
@@ -259,6 +259,7 @@ namespace OpenEngine {
                 if (leafAddr->GetSize() < (unsigned int)triangles * 2 + 1) leafAddr->Resize(triangles * 2 + 1, false);
                 if (childSize->GetSize() < (unsigned int)activeRange) childSize->Resize(activeRange, false);
                 if (upperNodes->maxSize < upperNodes->size + activeRange * 2) upperNodes->Resize(upperNodes->size + activeRange * 2);
+
                 //START_TIMER(timerID);
                 SetSplitSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                   segments.GetOwnerData(),
@@ -360,6 +361,7 @@ namespace OpenEngine {
                     logger.info << "child size " << Convert::ToString(childSize->GetDeviceData(), activeRange) << logger.end;
                     logger.info << "Node leaf addrs " << Convert::ToString(splitSide->GetDeviceData(), activeRange * 2 + 1) << logger.end;
                     */
+
                     Kernels::CreateChildren
                         <<<hatte, traade>>>(upperNodes->GetPrimitiveInfoData() + activeIndex,
                                             childSize->GetDeviceData(),
@@ -370,11 +372,23 @@ namespace OpenEngine {
                                             upperNodes->GetRightData() + activeIndex,
                                             upperLeafPrimitives);
                     CHECK_FOR_CUDA_ERROR();
-                    
+
                     upperLeafPrimitives += leafTriangles;
                     triangles = newTriangles;
                     upperNodes->size += activeRange * 2;
                     childrenCreated = activeRange * 2 - leafNodes;
+
+                    upperNodeLeafList->Extend(upperNodeLeafs + leafNodes);
+                    Calc1DKernelDimensions(leafNodes, blocks, threads);
+                    int leafIndex = upperNodes->size - activeRange * 2;
+                    //logger.info << "leaf index " << leafIndex << logger.end;
+                    MarkLeafNodes
+                        <<<blocks, threads>>>(upperNodeLeafList->GetDeviceData() + upperNodeLeafs, 
+                                              upperNodes->GetInfoData() + leafIndex,
+                                              leafIndex, leafNodes);
+                    upperNodeLeafs += leafNodes;
+                    
+                    //logger.info << "UpperNode Leafs: " << upperNodeLeafs << logger.end;
                     
                 }else{
                     //logger.info << "No leafs created" << logger.end;

@@ -277,6 +277,19 @@ namespace Kernels {
             }
         }
     }
+
+    __global__ void MarkLeafNodes(int* leafList, 
+                                  char *nodeInfo,
+                                  int leafIndex, int newLeafNodes){
+        
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        
+        if (id < newLeafNodes){
+            leafList[id] = leafIndex + id;
+            nodeInfo[id] = KDNode::LEAF;
+        }
+    }
+
 }
 }
 }

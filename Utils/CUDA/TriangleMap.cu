@@ -57,6 +57,8 @@ namespace OpenEngine {
                 leafSide = new CUDADataBlock<1, int>(1);
                 leafAddr = new CUDADataBlock<1, int>(1);
                 childSize = new CUDADataBlock<1, int2>(1);
+
+                upperNodeLeafList = new CUDADataBlock<1, int>(1);
             }
 
             void TriangleMap::Create(){
