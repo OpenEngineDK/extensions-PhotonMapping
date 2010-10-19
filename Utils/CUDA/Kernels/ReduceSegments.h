@@ -163,6 +163,53 @@ namespace Kernels {
         }
     }
 
+    __global__ void SegmentedReduce1(float4 *segmentAabbMin,
+                                     float4 *segmentAabbMax,
+                                     int *segmentOwner,
+                                     float4 *nodeAabbMin,
+                                     float4 *nodeAabbMax){
+
+        __shared__ float3 segMax[256];
+        __shared__ float4 resMax[256];
+        
+        segMax[threadIdx.x] = threadIdx.x < d_segments ? make_float3(segmentAabbMax[threadIdx.x]) : make_float3(-1.0f * fInfinity);
+        if (threadIdx.x < d_activeNodeRange){
+            nodeAabbMin[threadIdx.x] = make_float4(fInfinity);
+            resMax[threadIdx.x] = nodeAabbMax[threadIdx.x] = make_float4(-1.0 * fInfinity);
+        }
+        __syncthreads();
+
+        int index0 = threadIdx.x * 2;
+        int index1 = index0 + 1;
+        while (index1 < d_segments){
+            int owner0 = segmentOwner[index0] - d_activeNodeIndex;
+            int owner1 = segmentOwner[index1] - d_activeNodeIndex;
+            
+            if (owner0 != owner1){
+                nodeAabbMin[owner1] = min(nodeAabbMin[owner1], segmentAabbMin[index1]);
+                resMax[owner1] = nodeAabbMax[owner1] = max(resMax[owner1], make_float4(segMax[index1], 1.0f));
+                //resMax[owner1] = max(resMax[owner1], make_float4(segMax[index1], 1.0f));
+                //nodeAabbMax[owner1] = make_float4(threadIdx.x);
+            }else{
+                segmentAabbMin[index0] = min(segmentAabbMin[index0], segmentAabbMin[index1]);
+                segMax[index0] = max(segMax[index0], segMax[index1]);
+            }
+ 
+            __syncthreads();
+           index0 *= 2;
+           index1 *= 2;
+        }
+        __syncthreads();
+
+        if (threadIdx.x < d_activeNodeRange)
+            nodeAabbMax[threadIdx.x] = resMax[threadIdx.x];
+
+        if (threadIdx.x == 0){
+            nodeAabbMin[0] = segmentAabbMin[0];
+            nodeAabbMax[0] = make_float4(segMax[0], 1.0f);
+        }
+    }
+
     __global__ void 
     __launch_bounds__(256) 
         FinalSegmentedReduce(float4 *segmentAabbMin,
