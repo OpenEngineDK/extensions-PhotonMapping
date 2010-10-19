@@ -462,94 +462,120 @@ namespace OpenEngine {
 
                 // Check that the nodes aabb cover all their respective primitives.
                 for (int i = activeIndex; i < activeIndex + activeRange; ++i){
+                    float4 parentAabbMin, parentAabbMax;
+                    cudaMemcpy(&parentAabbMin, upperNodes->GetAabbMinData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&parentAabbMax, upperNodes->GetAabbMaxData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+
+                    CheckUpperNode(i, parentAabbMin, parentAabbMax, activeRange);
+ 
+                    /*                        
                     char axis;
                     cudaMemcpy(&axis, upperNodes->GetInfoData() + i, sizeof(char), cudaMemcpyDeviceToHost);
 
                     float splitPos;
                     cudaMemcpy(&splitPos, upperNodes->GetSplitPositionData() + i, sizeof(float), cudaMemcpyDeviceToHost);
                         
-                    float4 parentAabbMin, parentAabbMax;
-                    cudaMemcpy(&parentAabbMin, upperNodes->GetAabbMinData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(&parentAabbMax, upperNodes->GetAabbMaxData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                        
                     int leftIndex;
                     cudaMemcpy(&leftIndex, upperNodes->GetLeftData() + i, sizeof(int), cudaMemcpyDeviceToHost);
                         
-                    int2 leftPrimInfo;
-                    cudaMemcpy(&leftPrimInfo, upperNodes->GetPrimitiveInfoData() + leftIndex, sizeof(int2), cudaMemcpyDeviceToHost);
-
                     float4 leftAabbMin = parentAabbMin;
                     float4 leftAabbMax = make_float4(axis == KDNode::X ? splitPos : parentAabbMax.x,
                                                      axis == KDNode::Y ? splitPos : parentAabbMax.y,
                                                      axis == KDNode::Z ? splitPos : parentAabbMax.z,
                                                      parentAabbMax.w);
 
-                    bool leftIsLeaf = leftPrimInfo.y < TriangleLowerNode::MAX_SIZE;
-                    for (int j = leftPrimInfo.x; j < leftPrimInfo.x + leftPrimInfo.y; ++j){
-                        float4 primMin, primMax;
-                        if (leftIsLeaf){
-                            cudaMemcpy(&primMin, geom->GetAabbMinData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
-                            cudaMemcpy(&primMax, geom->GetAabbMaxData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
-                        }else{
-                            cudaMemcpy(&primMin, aabbMin->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
-                            cudaMemcpy(&primMax, aabbMax->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
-                        }
-                            
-                        if (!aabbContains(leftAabbMin, leftAabbMax, primMin))
-                            throw Core::Exception("primitive  " + Utils::Convert::ToString(j) + 
-                                                  "'s min " + Utils::CUDA::Convert::ToString(primMin) +
-                                                  " not included in node " + Utils::Convert::ToString(leftIndex) + 
-                                                  "'s aabb " + Utils::CUDA::Convert::ToString(leftAabbMin) +
-                                                  " -> " + Utils::CUDA::Convert::ToString(leftAabbMax));
-
-                        if (!aabbContains(leftAabbMin, leftAabbMax, primMax))
-                            throw Core::Exception("primitive  " + Utils::Convert::ToString(j) + 
-                                                  "'s max " + Utils::CUDA::Convert::ToString(primMax) +
-                                                  " not included in left aabb " + Utils::CUDA::Convert::ToString(leftAabbMin)
-                                                  + " -> " + Utils::CUDA::Convert::ToString(leftAabbMax));
-                    }
+                    CheckUpperLeaf(leftIndex, leftAabbMin, leftAabbMax);
 
                     int rightIndex;
                     cudaMemcpy(&rightIndex, upperNodes->GetRightData() + i, sizeof(int), cudaMemcpyDeviceToHost);
                     CHECK_FOR_CUDA_ERROR();
-                        
-                    int2 rightPrimInfo;
-                    cudaMemcpy(&rightPrimInfo, upperNodes->GetPrimitiveInfoData() + rightIndex, sizeof(int2), cudaMemcpyDeviceToHost);
-                    CHECK_FOR_CUDA_ERROR();
-                        
+
                     float4 rightAabbMin = make_float4(axis == KDNode::X ? splitPos : parentAabbMin.x,
                                                       axis == KDNode::Y ? splitPos : parentAabbMin.y,
                                                       axis == KDNode::Z ? splitPos : parentAabbMin.z,
                                                       parentAabbMin.w);
                     float4 rightAabbMax = parentAabbMax;
 
-                    bool rightIsLeaf = rightPrimInfo.y < TriangleLowerNode::MAX_SIZE;
-                    for (int j = rightPrimInfo.x; j < rightPrimInfo.x + rightPrimInfo.y; ++j){
-                        float4 primMin, primMax;
-                        if (rightIsLeaf){
-                            cudaMemcpy(&primMin, geom->GetAabbMinData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
-                            cudaMemcpy(&primMax, geom->GetAabbMaxData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
-                        }else{
-                            cudaMemcpy(&primMin, aabbMin->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
-                            cudaMemcpy(&primMax, aabbMax->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
-                        }
-                        CHECK_FOR_CUDA_ERROR();
-                            
-                        if (!aabbContains(rightAabbMin, rightAabbMax, primMin))
-                            throw Core::Exception("primitive  " + Utils::Convert::ToString(j) + 
-                                                  "'s min " + Utils::CUDA::Convert::ToString(primMin) +
-                                                  " not included in right aabb " + Utils::CUDA::Convert::ToString(rightAabbMin)
-                                                  + " -> " + Utils::CUDA::Convert::ToString(rightAabbMax));
-
-                        if (!aabbContains(rightAabbMin, rightAabbMax, primMax))
-                            throw Core::Exception("primitive  " + Utils::Convert::ToString(j) + 
-                                                  "'s max " + Utils::CUDA::Convert::ToString(primMax) +
-                                                  " not included in right aabb " + Utils::CUDA::Convert::ToString(rightAabbMin)
-                                                  + " -> " + Utils::CUDA::Convert::ToString(rightAabbMax));
-                    }
+                    CheckUpperLeaf(rightIndex, rightAabbMin, rightAabbMax);
+                    */
                 }
 #endif
 
+            }
+
+            void TriangleMap::CheckUpperNode(int index, float4 calcedAabbMin, float4 calcedAabbMax, int activeRange){
+                //logger.info << "Checking node " << index << logger.end;
+                char axis;
+                cudaMemcpy(&axis, upperNodes->GetInfoData() + index, sizeof(char), cudaMemcpyDeviceToHost);
+                
+                if (axis == KDNode::LEAF){
+                    CheckUpperLeaf(index, calcedAabbMin, calcedAabbMax);                    
+                }else{
+                    float splitPos;
+                    cudaMemcpy(&splitPos, upperNodes->GetSplitPositionData() + index, sizeof(float), cudaMemcpyDeviceToHost);
+                    
+                    int leftIndex;
+                    cudaMemcpy(&leftIndex, upperNodes->GetLeftData() + index, sizeof(int), cudaMemcpyDeviceToHost);
+                        
+                    float4 leftAabbMin = calcedAabbMin;
+                    float4 leftAabbMax = make_float4(axis == KDNode::X ? splitPos : calcedAabbMax.x,
+                                                     axis == KDNode::Y ? splitPos : calcedAabbMax.y,
+                                                     axis == KDNode::Z ? splitPos : calcedAabbMax.z,
+                                                     calcedAabbMax.w);
+
+                    if (leftIndex < upperNodes->size - 2 * activeRange)
+                        CheckUpperNode(leftIndex, leftAabbMin, leftAabbMax, activeRange);
+                    else
+                        CheckUpperLeaf(leftIndex, leftAabbMin, leftAabbMax);
+
+                    int rightIndex;
+                    cudaMemcpy(&rightIndex, upperNodes->GetRightData() + index, sizeof(int), cudaMemcpyDeviceToHost);
+                        
+                    float4 rightAabbMin = make_float4(axis == KDNode::X ? splitPos : calcedAabbMin.x,
+                                                      axis == KDNode::Y ? splitPos : calcedAabbMin.y,
+                                                      axis == KDNode::Z ? splitPos : calcedAabbMin.z,
+                                                      calcedAabbMin.w);
+                    float4 rightAabbMax = calcedAabbMax;
+
+                    if (rightIndex < upperNodes->size - 2 * activeRange)
+                        CheckUpperNode(rightIndex, rightAabbMin, rightAabbMax, activeRange);
+                    else
+                        CheckUpperLeaf(rightIndex, rightAabbMin, rightAabbMax);
+                }                
+            }
+
+            void TriangleMap::CheckUpperLeaf(int index, float4 calcedAabbMin, float4 calcedAabbMax){
+                //logger.info << "Node " << index << " is a leaf" << logger.end;
+                int2 primInfo;
+                cudaMemcpy(&primInfo, upperNodes->GetPrimitiveInfoData() + index, sizeof(int2), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+                
+                bool isLeaf = primInfo.y < TriangleLowerNode::MAX_SIZE;
+                for (int j = primInfo.x; j < primInfo.x + primInfo.y; ++j){
+                    float4 primMin, primMax;
+                    if (isLeaf){
+                        cudaMemcpy(&primMin, geom->GetAabbMinData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                        cudaMemcpy(&primMax, geom->GetAabbMaxData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                    }else{
+                        cudaMemcpy(&primMin, aabbMin->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                        cudaMemcpy(&primMax, aabbMax->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                    }
+                    CHECK_FOR_CUDA_ERROR();
+                            
+                    if (!aabbContains(calcedAabbMin, calcedAabbMax, primMin))
+                        throw Core::Exception("primitive  " + Utils::Convert::ToString(j) + 
+                                              "'s min " + Convert::ToString(primMin) +
+                                              " not included in node " + Utils::Convert::ToString(index) +
+                                              "'s aabb " + Convert::ToString(calcedAabbMin) +
+                                              " -> " + Convert::ToString(calcedAabbMax));
+
+                    if (!aabbContains(calcedAabbMin, calcedAabbMax, primMax))
+                        throw Core::Exception("primitive  " + Utils::Convert::ToString(j) + 
+                                              "'s max " + Convert::ToString(primMax) +
+                                              " not included in node " + Utils::Convert::ToString(index) +
+                                              "'s aabb " + Convert::ToString(calcedAabbMin) +
+                                              " -> " + Convert::ToString(calcedAabbMax));
+                }
             }
 
         }
