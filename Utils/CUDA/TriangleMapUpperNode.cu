@@ -33,6 +33,8 @@ namespace OpenEngine {
                 // Setup root node!
                 int2 i = make_int2(0, triangles);
                 cudaMemcpy(upperNodes->GetPrimitiveInfoData(), &i, sizeof(int2), cudaMemcpyHostToDevice);
+                int parent = 0;
+                cudaMemcpy(upperNodes->GetParentData(), &parent, sizeof(int), cudaMemcpyHostToDevice);
                 upperNodes->size = 1;
 
                 // Setup bounding box info
@@ -276,6 +278,7 @@ namespace OpenEngine {
                 int newTriangles;
                 cudaMemcpy(&newTriangles, splitAddr->GetDeviceData() + triangles * 2, sizeof(int), cudaMemcpyDeviceToHost);
                 //logger.info << "new triangles " << newTriangles << logger.end;
+                CHECK_FOR_CUDA_ERROR();
                 
                 bool createdLeafs = false;
                 cudaMemcpyToSymbol(d_createdLeafs, &createdLeafs, sizeof(bool));
@@ -363,13 +366,14 @@ namespace OpenEngine {
                     */
 
                     Kernels::CreateChildren
-                        <<<hatte, traade>>>(upperNodes->GetPrimitiveInfoData() + activeIndex,
+                        <<<hatte, traade>>>(upperNodes->GetPrimitiveInfoData(),
                                             childSize->GetDeviceData(),
                                             splitAddr->GetDeviceData(),
                                             leafAddr->GetDeviceData(),
                                             splitSide->GetDeviceData(),
-                                            upperNodes->GetLeftData() + activeIndex,
-                                            upperNodes->GetRightData() + activeIndex,
+                                            upperNodes->GetLeftData(),
+                                            upperNodes->GetRightData(),
+                                            upperNodes->GetParentData(),
                                             upperLeafPrimitives);
                     CHECK_FOR_CUDA_ERROR();
 
@@ -397,11 +401,12 @@ namespace OpenEngine {
                     if (tempAabbMax->GetSize() < (unsigned int) newTriangles) tempAabbMax->Resize(newTriangles);
 
                     Kernels::CreateChildren
-                        <<<hatte, traade>>>(upperNodes->GetPrimitiveInfoData() + activeIndex,
+                        <<<hatte, traade>>>(upperNodes->GetPrimitiveInfoData(),
                                             childSize->GetDeviceData(),
                                             splitAddr->GetDeviceData(),
-                                            upperNodes->GetLeftData() + activeIndex,
-                                            upperNodes->GetRightData() + activeIndex);
+                                            upperNodes->GetLeftData(),
+                                            upperNodes->GetRightData(),
+                                            upperNodes->GetParentData());
                     CHECK_FOR_CUDA_ERROR();
 
                     //logger.info << "Left " << Utils::CUDA::Convert::ToString(upperNodes->GetLeftData() + activeIndex, activeRange) << logger.end;
@@ -467,37 +472,6 @@ namespace OpenEngine {
                     cudaMemcpy(&parentAabbMax, upperNodes->GetAabbMaxData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
 
                     CheckUpperNode(i, parentAabbMin, parentAabbMax, activeRange);
- 
-                    /*                        
-                    char axis;
-                    cudaMemcpy(&axis, upperNodes->GetInfoData() + i, sizeof(char), cudaMemcpyDeviceToHost);
-
-                    float splitPos;
-                    cudaMemcpy(&splitPos, upperNodes->GetSplitPositionData() + i, sizeof(float), cudaMemcpyDeviceToHost);
-                        
-                    int leftIndex;
-                    cudaMemcpy(&leftIndex, upperNodes->GetLeftData() + i, sizeof(int), cudaMemcpyDeviceToHost);
-                        
-                    float4 leftAabbMin = parentAabbMin;
-                    float4 leftAabbMax = make_float4(axis == KDNode::X ? splitPos : parentAabbMax.x,
-                                                     axis == KDNode::Y ? splitPos : parentAabbMax.y,
-                                                     axis == KDNode::Z ? splitPos : parentAabbMax.z,
-                                                     parentAabbMax.w);
-
-                    CheckUpperLeaf(leftIndex, leftAabbMin, leftAabbMax);
-
-                    int rightIndex;
-                    cudaMemcpy(&rightIndex, upperNodes->GetRightData() + i, sizeof(int), cudaMemcpyDeviceToHost);
-                    CHECK_FOR_CUDA_ERROR();
-
-                    float4 rightAabbMin = make_float4(axis == KDNode::X ? splitPos : parentAabbMin.x,
-                                                      axis == KDNode::Y ? splitPos : parentAabbMin.y,
-                                                      axis == KDNode::Z ? splitPos : parentAabbMin.z,
-                                                      parentAabbMin.w);
-                    float4 rightAabbMax = parentAabbMax;
-
-                    CheckUpperLeaf(rightIndex, rightAabbMin, rightAabbMax);
-                    */
                 }
 #endif
 
@@ -516,7 +490,15 @@ namespace OpenEngine {
                     
                     int leftIndex;
                     cudaMemcpy(&leftIndex, upperNodes->GetLeftData() + index, sizeof(int), cudaMemcpyDeviceToHost);
+
+                    int leftParent;
+                    cudaMemcpy(&leftParent, upperNodes->GetParentData() + leftIndex, sizeof(int), cudaMemcpyDeviceToHost);
                         
+                    if (leftParent != index)
+                        throw Exception("Node " + Utils::Convert::ToString(leftIndex) +
+                                        "'s parent " + Utils::Convert::ToString(leftParent) +
+                                        " does not match actual parent " + Utils::Convert::ToString(index));
+
                     float4 leftAabbMin = calcedAabbMin;
                     float4 leftAabbMax = make_float4(axis == KDNode::X ? splitPos : calcedAabbMax.x,
                                                      axis == KDNode::Y ? splitPos : calcedAabbMax.y,
@@ -530,6 +512,14 @@ namespace OpenEngine {
 
                     int rightIndex;
                     cudaMemcpy(&rightIndex, upperNodes->GetRightData() + index, sizeof(int), cudaMemcpyDeviceToHost);
+                        
+                    int rightParent;
+                    cudaMemcpy(&rightParent, upperNodes->GetParentData() + rightIndex, sizeof(int), cudaMemcpyDeviceToHost);
+
+                    if (rightParent != index)
+                        throw Exception("Node " + Utils::Convert::ToString(rightIndex) +
+                                        "'s parent " + Utils::Convert::ToString(rightParent) +
+                                        " does not match actual parent " + Utils::Convert::ToString(index));
                         
                     float4 rightAabbMin = make_float4(axis == KDNode::X ? splitPos : calcedAabbMin.x,
                                                       axis == KDNode::Y ? splitPos : calcedAabbMin.y,
