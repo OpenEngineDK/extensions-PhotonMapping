@@ -47,8 +47,6 @@ namespace OpenEngine {
         }
 
         void KDNode::Resize(int i){
-            int copySize = min(i, size);
-            
             info->Resize(i);
             splitPos->Resize(i);
             aabbMin->Resize(i);
@@ -58,7 +56,7 @@ namespace OpenEngine {
             right->Resize(i);
 
             maxSize = i;
-            size = copySize;
+            size = min(i, size);
         }
         
         std::string KDNode::ToString(unsigned int i){

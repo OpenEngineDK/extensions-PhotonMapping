@@ -42,6 +42,10 @@ namespace OpenEngine {
                     throw Exception("Not implemented");
                 }
 
+                ~CUDADataBlock(){
+                    cudaFree(this->data);
+                }
+
                 /**
                  * Get pointer to loaded data.
                  *

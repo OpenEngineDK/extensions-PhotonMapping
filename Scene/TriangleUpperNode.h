@@ -17,12 +17,17 @@ namespace OpenEngine {
 
         class TriangleUpperNode : public KDNode {
         public:
-
+            CUDADataBlock<1, int> *parent;
+            
         public:
             TriangleUpperNode();
             TriangleUpperNode(int size);
 
             void Resize(int i);
+
+            int* GetParentData() const { return parent->GetDeviceData(); }
+            
+            virtual std::string ToString(unsigned int i);
         };
 
     }

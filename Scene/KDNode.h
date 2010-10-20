@@ -55,7 +55,7 @@ namespace OpenEngine {
             int* GetLeftData() { return left->GetDeviceData(); }
             int* GetRightData() { return right->GetDeviceData(); }
 
-            std::string ToString(unsigned int i);
+            virtual std::string ToString(unsigned int i);
             
         };
         

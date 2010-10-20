@@ -9,6 +9,8 @@
 
 #include <Scene/TriangleUpperNode.h>
 
+#include <sstream>
+
 namespace OpenEngine {
     namespace Scene {
         
@@ -16,10 +18,25 @@ namespace OpenEngine {
             : KDNode() {}
 
         TriangleUpperNode::TriangleUpperNode(int size)
-            : KDNode(size) {}
+            : KDNode(size) {
+            parent = new CUDADataBlock<1, int>(maxSize);
+        }
 
         void TriangleUpperNode::Resize(int i){
             KDNode::Resize(i);
+            parent->Resize(i);
+        }
+
+        std::string TriangleUpperNode::ToString(unsigned int i){
+            std::ostringstream out;
+
+            out << KDNode::ToString(i);
+
+            int h_parent;
+            cudaMemcpy(&h_parent, parent->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
+            out << "Has parent " << h_parent << "\n";
+
+            return out.str();
         }
 
     }
