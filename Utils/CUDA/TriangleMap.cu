@@ -17,7 +17,7 @@ namespace OpenEngine {
         namespace CUDA {
 
             TriangleMap::TriangleMap(ISceneNode* scene) 
-                : scene(scene), triangles(1) {
+                : scene(scene), triangles(1), emptySpaceThreshold(0.25f) {
 
                 // Initialized timer
                 cutCreateTimer(&timerID);
@@ -49,6 +49,9 @@ namespace OpenEngine {
                 aabbMax = new CUDADataBlock<1, float4>(1);
                 tempAabbMin = new CUDADataBlock<1, float4>(1);
                 tempAabbMax = new CUDADataBlock<1, float4>(1);
+                resultMin = new CUDADataBlock<1, float4>(1);
+                resultMax = new CUDADataBlock<1, float4>(1);
+
                 segments = Segments(1);
                 nodeSegments = new CUDADataBlock<1, int>(1);
 
@@ -56,6 +59,8 @@ namespace OpenEngine {
                 splitAddr = new CUDADataBlock<1, int>(1);
                 leafSide = new CUDADataBlock<1, int>(1);
                 leafAddr = new CUDADataBlock<1, int>(1);
+                emptySpaceSplits = new CUDADataBlock<1, int>(1);
+                emptySpaceAddrs = new CUDADataBlock<1, int>(1);
                 childSize = new CUDADataBlock<1, int2>(1);
 
                 upperNodeLeafList = new CUDADataBlock<1, int>(1);
@@ -80,6 +85,8 @@ namespace OpenEngine {
                 aabbMax->Resize(triangles);
                 tempAabbMin->Resize(triangles);
                 tempAabbMax->Resize(triangles);
+                resultMin->Resize(triangles);
+                resultMax->Resize(triangles);
 
                 int approxSize = (2 * triangles / TriangleLowerNode::MAX_SIZE) - 1;
                 upperNodes->Resize(approxSize);

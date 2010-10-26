@@ -56,8 +56,12 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, float4>* GetAabbMin() const { return aabbMin; }
                 Resources::CUDA::CUDADataBlock<1, float4>* GetAabbMax() const { return aabbMax; }
 
+                float4* GetP0Data() const { return p0->GetDeviceData(); }
+                float4* GetP1Data() const { return p1->GetDeviceData(); }
+                float4* GetP2Data() const { return p2->GetDeviceData(); }
                 float4* GetAabbMinData() const { return aabbMin->GetDeviceData(); }
                 float4* GetAabbMaxData() const { return aabbMax->GetDeviceData(); }
+                float* GetSurfaceAreaData() const { return surfaceArea->GetDeviceData(); }
                 
                 std::string ToString(unsigned int i) const;
 

@@ -111,11 +111,60 @@ namespace Kernels {
         }
     }
 
+    __global__ void EmptySpaceSplits(float4 *aabbMins, float4 *aabbMaxs,
+                                     char *info, float *splitPoss,
+                                     int *parentIDs,
+                                     int *split){
+        
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        
+        if (id < d_activeNodeRange){
+
+            const int nodeID = id + d_activeNodeIndex;
+
+            float3 aabbMin = make_float3(aabbMins[nodeID]);
+            float3 aabbMax = make_float3(aabbMaxs[nodeID]);
+
+            const int parentID = parentIDs[nodeID];
+            const char axis = info[parentID];
+            const float splitPos = splitPoss[parentID];
+
+            float3 parentMin = make_float3(aabbMins[parentID]);
+            float3 parentMax = make_float3(aabbMaxs[parentID]);
+
+            parentMin = make_float3(axis == KDNode::X && aabbMin.x < splitPos ? splitPos : parentMin.x,
+                                    axis == KDNode::Y && aabbMin.y < splitPos ? splitPos : parentMin.y,
+                                    axis == KDNode::Z && aabbMin.z < splitPos ? splitPos : parentMin.z);
+
+            parentMax = make_float3(axis == KDNode::X && aabbMax.x > splitPos ? splitPos : parentMax.x,
+                                    axis == KDNode::Y && aabbMax.y > splitPos ? splitPos : parentMax.y,
+                                    axis == KDNode::Z && aabbMax.z > splitPos ? splitPos : parentMax.z);
+
+            int splits = 0;
+
+            float emptySpace = (parentMax.x - parentMin.x) * d_emptySpaceThreshold;
+            splits = aabbMin.x - parentMin.x > emptySpace ? splits+1 : splits;
+            splits = parentMax.x - aabbMax.x > emptySpace ? splits+1 : splits;
+
+            emptySpace = (parentMax.y - parentMin.y) * d_emptySpaceThreshold;
+            splits = aabbMin.y - parentMin.y > emptySpace ? splits+1 : splits;
+            splits = parentMax.y - aabbMax.y > emptySpace ? splits+1 : splits;
+
+            emptySpace = (parentMax.z - parentMin.z) * d_emptySpaceThreshold;
+            splits = aabbMin.z - parentMin.z > emptySpace ? splits+1 : splits;
+            splits = parentMax.z - aabbMax.z > emptySpace ? splits+1 : splits;
+
+            split[id] = splits;
+        }
+
+    }
+
     __global__ void CreateChildren(int2 *primitiveInfo,
                                    int2 *childSize,
                                    int *splitAddrs,
                                    int *left, int *right,
                                    int *parent){
+
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
         if (id < d_activeNodeRange){
@@ -137,7 +186,14 @@ namespace Kernels {
             left[parentID] = leftID;
             right[parentID] = rightID;
 
-            parent[leftID] = parent[rightID] =parentID;
+            parent[leftID] = parent[rightID] = parentID;
+            /*
+            char parentAxis = parentInfo[parentID];
+            float splitPos = 
+
+            float4 aabbMin = aabbMin[parentID];
+            parentMin[]
+            */
         }
     }
 
@@ -160,12 +216,9 @@ namespace Kernels {
 
             const int2 primInfo = primitiveInfo[parentID];
             
-            // @OPT move to constant memory
-            const int totalLeafNodes = leafNodeAddrs[d_activeNodeRange * 2];
-            
             bool isLeaf = size.x < TriangleLowerNode::MAX_SIZE;
             int leafAddr = leafNodeAddrs[id];
-            int nonLeafAddr = id - leafAddr + totalLeafNodes;
+            int nonLeafAddr = id - leafAddr + d_leafNodes;
             const int leftID = (isLeaf ? leafAddr : nonLeafAddr) + d_activeNodeRange + d_activeNodeIndex;
             const int leftIndex = isLeaf ? leafAddrs[primInfo.x] + upperLeafPrimitives : splitAddrs[primInfo.x] - leafAddrs[primInfo.x];
             
@@ -177,7 +230,7 @@ namespace Kernels {
 
             isLeaf = size.y < TriangleLowerNode::MAX_SIZE;
             leafAddr = leafNodeAddrs[id];
-            nonLeafAddr = id - leafAddr + totalLeafNodes;
+            nonLeafAddr = id - leafAddr + d_leafNodes;
             const int rightID = (isLeaf ? leafAddr : nonLeafAddr) + d_activeNodeRange + d_activeNodeIndex;
             const int rightIndex = isLeaf ? leafAddrs[primInfo.x + d_triangles] + upperLeafPrimitives : splitAddrs[primInfo.x + d_triangles] - leafAddrs[primInfo.x + d_triangles];
 

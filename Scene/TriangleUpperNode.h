@@ -18,6 +18,8 @@ namespace OpenEngine {
         class TriangleUpperNode : public KDNode {
         public:
             CUDADataBlock<1, int> *parent;
+            CUDADataBlock<1, float4> *parentAabbMin;
+            CUDADataBlock<1, float4> *parentAabbMax;
             
         public:
             TriangleUpperNode();
@@ -26,6 +28,8 @@ namespace OpenEngine {
             void Resize(int i);
 
             int* GetParentData() const { return parent->GetDeviceData(); }
+            float4* GetParentMinData() const { return parentAabbMin->GetDeviceData(); }
+            float4* GetParentMaxData() const { return parentAabbMax->GetDeviceData(); }
             
             virtual std::string ToString(unsigned int i);
         };

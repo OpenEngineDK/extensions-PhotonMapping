@@ -28,10 +28,12 @@ namespace Kernels {
 
     __constant__ int d_nonLeafPhotons;
     __constant__ int d_photonsMovedLeft;
+    __constant__ int d_leafNodes;
 
     __device__ bool d_createdLeafs;
     __device__ int d_leafsCreated;
 
+    __constant__ float d_emptySpaceThreshold;
 
     // Upper node info
     __constant__ int2* d_upperPhotonInfo;

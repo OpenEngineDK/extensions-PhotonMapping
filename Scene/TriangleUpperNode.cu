@@ -20,11 +20,15 @@ namespace OpenEngine {
         TriangleUpperNode::TriangleUpperNode(int size)
             : KDNode(size) {
             parent = new CUDADataBlock<1, int>(maxSize);
+            parentAabbMin = new CUDADataBlock<1, float4>(maxSize);
+            parentAabbMax = new CUDADataBlock<1, float4>(maxSize);
         }
 
         void TriangleUpperNode::Resize(int i){
             KDNode::Resize(i);
             parent->Resize(i);
+            parentAabbMin->Resize(i);
+            parentAabbMax->Resize(i);
         }
 
         std::string TriangleUpperNode::ToString(unsigned int i){

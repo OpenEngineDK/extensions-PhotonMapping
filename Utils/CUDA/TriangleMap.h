@@ -38,6 +38,9 @@ namespace OpenEngine {
                 Scene::TriangleLowerNode* lowerNodes;
 
                 int triangles;
+
+                float emptySpaceThreshold;
+
                 CUDPPConfiguration scanConfig;
                 CUDPPHandle scanHandle;
                 int scanSize;
@@ -50,6 +53,8 @@ namespace OpenEngine {
                 CUDADataBlock<1, float4> *aabbMax;
                 CUDADataBlock<1, float4> *tempAabbMin;
                 CUDADataBlock<1, float4> *tempAabbMax;
+                CUDADataBlock<1, float4> *resultMin;
+                CUDADataBlock<1, float4> *resultMax;
 
                 Segments segments;
                 CUDADataBlock<1, int> *nodeSegments;
@@ -59,6 +64,8 @@ namespace OpenEngine {
                 CUDADataBlock<1, int> *splitAddr;
                 CUDADataBlock<1, int> *leafSide;
                 CUDADataBlock<1, int> *leafAddr;
+                CUDADataBlock<1, int> *emptySpaceSplits;
+                CUDADataBlock<1, int> *emptySpaceAddrs;
                 CUDADataBlock<1, int2> *childSize; // Use upperNodes arrays?
                 int upperLeafPrimitives;
 
@@ -83,7 +90,7 @@ namespace OpenEngine {
                 void CreateChildren(int activeIndex, int activeRange,
                                     int &childrenCreated);
 
-                
+                void CalcTightBoundingBox();
 
                 void CheckUpperNode(int index, float4 aabbMin, float4 aabbMax, int activeRange = 0);
                 void CheckUpperLeaf(int index, float4 aabbMin, float4 aabbMax);
