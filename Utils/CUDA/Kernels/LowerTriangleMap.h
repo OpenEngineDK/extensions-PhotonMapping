@@ -24,14 +24,16 @@ namespace Kernels {
             int lowerNodeID = id + activeIndex;
             upperNodeInfo[leafID] = KDNode::PROXY;
             int2 triInfo = primitiveInfo[leafID];
-            triInfo.y = (1<<triInfo.y)-1;
-            primitiveInfo[lowerNodeID] = triInfo;
-            upperLeft[leafID] = upperRight[leafID] = lowerNodeID;
 
             float area = 0.0f;
             for (int i = 0; i < triInfo.y; ++i)
                 area += primMax[triInfo.x + i].w;
             surfaceArea[leafID] = area;
+
+            triInfo.y = (1<<triInfo.y)-1;
+            primitiveInfo[lowerNodeID] = triInfo;
+            upperLeft[leafID] = upperRight[leafID] = lowerNodeID;
+
         }
     }
 
