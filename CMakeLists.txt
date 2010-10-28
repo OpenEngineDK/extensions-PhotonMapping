@@ -17,6 +17,7 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Utils/CUDA/GeometryList.cu
   Utils/CUDA/TriangleMap.cu
   Utils/CUDA/TriangleMapUpperNode.cu
+  Utils/CUDA/TriangleMapLowerNode.cu
   Utils/CUDA/PhotonMap.cu
   Utils/CUDA/PhotonMapCheck.cu
   Utils/CUDA/PhotonMapLowerNodes.cu

@@ -19,6 +19,7 @@ namespace OpenEngine {
 
         TriangleNode::TriangleNode(int size)
             : KDNode(size) {
+            surfaceArea = new CUDADataBlock<1, float>(maxSize);
             parent = new CUDADataBlock<1, int>(maxSize);
             parentAabbMin = new CUDADataBlock<1, float4>(maxSize);
             parentAabbMax = new CUDADataBlock<1, float4>(maxSize);
@@ -26,9 +27,14 @@ namespace OpenEngine {
 
         void TriangleNode::Resize(int i){
             KDNode::Resize(i);
+            surfaceArea->Resize(i);
             parent->Resize(i);
             parentAabbMin->Resize(i);
             parentAabbMax->Resize(i);
+        }
+
+        void TriangleNode::Extend(int i){
+            if (this->maxSize < i) Resize(i);
         }
 
         std::string TriangleNode::ToString(unsigned int i){

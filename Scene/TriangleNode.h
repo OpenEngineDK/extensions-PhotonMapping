@@ -19,6 +19,7 @@ namespace OpenEngine {
         public:
             static const int MAX_LOWER_SIZE = 32;
 
+            CUDADataBlock<1, float> *surfaceArea;
             CUDADataBlock<1, int> *parent;
             CUDADataBlock<1, float4> *parentAabbMin;
             CUDADataBlock<1, float4> *parentAabbMax;
@@ -28,7 +29,9 @@ namespace OpenEngine {
             TriangleNode(int size);
 
             void Resize(int i);
+            void Extend(int i);
 
+            float* GetSurfaceAreaData() const { return surfaceArea->GetDeviceData(); }
             int* GetParentData() const { return parent->GetDeviceData(); }
             float4* GetParentMinData() const { return parentAabbMin->GetDeviceData(); }
             float4* GetParentMaxData() const { return parentAabbMax->GetDeviceData(); }

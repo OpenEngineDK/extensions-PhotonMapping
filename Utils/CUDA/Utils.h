@@ -64,6 +64,23 @@ inline __host__ __device__ int bitcount(unsigned int n){
     return ((tmp + (tmp >> 3)) & 030707070707) % 63;
 }
 
+inline std::string BitmapToString(unsigned int n){
+    std::ostringstream out;
+    out << "[";
+    for (unsigned int i = 0; i < 31; ++i){
+        if (n & 1<<i)
+            out << 1 << ", ";
+        else
+            out << 0 << ", ";
+    }
+    if (n & (unsigned int)1<<31)
+        out << 1 << "]";
+    else
+        out << 0 << "]";
+    
+    return out.str();
+}
+
 inline __host__ __device__ void maxCorner(float4 v, float3 u, float3 &ret){
     ret = make_float3(max(v.x, u.x),
                       max(v.y, u.y),

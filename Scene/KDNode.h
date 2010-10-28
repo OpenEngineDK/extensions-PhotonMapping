@@ -27,6 +27,7 @@ namespace OpenEngine {
             static const char X = 1;
             static const char Y = 2;
             static const char Z = 3;
+            static const char PROXY = 1<<2;
 
             CUDADataBlock<1, char>* info; // 0 = LEAF,1 = X, 2 = Y, 3 = Z. 6 bits left for stuff
             CUDADataBlock<1, float>* splitPos;

@@ -533,10 +533,6 @@ namespace OpenEngine {
 
             }
 
-            void TriangleMap::CalcTightBoundingBox(){
-
-            }
-
             void TriangleMap::CheckUpperNode(int index, float4 calcedAabbMin, float4 calcedAabbMax, int activeRange){
                 //logger.info << "Checking node " << index << logger.end;
                 char axis;
