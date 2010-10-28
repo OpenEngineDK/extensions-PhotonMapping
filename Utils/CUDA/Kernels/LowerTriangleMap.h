@@ -104,6 +104,42 @@ namespace Kernels {
         }
     }
 
+    __host__ void CalcSAHForSets(int4 splittingSets, int areaIndices, float* areas, 
+                                 float &optimalSAH, 
+                                 float &leftArea, float &rightArea,
+                                 int &leftSet, int &rightSet){
+        
+        float4 setAreas = make_float4(0.0f);
+        
+        while (areaIndices){
+            int i = ffs(areaIndices) - 1;
+            
+            setAreas.x += splittingSets.x & (1<<i) ? areas[i] : 0.0f;
+            setAreas.y += splittingSets.y & (1<<i) ? areas[i] : 0.0f;
+            setAreas.z += splittingSets.z & (1<<i) ? areas[i] : 0.0f;
+            setAreas.w += splittingSets.w & (1<<i) ? areas[i] : 0.0f;
+
+            areaIndices -= 1<<i;
+        }
+        
+        float lowSAH = bitcount(splittingSets.x) * setAreas.x + bitcount(splittingSets.y) * setAreas.y;
+        float highSAH = bitcount(splittingSets.z) * setAreas.z + bitcount(splittingSets.w) * setAreas.w;
+
+        if (lowSAH > highSAH){
+            leftSet = splittingSets.x;
+            rightSet = splittingSets.y;
+            leftArea = setAreas.x;
+            rightArea = setAreas.y;
+            optimalSAH = lowSAH;
+        }else{
+            leftSet = splittingSets.z;
+            rightSet = splittingSets.w;
+            leftArea = setAreas.z;
+            rightArea = setAreas.w;
+            optimalSAH = highSAH;
+        }
+    }
+    
     // @OPT move surfacearea to a single float array?
     __global__ void CalcSAH(int2 *primitiveInfo,
                             float4 *aabbMax,

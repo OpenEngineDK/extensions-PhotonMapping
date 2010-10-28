@@ -120,6 +120,22 @@ namespace OpenEngine {
                                                 int &childrenCreated){
                 logger.info << "=== Process " << activeRange << " Lower Nodes Starting at " << activeIndex << " ===" << logger.end;
 
+                                cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
+                cudaMemcpyToSymbol(d_activeNodeRange, &activeRange, sizeof(int));
+
+                CUDADataBlock<1, int> indices = CUDADataBlock<1, int>(activeRange);
+
+                unsigned int blocks, threads;
+                Calc1DKernelDimensions(activeRange, blocks, threads, 96);
+                unsigned int smemSize = threads * 32 * sizeof(float);
+                //logger.info << "<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
+                CalcSAH<<<blocks, threads, smemSize>>>(nodes->GetPrimitiveInfoData() + activeIndex,
+                                                       resultMax->GetDeviceData(),
+                                                       splitTriangleSet->GetDeviceData(),
+                                                       indices.GetDeviceData());
+                CHECK_FOR_CUDA_ERROR();
+
+
                 childrenCreated = 0;
             }
 
