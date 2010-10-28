@@ -64,7 +64,7 @@ namespace OpenEngine {
 
                 Calc1DKernelDimensions(resultMin->GetSize(), blocks, threads, 128);
                 START_TIMER(timerID);                
-                AdjustBoundingBox2<<<blocks, threads>>>(resultMin->GetDeviceData(), 
+                AdjustBoundingBox<<<blocks, threads>>>(resultMin->GetDeviceData(), 
                                                        resultMax->GetDeviceData(),
                                                        geom->GetP0Data(),
                                                        geom->GetP1Data(),
@@ -76,6 +76,7 @@ namespace OpenEngine {
                 PRINT_TIMER(timerID, "Adjusting bounding box");
                 CHECK_FOR_CUDA_ERROR();
 
+                /*
                 float4 min[resultMin->GetSize()];
                 cudaMemcpy(min, resultMin->GetDeviceData(), sizeof(float4) * resultMin->GetSize(), cudaMemcpyDeviceToHost);
                 float4 max[resultMax->GetSize()];
@@ -95,6 +96,7 @@ namespace OpenEngine {
                     logger.info << "min: " << Convert::ToString(aabbMin) << ", max: " << Convert::ToString(aabbMax) << logger.end;
                 else
                     logger.info << "missed it: min: " << Convert::ToString(aabbMin) << ", max: " << Convert::ToString(aabbMax) << logger.end;
+                */
             }
 
             void TriangleMap::ProcessUpperNodes(int activeIndex, int activeRange, 

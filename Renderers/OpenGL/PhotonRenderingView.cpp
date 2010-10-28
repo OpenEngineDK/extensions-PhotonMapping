@@ -61,12 +61,12 @@ namespace OpenEngine {
                 logger.info << "Pew pew, triangles everywhere" << logger.end;
                 triangleMap->Create();
                 CHECK_FOR_CUDA_ERROR();
-                ShootPhotons();
+                //ShootPhotons();
             }
 
             void PhotonRenderingView::ShootPhotons(){
                 logger.info << "Pew pew, photons everywhere" << logger.end;
-                //photonMap->Create();
+                photonMap->Create();
                 CHECK_FOR_CUDA_ERROR();
             }
 
