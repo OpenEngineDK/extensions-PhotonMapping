@@ -73,6 +73,8 @@ namespace OpenEngine {
                 Setup();
                 
                 CreateUpperNodes();
+
+                CreateLowerNodes();
             }
 
             void TriangleMap::Setup(){

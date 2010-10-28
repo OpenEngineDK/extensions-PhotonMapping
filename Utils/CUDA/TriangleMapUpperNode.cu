@@ -62,6 +62,8 @@ namespace OpenEngine {
                 }
                 PRINT_TIMER(timerID, "triangle upper map");
 
+                triangles = resultMin->GetSize();
+
                 Calc1DKernelDimensions(resultMin->GetSize(), blocks, threads, 128);
                 START_TIMER(timerID);                
                 AdjustBoundingBox<<<blocks, threads>>>(resultMin->GetDeviceData(), 
