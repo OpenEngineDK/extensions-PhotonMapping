@@ -23,6 +23,9 @@ namespace OpenEngine {
             template <unsigned int N, class T>
             class CUDADataBlock : public IDataBlock {
             public:
+                T* hostData;
+
+            public:
                 CUDADataBlock(unsigned int s = 0, T* d = NULL)
                     : IDataBlock(s, d, ARRAY, DYNAMIC) {
                     if (d == NULL){
@@ -32,6 +35,7 @@ namespace OpenEngine {
 #endif
                     }
                     this->dimension = N;
+                    hostData = NULL;
                 }
 
                 CUDADataBlock(IDataBlock* block){
@@ -44,6 +48,8 @@ namespace OpenEngine {
 
                 ~CUDADataBlock(){
                     cudaFree(this->data);
+                    if (hostData)
+                        delete [] hostData;
                 }
 
                 /**
@@ -51,23 +57,20 @@ namespace OpenEngine {
                  *
                  * @return T* pointer to loaded data.
                  */
-                inline T* GetData() const{
-                    throw Exception("Not implemented");
+                inline T* GetData(){
+                    if (!hostData)
+                        hostData = new T[this->size * N];
+                    cudaMemcpy(hostData, this->data, this->size * N * sizeof(T), cudaMemcpyDeviceToHost);
+                    return hostData;
                 }
                 inline T* GetDeviceData() const{
                     return (T*) this->data;
                 }
-                inline void SetDeviceData(const T* data) { 
-                    cudaFree(this->data);
-                    this->data = data;
-                }
-                inline void SetDeviceData(const T* data, unsigned int size) { 
-                    cudaFree(this->data);
-                    this->data = data;
-                    this->size = size;
-                }
 
                 void Resize(unsigned int i, bool dataPersistent = true){
+                    if (hostData)
+                        delete [] hostData;
+
                     if (dataPersistent){
                         T *temp;
                         
