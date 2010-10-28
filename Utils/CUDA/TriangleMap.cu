@@ -23,7 +23,7 @@ namespace OpenEngine {
                 cutCreateTimer(&timerID);
 
                 geom = new GeometryList(1);
-                upperNodes = new TriangleUpperNode(1);
+                nodes = new TriangleNode(1);
 
                 scanConfig.algorithm = CUDPP_SCAN;
                 scanConfig.op = CUDPP_ADD;
@@ -88,8 +88,8 @@ namespace OpenEngine {
                 resultMin->Resize(triangles);
                 resultMax->Resize(triangles);
 
-                int approxSize = (2 * triangles / TriangleLowerNode::MAX_SIZE) - 1;
-                upperNodes->Resize(approxSize);
+                int approxSize = (2 * triangles / TriangleNode::MAX_LOWER_SIZE) - 1;
+                nodes->Resize(approxSize);
 
                 segments.Resize(triangles / Segments::SEGMENT_SIZE);
 

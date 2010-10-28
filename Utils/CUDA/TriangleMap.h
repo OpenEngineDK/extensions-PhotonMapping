@@ -11,8 +11,7 @@
 #define _TRIANGLE_MAP_H_
 
 #include <Utils/CUDA/GeometryList.h>
-#include <Scene/TriangleUpperNode.h>
-#include <Scene/TriangleLowerNode.h>
+#include <Scene/TriangleNode.h>
 #include <Utils/CUDA/GeometryList.h>
 #include <Utils/CUDA/Segments.h>
 
@@ -34,8 +33,7 @@ namespace OpenEngine {
                 Scene::ISceneNode* scene;
                 GeometryList* geom;
 
-                Scene::TriangleUpperNode* upperNodes;
-                Scene::TriangleLowerNode* lowerNodes;
+                Scene::TriangleNode* nodes;
 
                 int triangles;
 

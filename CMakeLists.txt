@@ -8,7 +8,7 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Scene/PhotonUpperNode.cu
   Scene/PhotonLowerNode.cu
   Scene/PhotonNode.cu
-  Scene/TriangleUpperNode.cu
+  Scene/TriangleNode.cu
   Resources/CUDA/CUDADataBlock.h
   Utils/CUDA/NodeChildren.cu
   Utils/CUDA/UpperNodeLeafList.cu

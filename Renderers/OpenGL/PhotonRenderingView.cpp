@@ -49,7 +49,7 @@ namespace OpenEngine {
                 triangleMap = new TriangleMap(arg.canvas.GetScene());
                 
                 unsigned int size = (1<<17)-7;
-                photonMap = new PhotonMap(size);
+                //photonMap = new PhotonMap(size);
                 IDataBlockPtr vertices = IDataBlockPtr(new DataBlock<4, float>(size));
                 map<string, IDataBlockPtr> attr;
                 attr["vertex"] = vertices;
@@ -66,7 +66,7 @@ namespace OpenEngine {
 
             void PhotonRenderingView::ShootPhotons(){
                 logger.info << "Pew pew, photons everywhere" << logger.end;
-                photonMap->Create();
+                //photonMap->Create();
                 CHECK_FOR_CUDA_ERROR();
             }
 

@@ -9,7 +9,7 @@
 
 #include <Meta/CUDA.h>
 #include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
-#include <Scene/TriangleLowerNode.h>
+#include <Scene/TriangleNode.h>
 #include <Utils/CUDA/Segments.h>
 
 namespace OpenEngine {
@@ -67,8 +67,8 @@ namespace Kernels {
 
             childSize[id] = make_int2(leftSize, rightSize);
 
-            if (leftSize < TriangleLowerNode::MAX_SIZE ||
-                rightSize < TriangleLowerNode::MAX_SIZE) d_createdLeafs = true;
+            if (leftSize < TriangleNode::MAX_LOWER_SIZE ||
+                rightSize < TriangleNode::MAX_LOWER_SIZE) d_createdLeafs = true;
         }
     }
 
@@ -90,8 +90,8 @@ namespace Kernels {
 
                 const int id = primInfo.x + threadIdx.x;
                 
-                leafSide[id] = (size.x < TriangleLowerNode::MAX_SIZE) * splitSide[id];
-                leafSide[id + d_triangles] = (size.y < TriangleLowerNode::MAX_SIZE) * splitSide[id + d_triangles];
+                leafSide[id] = (size.x < TriangleNode::MAX_LOWER_SIZE) * splitSide[id];
+                leafSide[id + d_triangles] = (size.y < TriangleNode::MAX_LOWER_SIZE) * splitSide[id + d_triangles];
             }
         }
     }
@@ -106,8 +106,8 @@ namespace Kernels {
         if (id < d_activeNodeRange){
             const int2 size = childSize[id];
 
-            leafNodes[id] = size.x < TriangleLowerNode::MAX_SIZE;
-            leafNodes[id + d_activeNodeRange] = size.y < TriangleLowerNode::MAX_SIZE;
+            leafNodes[id] = size.x < TriangleNode::MAX_LOWER_SIZE;
+            leafNodes[id + d_activeNodeRange] = size.y < TriangleNode::MAX_LOWER_SIZE;
         }
     }
 
@@ -216,7 +216,7 @@ namespace Kernels {
 
             const int2 primInfo = primitiveInfo[parentID];
             
-            bool isLeaf = size.x < TriangleLowerNode::MAX_SIZE;
+            bool isLeaf = size.x < TriangleNode::MAX_LOWER_SIZE;
             int leafAddr = leafNodeAddrs[id];
             int nonLeafAddr = id - leafAddr + d_leafNodes;
             const int leftID = (isLeaf ? leafAddr : nonLeafAddr) + d_activeNodeRange + d_activeNodeIndex;
@@ -228,7 +228,7 @@ namespace Kernels {
 
             id += d_activeNodeRange;
 
-            isLeaf = size.y < TriangleLowerNode::MAX_SIZE;
+            isLeaf = size.y < TriangleNode::MAX_LOWER_SIZE;
             leafAddr = leafNodeAddrs[id];
             nonLeafAddr = id - leafAddr + d_leafNodes;
             const int rightID = (isLeaf ? leafAddr : nonLeafAddr) + d_activeNodeRange + d_activeNodeIndex;

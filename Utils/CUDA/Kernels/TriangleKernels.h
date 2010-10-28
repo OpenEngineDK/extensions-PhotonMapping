@@ -9,10 +9,8 @@
 
 #include <Meta/CUDA.h>
 #include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
-#include <Scene/TriangleLowerNode.h>
 
 namespace OpenEngine {
-    using namespace Scene;
 namespace Utils {
 namespace CUDA {
 namespace Kernels {
