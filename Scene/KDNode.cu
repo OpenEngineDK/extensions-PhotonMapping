@@ -85,6 +85,9 @@ namespace OpenEngine {
                 isLeaf = true;
                 out << "Is a leaf\n";
                 break;
+            case PROXY:
+                out << "Acts as a proxy\n";
+                break;
             }
 
             int2 info;
