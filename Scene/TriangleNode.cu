@@ -21,16 +21,16 @@ namespace OpenEngine {
             : KDNode(size) {
             surfaceArea = new CUDADataBlock<1, float>(maxSize);
             parent = new CUDADataBlock<1, int>(maxSize);
-            parentAabbMin = new CUDADataBlock<1, float4>(maxSize);
-            parentAabbMax = new CUDADataBlock<1, float4>(maxSize);
+            //parentAabbMin = new CUDADataBlock<1, float4>(maxSize);
+            //parentAabbMax = new CUDADataBlock<1, float4>(maxSize);
         }
 
         void TriangleNode::Resize(int i){
             KDNode::Resize(i);
             surfaceArea->Resize(i);
             parent->Resize(i);
-            parentAabbMin->Resize(i);
-            parentAabbMax->Resize(i);
+            //parentAabbMin->Resize(i);
+            //parentAabbMax->Resize(i);
         }
 
         void TriangleNode::Extend(int i){
@@ -45,6 +45,10 @@ namespace OpenEngine {
             int h_parent;
             cudaMemcpy(&h_parent, parent->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
             out << "Has parent " << h_parent << "\n";
+
+            float h_area;
+            cudaMemcpy(&h_area, surfaceArea->GetDeviceData() + i, sizeof(float), cudaMemcpyDeviceToHost);
+            out << "Has surface area " << h_area << "\n";
 
             return out.str();
         }
