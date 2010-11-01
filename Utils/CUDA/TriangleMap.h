@@ -72,6 +72,9 @@ namespace OpenEngine {
                 
                 CUDADataBlock<1, int4> *splitTriangleSet;
 
+                CUDADataBlock<1, float2> *childAreas;
+                CUDADataBlock<1, int2> *childSets;
+
             public:
                 TriangleMap(Scene::ISceneNode* scene);
 

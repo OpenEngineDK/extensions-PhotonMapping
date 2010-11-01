@@ -66,6 +66,9 @@ namespace OpenEngine {
                 upperNodeLeafList = new CUDADataBlock<1, int>(1);
 
                 splitTriangleSet =  new CUDADataBlock<1, int4>(1);
+
+                childAreas = new CUDADataBlock<1, float2>(1);
+                childSets = childSize;
             }
 
             void TriangleMap::Create(){

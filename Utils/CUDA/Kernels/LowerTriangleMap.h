@@ -22,18 +22,22 @@ namespace Kernels {
         if (id < activeRange){
             int leafID = upperLeafIDs[id];
             int lowerNodeID = id + activeIndex;
-            upperNodeInfo[leafID] = KDNode::PROXY;
             int2 triInfo = primitiveInfo[leafID];
 
             float area = 0.0f;
-            for (int i = 0; i < triInfo.y; ++i)
-                area += primMax[triInfo.x + i].w;
-            surfaceArea[leafID] = area;
+            int size = triInfo.y;
+            triInfo.y = 0;
+            for (int i = 0; i < size; ++i){
+                float a = primMax[triInfo.x + i].w;
+                triInfo.y += a > 0.0f ? (1<<i) : 0;
+                area += a;
+            }
+            surfaceArea[lowerNodeID] = area;
 
-            triInfo.y = (1<<triInfo.y)-1;
+            upperNodeInfo[leafID] = area > 0.0f ? KDNode::PROXY : KDNode::LEAF;
+
             primitiveInfo[lowerNodeID] = triInfo;
             upperLeft[leafID] = upperRight[leafID] = lowerNodeID;
-
         }
     }
 
@@ -46,18 +50,18 @@ namespace Kernels {
         const int nodeID = id / TriangleNode::MAX_LOWER_SIZE;
 
         if (nodeID < activeRange){
-            const int2 triInfo = primitiveInfo[nodeID];
-            const char tris = bitcount(triInfo.y);
-            const int triID = id % TriangleNode::MAX_LOWER_SIZE;
-            const int triIndex = triInfo.x + triID;
+            const int2 primInfo = primitiveInfo[nodeID];
+            const int primID = id % TriangleNode::MAX_LOWER_SIZE;
+            const int primIndex = primInfo.x + primID;
 
             // Copy aabbs to shared mem.
             float3* aabbMin = SharedMemory<float3>();
-            float4* aabbMax = SharedMemory<float4>();
+            float3* aabbMax = aabbMin + blockDim.x;
+
             const float3 lowSplitPlane = aabbMin[threadIdx.x] = 
-                triID < tris ? make_float3(aabbMins[triIndex]) : make_float3(0.0f);
-            aabbMax[threadIdx.x] = triID < tris ? aabbMaxs[triIndex] : make_float4(0.0f);
-            const float3 highSplitPlane = make_float3(aabbMax[threadIdx.x]);
+                primInfo.y & 1<<primID ? make_float3(aabbMins[primIndex]) : make_float3(0.0f);
+            const float3 highSplitPlane = aabbMax[threadIdx.x] = 
+                primInfo.y & 1<<primID ? make_float3(aabbMaxs[primIndex]) : make_float3(0.0f);
 
             // Is automatically optimized away by the compiler. nvcc
             // actually works sometimes.
@@ -67,52 +71,63 @@ namespace Kernels {
             int4 splitX = make_int4(0, 0, 0, 0); // {lowLeft, lowRight, highLeft, highRight}
             int4 splitY = make_int4(0, 0, 0, 0); int4 splitZ = make_int4(0, 0, 0, 0);
 
-            //#pragma unroll
-            //for (char i = 0; i < TriangleNode::MAX_LOWER_SIZE; ++i){
-            for (char i = 0; i < tris; ++i){
-                int index = nodeID * TriangleNode::MAX_LOWER_SIZE + i;
+            int sharedOffset = threadIdx.x - primID;
 
-                float3 minCorner = aabbMin[index];
-                float4 maxCorner = aabbMax[index];
+            int triangles = primInfo.y;
+            while(triangles){
+                int i = __ffs(triangles) - 1;
 
-                int activePrim = maxCorner.w > 0.0f ? 1 : 0;
+                float3 minCorner = aabbMin[sharedOffset + i];
+                float3 maxCorner = aabbMax[sharedOffset + i];
 
-                splitX.x += minCorner.x < lowSplitPlane.x ? activePrim<<i : 0;
-                splitX.y += lowSplitPlane.x < maxCorner.x ? activePrim<<i : 0;
-                splitX.z += minCorner.x < highSplitPlane.x ? activePrim<<i : 0;
-                splitX.w += highSplitPlane.x < maxCorner.x ? activePrim<<i : 0;
+                splitX.x |= minCorner.x <= lowSplitPlane.x ? 1<<i : 0;
+                splitX.y |= lowSplitPlane.x < maxCorner.x ? 1<<i : 0;
+                splitX.z |= minCorner.x <= highSplitPlane.x ? 1<<i : 0;
+                splitX.w |= highSplitPlane.x < maxCorner.x ? 1<<i : 0;
 
-                splitY.x += minCorner.y < lowSplitPlane.y ? activePrim<<i : 0;
-                splitY.y += lowSplitPlane.y < maxCorner.y ? activePrim<<i : 0;
-                splitY.z += minCorner.y < highSplitPlane.y ? activePrim<<i : 0;
-                splitY.w += highSplitPlane.y < maxCorner.y ? activePrim<<i : 0;
+                splitY.x |= minCorner.y <= lowSplitPlane.y ? 1<<i : 0;
+                splitY.y |= lowSplitPlane.y < maxCorner.y ? 1<<i : 0;
+                splitY.z |= minCorner.y <= highSplitPlane.y ? 1<<i : 0;
+                splitY.w |= highSplitPlane.y < maxCorner.y ? 1<<i : 0;
 
-                splitZ.x += minCorner.z < lowSplitPlane.z ? activePrim<<i : 0;
-                splitZ.y += lowSplitPlane.z < maxCorner.z ? activePrim<<i : 0;
-                splitZ.z += minCorner.z < highSplitPlane.z ? activePrim<<i : 0;
-                splitZ.w += highSplitPlane.z < maxCorner.z ? activePrim<<i : 0;
+                splitZ.x |= minCorner.z <= lowSplitPlane.z ? 1<<i : 0;
+                splitZ.y |= lowSplitPlane.z < maxCorner.z ? 1<<i : 0;
+                splitZ.z |= minCorner.z <= highSplitPlane.z ? 1<<i : 0;
+                splitZ.w |= highSplitPlane.z < maxCorner.z ? 1<<i : 0;
+                
+                triangles -= 1<<i;
             }
 
             // @OPT Left split set should be smallest to facilitate
             // better thread coherence.
 
-            if (triID < tris){
-                splitTriangleSet[triIndex] = splitX;
-                splitTriangleSet[d_triangles + triIndex] = splitY;
-                splitTriangleSet[2 * d_triangles + triIndex] = splitZ;
+            if (primInfo.y & 1<<primID){
+                splitTriangleSet[primIndex] = splitX;
+                splitTriangleSet[d_triangles + primIndex] = splitY;
+                splitTriangleSet[2 * d_triangles + primIndex] = splitZ;
             }
+            
         }
     }
-
-    __host__ void CalcSAHForSets(int4 splittingSets, int areaIndices, float* areas, 
-                                 float &optimalSAH, 
-                                 float &leftArea, float &rightArea,
-                                 int &leftSet, int &rightSet){
+    
+    __device__ void CalcAreaForSets(int4 splittingSets, char splitAxis, 
+                                    int setIndex,
+                                    int areaIndices, float* areas, 
+                                    float &optimalArea, 
+                                    float &leftArea, float &rightArea,
+                                    int &leftSet, int &rightSet,
+                                    char &optimalAxis,
+                                    int &splitIndex){
         
         float4 setAreas = make_float4(0.0f);
         
+        splittingSets.x &= areaIndices;
+        splittingSets.y &= areaIndices;
+        splittingSets.z &= areaIndices;
+        splittingSets.w &= areaIndices;
+
         while (areaIndices){
-            int i = ffs(areaIndices) - 1;
+            int i = __ffs(areaIndices) - 1;
             
             setAreas.x += splittingSets.x & (1<<i) ? areas[i] : 0.0f;
             setAreas.y += splittingSets.y & (1<<i) ? areas[i] : 0.0f;
@@ -122,80 +137,109 @@ namespace Kernels {
             areaIndices -= 1<<i;
         }
         
-        float lowSAH = bitcount(splittingSets.x) * setAreas.x + bitcount(splittingSets.y) * setAreas.y;
-        float highSAH = bitcount(splittingSets.z) * setAreas.z + bitcount(splittingSets.w) * setAreas.w;
+        float lowArea = __popc(splittingSets.x) * setAreas.x + __popc(splittingSets.y) * setAreas.y;
+        float highArea = __popc(splittingSets.z) * setAreas.z + __popc(splittingSets.w) * setAreas.w;
 
-        if (lowSAH > highSAH){
+        if (lowArea < optimalArea){
             leftSet = splittingSets.x;
             rightSet = splittingSets.y;
             leftArea = setAreas.x;
             rightArea = setAreas.y;
-            optimalSAH = lowSAH;
-        }else{
+            optimalArea = lowArea;
+            optimalAxis = splitAxis;
+            splitIndex = setIndex;
+        }
+
+        if (highArea < optimalArea){
             leftSet = splittingSets.z;
             rightSet = splittingSets.w;
             leftArea = setAreas.z;
             rightArea = setAreas.w;
-            optimalSAH = highSAH;
+            optimalArea = highArea;
+            optimalAxis = splitAxis;
+            splitIndex = setIndex | (1<<31);
         }
     }
-    
+
     // @OPT move surfacearea to a single float array?
-    __global__ void CalcSAH(int2 *primitiveInfo,
-                            float4 *aabbMax,
+    __global__ void CalcSAH(char *info,
+                            float *splitPoss,
+                            int2 *primitiveInfo,
+                            float *nodeSurface,
+                            float4 *aabbMin, float4 *aabbMax,
                             int4 *splitTriangleSet,
-                            int* indices){
+                            float2 *childAreas,
+                            int2 *childSets,
+                            int *splitSides){
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
         if (id < d_activeNodeRange){
             const int2 primInfo = primitiveInfo[id];
             
             // @OPT. Perhaps the threads can fill the area array coalesced?
-            float* area = SharedMemory<float>();
+            //float* area = SharedMemory<float>();
+            //area += TriangleNode::MAX_LOWER_SIZE * threadIdx.x;
+            float area[32];
 
             int bitmap = primInfo.y;
             while(bitmap){
                 int index = __ffs(bitmap) - 1;
-                area[index + TriangleNode::MAX_LOWER_SIZE * threadIdx.x] = aabbMax[primInfo.x + index].w;
+                area[index] = aabbMax[primInfo.x + index].w;
                 bitmap -= 1<<index;
-            }
+            }            
 
-            float optimalSAH = fInfinity;
-            int optimalPlane;
+            float optimalArea = fInfinity;
+            float leftArea, rightArea;
+            int leftSet, rightSet;
+            char axis;
+            int splitIndex;
 
             int triangles = primInfo.y;
             while(triangles){
                 int i = __ffs(triangles) - 1;
 
-                int4 splittingSet = splitTriangleSet[primInfo.x + i];
-                float4 SAH = make_float4(0.0f);
+                CalcAreaForSets(splitTriangleSet[primInfo.x + i], KDNode::X,
+                                primInfo.x + i,
+                                primInfo.y, area, 
+                                optimalArea, 
+                                leftArea, rightArea,
+                                leftSet, rightSet, axis, splitIndex);
 
-                int surfaces = primInfo.y;
-                while (surfaces){
-                    int j = __ffs(surfaces) - 1;
+                CalcAreaForSets(splitTriangleSet[d_triangles + primInfo.x + i], KDNode::Y,
+                                primInfo.x + i,
+                                primInfo.y, area, 
+                                optimalArea, 
+                                leftArea, rightArea,
+                                leftSet, rightSet, axis, splitIndex);
 
-                    SAH.x += splittingSet.x & (1<<j) ? area[j] : 0.0f;
-                    SAH.y += splittingSet.y & (1<<j) ? area[j] : 0.0f;
-                    SAH.z += splittingSet.z & (1<<j) ? area[j] : 0.0f;
-                    SAH.w += splittingSet.w & (1<<j) ? area[j] : 0.0f;
-
-                    surfaces -= 1<<j;
-                }
-
-                // lower x split
-                SAH.x = __popc(primInfo.y & splittingSet.x) * SAH.x + __popc(primInfo.y & splittingSet.y) * SAH.y;
-                if (SAH.x < optimalSAH){
-                    optimalSAH = SAH.x; optimalPlane = primInfo.x + i;
-                }
-                // higher x split
-                SAH.y = __popc(primInfo.y & splittingSet.z) * SAH.z + __popc(primInfo.y & splittingSet.w) * SAH.w;
-                if (SAH.y < optimalSAH){
-                    optimalSAH = SAH.y; optimalPlane = primInfo.x + i + 1<<31;
-                }
+                CalcAreaForSets(splitTriangleSet[2 * d_triangles + primInfo.x + i], KDNode::Z,
+                                primInfo.x + i,
+                                primInfo.y, area, 
+                                optimalArea, 
+                                leftArea, rightArea,
+                                leftSet, rightSet, axis, splitIndex);
 
                 triangles -= 1<<i;
             }
             
+            float nodeArea = nodeSurface[id];
+            bool split = optimalArea < (__popc(primInfo.y) - traverselCost) * nodeArea;
+            if (split){
+                // Dump stuff and move on.
+                childAreas[id] = make_float2(leftArea, rightArea);
+                childSets[id] = make_int2(leftSet, rightSet);
+                float3 splitPositions;
+                if (splitIndex & 1<<31){
+                    // A high splitplane was used
+                    splitPositions = make_float3(aabbMax[splitIndex ^ 1<<31]);
+                }else{
+                    // A low splitplane was used
+                    splitPositions = make_float3(aabbMin[splitIndex]);
+                }
+                splitPoss[id] = axis == KDNode::X ? splitPositions.x : (KDNode::Y ? splitPositions.y : splitPositions.z);
+            }
+            info[id] = split ? axis : KDNode::LEAF;
+            splitSides[id] = split;
         }
     }
 
