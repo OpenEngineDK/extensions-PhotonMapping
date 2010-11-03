@@ -9,6 +9,8 @@ namespace Utils {
 namespace CUDA {
 namespace Kernels {
 
+#define traverselCost 2.0f
+
     __global__ void PreprocesLowerNodes(int *upperLeafIDs,
                                         char* upperNodeInfo,
                                         int2 *primitiveInfo,
@@ -236,11 +238,48 @@ namespace Kernels {
                     // A low splitplane was used
                     splitPositions = make_float3(aabbMin[splitIndex]);
                 }
-                splitPoss[id] = axis == KDNode::X ? splitPositions.x : (KDNode::Y ? splitPositions.y : splitPositions.z);
+                splitPoss[id] = axis == KDNode::X ? splitPositions.x : (axis == KDNode::Y ? splitPositions.y : splitPositions.z);
             }
             info[id] = split ? axis : KDNode::LEAF;
             splitSides[id] = split;
         }
+    }
+
+    __global__ void CreateLowerChildren(int *childSplit,
+                                        int *childAddrs,
+                                        float2 *childAreas,
+                                        int2 *childSets,
+                                        float* nodeArea,
+                                        int2* primitiveInfo,
+                                        int nodeSplits){
+
+        // @TODO need to add the primIndex. Bring it along with the childSets?
+        // @OPT 'or' the childSets onto float4 nodeArea. That way we
+        // can get everything in one store/lookup?
+        
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        
+        if (id < d_activeNodeRange){
+            int split = childSplit[id];
+
+            if (split){
+                float2 childrenArea = childAreas[id];
+                int2 childrenSet = childSets[id];
+                
+                const int childOffset = childAddrs[id];
+                
+                const int parentID = d_activeNodeIndex + id;
+                int2 parentPrimInfo = primitiveInfo[parentID];
+                
+                const int leftChildID = d_activeNodeIndex + d_activeNodeRange + childOffset;
+                nodeArea[leftChildID] = childrenArea.x;
+                primitiveInfo[leftChildID] = make_int2(parentPrimInfo.x, childrenSet.x);
+                
+                const int rightChildID = leftChildID + nodeSplits;
+                nodeArea[rightChildID] = childrenArea.y;
+                primitiveInfo[rightChildID] = make_int2(parentPrimInfo.x, childrenSet.y);
+            }
+        }        
     }
 
 }

@@ -131,9 +131,8 @@ namespace OpenEngine {
 
                 childAreas->Extend(activeRange);
                 childSets->Extend(activeRange);
-                splitSide->Extend(activeRange);
-
-                //CUDADataBlock<1, float> debug = CUDADataBlock<1, float>(activeRange);
+                splitSide->Extend(activeRange+1);
+                splitAddr->Extend(activeRange+1);
 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activeRange, blocks, threads, 96);
@@ -151,10 +150,11 @@ namespace OpenEngine {
                                                        splitSide->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
 
-                logger.info << nodes->ToString(activeIndex) << logger.end;
+                /*
+                logger.info << nodes->ToString(activeIndex+40) << logger.end;
 
-                int primOffset = 0;
-                int primRange = 8;
+                int primOffset = 632;
+                int primRange = 6;
 
                 logger.info << "primMin: " << Convert::ToString(resultMin->GetDeviceData() + primOffset, primRange) << logger.end;
                 logger.info << "primMax: " << Convert::ToString(resultMax->GetDeviceData() + primOffset, primRange) << logger.end;
@@ -163,9 +163,30 @@ namespace OpenEngine {
                 logger.info << "Y splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset + triangles, primRange) << logger.end;
                 logger.info << "Z splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset + 2 * triangles, primRange) << logger.end;
 
-                logger.info << nodes->ToString(activeIndex+40) << logger.end;
+                logger.info << "Child areas: " << Convert::ToString(childAreas->GetDeviceData() + 40, 1) << logger.end;
+                logger.info << "Child sets: " << Convert::ToString(childSets->GetDeviceData() + 40, 1) << logger.end;
+                */
 
-                childrenCreated = 0;
+                cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), activeRange+1);
+                CHECK_FOR_CUDA_ERROR();
+
+                int splits;
+                cudaMemcpy(&splits, splitAddr->GetDeviceData() + activeRange, sizeof(int), cudaMemcpyDeviceToHost);
+
+                nodes->Extend(activeIndex + activeRange + 2 * splits);
+
+                Calc1DKernelDimensions(activeRange, blocks, threads);
+                CreateLowerChildren<<<blocks, threads>>>(splitSide->GetDeviceData(),
+                                                         splitAddr->GetDeviceData(),
+                                                         childAreas->GetDeviceData(),
+                                                         childSets->GetDeviceData(),
+                                                         nodes->GetSurfaceAreaData(),
+                                                         nodes->GetPrimitiveInfoData(),
+                                                         splits);
+                CHECK_FOR_CUDA_ERROR();
+
+                nodes->size += 2 * splits;
+                childrenCreated = splits * 2;
             }
 
         }
