@@ -40,16 +40,21 @@ inline unsigned int NextPow2(unsigned int x) {
     return ++x;
 }
 
-inline void Calc1DKernelDimensions(const unsigned int size, 
+inline bool Calc1DKernelDimensions(const unsigned int size, 
                                    unsigned int &blocks, unsigned int &threads,
                                    unsigned int maxThreads = 0){
     const unsigned int MAX_THREADS = maxThreads ? maxThreads : activeCudaDevice.maxThreadsDim[0];
     const unsigned int MAX_BLOCKS = activeCudaDevice.maxGridSize[0];
 
-    unsigned int s = NextPow2(size);
-    threads = (s < MAX_THREADS) ? s : MAX_THREADS;
-    s /= threads;
-    blocks = s < MAX_BLOCKS ? s : MAX_BLOCKS;
+    if (size < MAX_THREADS){
+        threads = size;
+        blocks = 1;
+        return true;
+    }else{
+        threads = MAX_THREADS;
+        blocks = ((size+1) / MAX_THREADS) + 1;
+        return blocks > MAX_BLOCKS;
+    }
 }
 
 /**

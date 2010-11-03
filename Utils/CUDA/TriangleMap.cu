@@ -88,17 +88,17 @@ namespace OpenEngine {
 
                 logger.info << "Triangles " << triangles << logger.end;
                 
-                aabbMin->Resize(triangles);
-                aabbMax->Resize(triangles);
-                tempAabbMin->Resize(triangles);
-                tempAabbMax->Resize(triangles);
-                resultMin->Resize(triangles);
-                resultMax->Resize(triangles);
+                aabbMin->Extend(triangles);
+                aabbMax->Extend(triangles);
+                tempAabbMin->Extend(triangles);
+                tempAabbMax->Extend(triangles);
+                resultMin->Extend(triangles);
+                resultMax->Extend(triangles);
 
                 int approxSize = (2 * triangles / TriangleNode::MAX_LOWER_SIZE) - 1;
-                nodes->Resize(approxSize);
+                nodes->Extend(approxSize);
 
-                segments.Resize(triangles / Segments::SEGMENT_SIZE);
+                segments.Extend(triangles / Segments::SEGMENT_SIZE);
 
                 if (oldTris < triangles){
                     //CUDPPResult res = cudppDestroyPlan(scanHandle);

@@ -139,8 +139,7 @@ namespace OpenEngine {
                 cudaMemcpyToSymbol(d_segments, nodeSegments->GetDeviceData() + activeRange, sizeof(int), 0, cudaMemcpyDeviceToDevice);
                 CHECK_FOR_CUDA_ERROR();
 
-                if (segments.maxSize < amountOfSegments)
-                    segments.Resize(amountOfSegments);
+                segments.Extend(amountOfSegments);
                 segments.size = amountOfSegments;
 
                 cudaMemset(segments.GetOwnerData(), 0, amountOfSegments * sizeof(int));
@@ -292,21 +291,14 @@ namespace OpenEngine {
                                              int &childrenCreated){
                 unsigned int blocks = NextPow2(segments.size), threads = Segments::SEGMENT_SIZE;
 
-                /*
-                if (activeIndex > 0){
-                    // Do empty space splitting and update activeIndex and activeRange
-                    throw Exception("Empty space splitting not implemented.");
-                }
-                */
-
-                if (splitSide->GetSize() < (unsigned int)triangles * 2) splitSide->Resize(triangles * 2, false);
-                if (splitAddr->GetSize() < (unsigned int)triangles * 2 + 1) splitAddr->Resize(triangles * 2 + 1, false);
-                if (leafSide->GetSize() < (unsigned int)triangles * 2) leafSide->Resize(triangles * 2, false);
-                if (leafAddr->GetSize() < (unsigned int)triangles * 2 + 1) leafAddr->Resize(triangles * 2 + 1, false);
-                if (childSize->GetSize() < (unsigned int)activeRange) childSize->Resize(activeRange, false);
-                emptySpaceSplits->Extend(activeRange + 1);
-                emptySpaceAddrs->Extend(activeRange + 1);
-                if (nodes->maxSize < nodes->size + activeRange * 2) nodes->Resize(nodes->size + activeRange * 2);
+                splitSide->Extend(triangles * 2, false);
+                splitAddr->Extend(triangles * 2 + 1, false);
+                leafSide->Extend(triangles * 2, false);
+                leafAddr->Extend(triangles * 2 + 1, false);
+                childSize->Extend(activeRange, false);
+                //emptySpaceSplits->Extend(activeRange + 1);
+                //emptySpaceAddrs->Extend(activeRange + 1);
+                nodes->Extend(nodes->size + activeRange * 2);
 
                 //START_TIMER(timerID);
                 SetSplitSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),

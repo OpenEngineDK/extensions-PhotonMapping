@@ -37,6 +37,7 @@ namespace OpenEngine {
                 Segments(int i);
 
                 void Resize(int i);
+                void Extend(int i) {if (maxSize < i) Resize(i); }
 
                 int* GetOwnerData() const { return nodeIDs->GetDeviceData(); }
                 int2* GetPrimitiveInfoData() const {return primitiveInfo->GetDeviceData(); }

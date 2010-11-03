@@ -223,6 +223,7 @@ namespace OpenEngine {
             
             void GeometryList::CollectGeometry(ISceneNode* node){
                 currentModelMat = Matrix<4,4, float>();
+                size = 0;
                 node->Accept(*this);
             }
 

@@ -43,7 +43,7 @@ namespace OpenEngine {
             void TriangleMap::PreprocessLowerNodes(int activeIndex, int activeRange){
                 logger.info << "=== Preprocess " << activeRange << " Lower Nodes Starting at " << activeIndex << " === with " << triangles << " triangles" << logger.end;
                 
-                nodes->Extend(nodes->size + activeRange);
+                nodes->Extend(activeIndex + activeRange);
 
                 splitTriangleSet->Extend(triangles * 3);
                 
@@ -66,23 +66,6 @@ namespace OpenEngine {
                      resultMin->GetDeviceData(), resultMax->GetDeviceData(),
                      activeRange);
                 CHECK_FOR_CUDA_ERROR();
-
-                /*                
-                logger.info << nodes->ToString(activeIndex + 39) << logger.end;
-                int primOffset = 626;
-                int primRange = 6;
-
-                logger.info << "primMin: " << Convert::ToString(resultMin->GetDeviceData() + primOffset, 1) << 
-                    ", " << Convert::ToString(resultMin->GetDeviceData() + primOffset + 2, 1) << 
-                    ", " << Convert::ToString(resultMin->GetDeviceData() + primOffset + 5, 1) << logger.end;
-                logger.info << "primMax: " << Convert::ToString(resultMax->GetDeviceData() + primOffset, 1) << 
-                    ", " << Convert::ToString(resultMax->GetDeviceData() + primOffset + 2, 1) << 
-                    ", " << Convert::ToString(resultMax->GetDeviceData() + primOffset + 5, 1) << logger.end;
-
-                logger.info << "X splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset, primRange) << logger.end;
-                logger.info << "Y splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset + triangles, primRange) << logger.end;
-                logger.info << "Z splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset + 2 * triangles, primRange) << logger.end;
-                */
 
 #if CPU_VERIFY
                 CheckLowerPreprocess(activeIndex, activeRange);
@@ -154,9 +137,8 @@ namespace OpenEngine {
 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activeRange, blocks, threads, 96);
-                //blocks = 13; threads = 96;
                 unsigned int smemSize = threads * TriangleNode::MAX_LOWER_SIZE * sizeof(float);
-                logger.info << "<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
+                //logger.info << "<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
                 CalcSAH<<<blocks, threads, smemSize>>>(nodes->GetInfoData() + activeIndex,
                                                        nodes->GetSplitPositionData() + activeIndex,
                                                        nodes->GetPrimitiveInfoData() + activeIndex,
