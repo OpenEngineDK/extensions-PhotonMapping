@@ -31,6 +31,7 @@ namespace Kernels {
      *
      * PENDING
      * Do a complete unroll, since the freaking compiler can't!!
+     * use float3 in shared mem
      */    
     __global__ void 
     __launch_bounds__(Segments::SEGMENT_SIZE) 

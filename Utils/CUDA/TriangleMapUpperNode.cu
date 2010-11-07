@@ -169,6 +169,7 @@ namespace OpenEngine {
                                                              aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
                                                              segments.GetAabbMinData(), segments.GetAabbMaxData());
                 //PRINT_TIMER(timerID, "ReduceSegments");
+                // @TODO has provoked an "unspecified launch failure"
                 CHECK_FOR_CUDA_ERROR();
 
 #if CPU_VERIFY

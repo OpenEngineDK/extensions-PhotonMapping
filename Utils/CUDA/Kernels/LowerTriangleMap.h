@@ -190,6 +190,10 @@ namespace Kernels {
                 bitmap -= 1<<index;
             }            
 
+            // @OPT. Calculate the area for bitmap pairs? Then areas
+            // can be summed over 2 bits at a time. Or template to N
+            // bits. For fun and profit.
+
             float optimalArea = fInfinity;
             float leftArea, rightArea;
             int leftSet, rightSet;
@@ -253,7 +257,6 @@ namespace Kernels {
                                         int2* primitiveInfo,
                                         int nodeSplits){
 
-        // @TODO need to add the primIndex. Bring it along with the childSets?
         // @OPT 'or' the childSets onto float4 nodeArea. That way we
         // can get everything in one store/lookup?
         

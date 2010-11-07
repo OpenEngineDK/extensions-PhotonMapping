@@ -39,7 +39,7 @@ namespace OpenEngine {
                 scanInclConfig.op = CUDPP_ADD;
                 scanInclConfig.datatype = CUDPP_INT;
                 scanInclConfig.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_INCLUSIVE;
-                scanInclSize = 1;
+                scanInclSize = triangles;
 
                 res = cudppPlan(&scanInclHandle, scanInclConfig, scanInclSize, 1, 0);
                 if (CUDPP_SUCCESS != res)
@@ -81,8 +81,6 @@ namespace OpenEngine {
             }
 
             void TriangleMap::Setup(){
-                int oldTris = triangles;
-                
                 geom->CollectGeometry(scene);
                 triangles = geom->GetSize();
 
@@ -99,17 +97,6 @@ namespace OpenEngine {
                 nodes->Extend(approxSize);
 
                 segments.Extend(triangles / Segments::SEGMENT_SIZE);
-
-                if (oldTris < triangles){
-                    //CUDPPResult res = cudppDestroyPlan(scanHandle);
-                    //if (CUDPP_SUCCESS != res)
-                    //throw Core::Exception("Error deleting CUDPP scanPlan");
-                    
-                    scanSize = triangles+1;
-                    CUDPPResult res = cudppPlan(&scanHandle, scanConfig, scanSize, 1, 0);
-                    if (CUDPP_SUCCESS != res)
-                        throw Core::Exception("Error creating CUDPP scanPlan");
-                }
             }
             
         }

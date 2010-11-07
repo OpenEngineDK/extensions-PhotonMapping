@@ -15,6 +15,7 @@
 #include <Scene/PhotonNode.h>
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/PhotonMap.h>
+#include <Utils/CUDA/Raytracer.h>
 #include <Utils/CUDA/Utils.h>
 
 #include <Logging/Logger.h>
@@ -40,6 +41,8 @@ namespace OpenEngine {
                         RenderPhotons();
                     if (renderTree)
                         RenderTree(arg);
+                }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PROCESS){
+                    raytracer->Trace(&arg.canvas);
                 }
             }
 
@@ -47,6 +50,7 @@ namespace OpenEngine {
                 INITIALIZE_CUDA();
 
                 triangleMap = new TriangleMap(arg.canvas.GetScene());
+                raytracer = new RayTracer(triangleMap);
                 
                 unsigned int size = (1<<17)-7;
                 //photonMap = new PhotonMap(size);
