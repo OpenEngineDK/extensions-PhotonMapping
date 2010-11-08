@@ -13,6 +13,8 @@
 #include <Utils/CUDA/Point.h>
 #include <Resources/CUDA/CUDADataBlock.h>
 
+#include <string>
+
 using namespace OpenEngine::Resources::CUDA;
 
 namespace OpenEngine {
@@ -22,7 +24,7 @@ namespace OpenEngine {
             class Segments {
             public:
                 
-                static const int SEGMENT_SIZE = 128;
+                static const int SEGMENT_SIZE = 256;
                 
                 CUDADataBlock<1, int> *nodeIDs;
                 CUDADataBlock<1, int2> *primitiveInfo;
@@ -43,6 +45,8 @@ namespace OpenEngine {
                 int2* GetPrimitiveInfoData() const {return primitiveInfo->GetDeviceData(); }
                 float4* GetAabbMinData() const { return aabbMin->GetDeviceData(); }
                 float4* GetAabbMaxData() const { return aabbMax->GetDeviceData(); }
+                
+                std::string ToString(int i);
 
             };
 
