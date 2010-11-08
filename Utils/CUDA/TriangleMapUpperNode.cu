@@ -164,7 +164,7 @@ namespace OpenEngine {
                 unsigned int memSize = 2 * sizeof(float4) * segments.SEGMENT_SIZE;
 
                 //START_TIMER(timerID);
-                logger.info << "ReduceSegments<<<" << blocks << ", " << threads << ", " << memSize << ">>>" << logger.end;
+                //logger.info << "ReduceSegments<<<" << blocks << ", " << threads << ", " << memSize << ">>>" << logger.end;
                 ReduceSegmentsShared<<<blocks, threads, memSize>>>(segments.GetPrimitiveInfoData(),
                                                                    aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
                                                                    segments.GetAabbMinData(), segments.GetAabbMaxData());
@@ -244,7 +244,7 @@ namespace OpenEngine {
                 //threads = min(blocks, activeCudaDevice.maxThreadsDim[0]);
                 threads = min((segments.size / 32) * 32 + 32, activeCudaDevice.maxThreadsDim[0]);
                 //START_TIMER(timerID);
-                logger.info << "SegmentedReduce0<<<1, " << threads << ">>>" << logger.end;
+                //logger.info << "SegmentedReduce0<<<1, " << threads << ">>>" << logger.end;
                 SegmentedReduce0<<<1, threads>>>(segments.GetAabbMinData(),
                                                  segments.GetAabbMaxData(),
                                                  segments.GetOwnerData(),
@@ -305,7 +305,6 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), triangles * 2 + 1);
-                //logger.info << "splitAddr " << Convert::ToString(splitAddr->GetDeviceData(), 20) << logger.end;
 
 #ifdef CPU_VERIFY
                 CheckSplits();
@@ -446,7 +445,7 @@ namespace OpenEngine {
                     //logger.info << "UpperNode Leafs: " << upperNodeLeafs << logger.end;
                     
                 }else{
-                    logger.info << "No leafs created. Split resulted in " << newTriangles << " triangles."  << logger.end;
+                    //logger.info << "No leafs created. Split resulted in " << newTriangles << " triangles."  << logger.end;
 
                     tempAabbMin->Extend(newTriangles);
                     tempAabbMax->Extend(newTriangles);

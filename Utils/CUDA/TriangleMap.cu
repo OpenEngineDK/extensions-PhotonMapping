@@ -29,7 +29,8 @@ namespace OpenEngine {
                 scanConfig.op = CUDPP_ADD;
                 scanConfig.datatype = CUDPP_INT;
                 scanConfig.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_EXCLUSIVE;
-                scanSize = triangles+1;
+                //scanSize = triangles+1;
+                scanSize = 262144;
                 
                 CUDPPResult res = cudppPlan(&scanHandle, scanConfig, scanSize, 1, 0);
                 if (CUDPP_SUCCESS != res)
@@ -40,6 +41,7 @@ namespace OpenEngine {
                 scanInclConfig.datatype = CUDPP_INT;
                 scanInclConfig.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_INCLUSIVE;
                 scanInclSize = triangles;
+                scanInclSize = 262144;
 
                 res = cudppPlan(&scanInclHandle, scanInclConfig, scanInclSize, 1, 0);
                 if (CUDPP_SUCCESS != res)
