@@ -24,7 +24,6 @@ namespace OpenEngine {
 
             using namespace Kernels;
 
-
             void TriangleMap::CreateUpperNodes(){
                 int activeIndex = 0, activeRange = 1;
                 int childrenCreated;

@@ -164,24 +164,26 @@ namespace Kernels {
     }
 
     // @OPT move surfacearea to a single float array?
-    __global__ void CalcSAH(char *info,
-                            float *splitPoss,
-                            int2 *primitiveInfo,
-                            float *nodeSurface,
-                            float4 *aabbMin, float4 *aabbMax,
-                            int4 *splitTriangleSet,
-                            float2 *childAreas,
-                            int2 *childSets,
-                            int *splitSides){
+    __global__ void 
+    __launch_bounds__(96) 
+        CalcSAH(char *info,
+            float *splitPoss,
+            int2 *primitiveInfo,
+            float *nodeSurface,
+            float4 *aabbMin, float4 *aabbMax,
+            int4 *splitTriangleSet,
+            float2 *childAreas,
+            int2 *childSets,
+            int *splitSides){
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
         if (id < d_activeNodeRange){
             const int2 primInfo = primitiveInfo[id];
             
             // @OPT. Perhaps the threads can fill the area array coalesced?
-            //float* area = SharedMemory<float>();
-            //area += TriangleNode::MAX_LOWER_SIZE * threadIdx.x;
-            float area[32];
+            float* area = SharedMemory<float>();
+            area += TriangleNode::MAX_LOWER_SIZE * threadIdx.x;
+            //float area[32];
 
             int bitmap = primInfo.y;
             while(bitmap){
@@ -249,13 +251,13 @@ namespace Kernels {
         }
     }
 
-    __global__ void CreateLowerChildren(int *childSplit,
-                                        int *childAddrs,
-                                        float2 *childAreas,
-                                        int2 *childSets,
-                                        float* nodeArea,
-                                        int2* primitiveInfo,
-                                        int nodeSplits){
+    __global__ void CreateLowerSAHChildren(int *childSplit,
+                                           int *childAddrs,
+                                           float2 *childAreas,
+                                           int2 *childSets,
+                                           float* nodeArea,
+                                           int2* primitiveInfo,
+                                           int nodeSplits){
 
         // @OPT 'or' the childSets onto float4 nodeArea. That way we
         // can get everything in one store/lookup?

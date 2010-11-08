@@ -176,13 +176,13 @@ namespace OpenEngine {
                 nodes->Extend(activeIndex + activeRange + 2 * splits);
 
                 Calc1DKernelDimensions(activeRange, blocks, threads);
-                CreateLowerChildren<<<blocks, threads>>>(splitSide->GetDeviceData(),
-                                                         splitAddr->GetDeviceData(),
-                                                         childAreas->GetDeviceData(),
-                                                         childSets->GetDeviceData(),
-                                                         nodes->GetSurfaceAreaData(),
-                                                         nodes->GetPrimitiveInfoData(),
-                                                         splits);
+                CreateLowerSAHChildren<<<blocks, threads>>>(splitSide->GetDeviceData(),
+                                                            splitAddr->GetDeviceData(),
+                                                            childAreas->GetDeviceData(),
+                                                            childSets->GetDeviceData(),
+                                                            nodes->GetSurfaceAreaData(),
+                                                            nodes->GetPrimitiveInfoData(),
+                                                            splits);
                 CHECK_FOR_CUDA_ERROR();
 
                 nodes->size += 2 * splits;
