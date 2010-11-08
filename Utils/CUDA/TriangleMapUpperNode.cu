@@ -159,14 +159,15 @@ namespace OpenEngine {
             void TriangleMap::ReduceAabb(int activeIndex, int activeRange){
                 
                 // Reduce aabb pr segment
-                unsigned int blocks = NextPow2(segments.size);
+                unsigned int blocks = segments.size;
                 unsigned int threads = Segments::SEGMENT_SIZE;
                 unsigned int memSize = 2 * sizeof(float4) * segments.SEGMENT_SIZE;
 
                 //START_TIMER(timerID);
-                ReduceSegments<<<blocks, threads, memSize>>>(segments.GetPrimitiveInfoData(),
-                                                             aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
-                                                             segments.GetAabbMinData(), segments.GetAabbMaxData());
+                logger.info << "ReduceSegments<<<" << blocks << ", " << threads << ", " << memSize << ">>>" << logger.end;
+                ReduceSegmentsShared<<<blocks, threads, memSize>>>(segments.GetPrimitiveInfoData(),
+                                                                   aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
+                                                                   segments.GetAabbMinData(), segments.GetAabbMaxData());
                 //PRINT_TIMER(timerID, "ReduceSegments");
                 // @TODO has provoked an "unspecified launch failure"
                 CHECK_FOR_CUDA_ERROR();
@@ -243,6 +244,7 @@ namespace OpenEngine {
                 //threads = min(blocks, activeCudaDevice.maxThreadsDim[0]);
                 threads = min((segments.size / 32) * 32 + 32, activeCudaDevice.maxThreadsDim[0]);
                 //START_TIMER(timerID);
+                logger.info << "SegmentedReduce0<<<1, " << threads << ">>>" << logger.end;
                 SegmentedReduce0<<<1, threads>>>(segments.GetAabbMinData(),
                                                  segments.GetAabbMaxData(),
                                                  segments.GetOwnerData(),
@@ -250,13 +252,6 @@ namespace OpenEngine {
                                                  nodes->GetAabbMaxData());
                 //PRINT_TIMER(timerID, "Segmented reduce");
                 CHECK_FOR_CUDA_ERROR();
-
-                /*                
-                if (activeIndex == 92){
-                    for (int i = 0; i < segments.size; ++i)
-                        logger.info << "Segment " << i << "'s owner is " << segOwner[i] << " with max " << Convert::ToString(segMax[i]) << logger.end;                        
-                }
-                */
 
 #if CPU_VERIFY
                 float4 gpuMin[activeRange];
@@ -296,8 +291,6 @@ namespace OpenEngine {
                 leafSide->Extend(triangles * 2, false);
                 leafAddr->Extend(triangles * 2 + 1, false);
                 childSize->Extend(activeRange, false);
-                //emptySpaceSplits->Extend(activeRange + 1);
-                //emptySpaceAddrs->Extend(activeRange + 1);
                 nodes->Extend(nodes->size + activeRange * 2);
 
                 //START_TIMER(timerID);
@@ -312,11 +305,19 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), triangles * 2 + 1);
+                //logger.info << "splitAddr " << Convert::ToString(splitAddr->GetDeviceData(), 20) << logger.end;
+
+#ifdef CPU_VERIFY
+                CheckSplits();
+#endif
 
                 int newTriangles;
                 cudaMemcpy(&newTriangles, splitAddr->GetDeviceData() + triangles * 2, sizeof(int), cudaMemcpyDeviceToHost);
                 //logger.info << "new triangles " << newTriangles << logger.end;
                 CHECK_FOR_CUDA_ERROR();
+                
+                if (newTriangles < triangles)
+                    throw Exception("New triangles amount " + Utils::Convert::ToString(newTriangles) + " was below old. WTF");
                 
                 bool createdLeafs = false;
                 cudaMemcpyToSymbol(d_createdLeafs, &createdLeafs, sizeof(bool));
@@ -445,7 +446,7 @@ namespace OpenEngine {
                     //logger.info << "UpperNode Leafs: " << upperNodeLeafs << logger.end;
                     
                 }else{
-                    //logger.info << "No leafs created" << logger.end;
+                    logger.info << "No leafs created. Split resulted in " << newTriangles << " triangles."  << logger.end;
 
                     tempAabbMin->Extend(newTriangles);
                     tempAabbMax->Extend(newTriangles);
@@ -616,6 +617,34 @@ namespace OpenEngine {
                                               "'s aabb " + Convert::ToString(calcedAabbMin) +
                                               " -> " + Convert::ToString(calcedAabbMax));
                 }
+            }
+
+            void TriangleMap::CheckSplits(){
+                int sides[triangles * 2];
+                cudaMemcpy(sides, splitSide->GetDeviceData(), triangles * 2 * sizeof(int), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+
+                int addrs[triangles * 2];
+                cudaMemcpy(addrs, splitAddr->GetDeviceData(), (triangles * 2 + 1) * sizeof(int), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+
+                //int prims = 0;
+                for (int i = 0; i < triangles; ++i){
+                    // Check that a bounding box is at least assigned to one side.
+                    //prims += sides[i] + sides[triangles + i];
+                    if (sides[i] + sides[triangles + i] == 0)
+                        throw Exception("Bounding box " + Utils::Convert::ToString(i) +
+                                        "was neither left nor right.");
+                }
+
+                int prims = 0;
+                for (int i = 1; i < triangles * 2 + 1; ++i){
+                    prims += sides[i-1];
+                    if (prims != addrs[i])
+                        throw Exception("Stuff went wrong at bounding box " + Utils::Convert::ToString(i));
+                }
+
+                //logger.info << "New prims " << prims << logger.end;
             }
 
         }

@@ -100,6 +100,7 @@ namespace OpenEngine {
 
                 void CheckUpperNode(int index, float4 aabbMin, float4 aabbMax, int activeRange = 0);
                 void CheckUpperLeaf(int index, float4 aabbMin, float4 aabbMax);
+                void CheckSplits();
 
                 void CheckLowerPreprocess(int activeIndex, int activeRange);
 

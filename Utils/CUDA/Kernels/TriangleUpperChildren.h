@@ -49,6 +49,9 @@ namespace Kernels {
                 float rightPos = axis == KDNode::X ? aabbMax.x : aabbMax.y;
                 rightPos = axis == KDNode::Z ? aabbMax.z : rightPos;
                 splitSides[id + d_triangles] = splitPos < rightPos;
+
+                if (segmentID == 0 && threadIdx.x == 0)
+                    splitSides[d_triangles * 2] = 0;
             }
         }
     }
