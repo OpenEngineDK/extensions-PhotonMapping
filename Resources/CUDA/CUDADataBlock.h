@@ -23,11 +23,13 @@ namespace OpenEngine {
             template <unsigned int N, class T>
             class CUDADataBlock : public IDataBlock {
             public:
+                int maxSize;
                 T* hostData;
 
             public:
                 CUDADataBlock(unsigned int s = 0, T* d = NULL)
                     : IDataBlock(s, d, ARRAY, DYNAMIC) {
+                    maxSize = s;
                     if (d == NULL){
                         cudaMalloc(&this->data, N * s * sizeof(T));
 #if OE_SAFE
@@ -90,12 +92,14 @@ namespace OpenEngine {
                         cudaMalloc(&this->data, i * N *sizeof(T));
                         CHECK_FOR_CUDA_ERROR();
                     }
-                    this->size = i;
+                    maxSize = this->size = i;
                 }
 
                 void Extend(unsigned int i, bool dataPersistent = true){
-                    if (size < i)
+                    if (maxSize < i)
                         Resize(i, dataPersistent);
+                    else
+                        size = i;
                 }
 
                 void GetElement(unsigned int i, Math::Vector<4, unsigned char> &element) {throw Exception("Not implemented");}
