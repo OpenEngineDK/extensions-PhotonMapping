@@ -10,6 +10,7 @@
 #ifndef _CUDA_RAY_TRACER_H_
 #define _CUDA_RAY_TRACER_H_
 
+#include <Utils/CUDA/IRayTracer.h>
 #include <Utils/CUDA/TriangleMap.h>
 #include <Display/IViewingVolume.h>
 #include <Display/IRenderCanvas.h>
@@ -19,7 +20,7 @@ namespace OpenEngine {
     namespace Utils {
         namespace CUDA {
             
-            class RayTracer {
+            class RayTracer : public IRayTracer {
             public:
                 TriangleMap *map;
                 Resources::CUDA::CUDADataBlock<1, float4> *origin;
@@ -27,8 +28,9 @@ namespace OpenEngine {
                 
             public:
                 RayTracer(TriangleMap* map);
+                virtual ~RayTracer() {}
 
-                void Trace(Display::IRenderCanvas* canvas);
+                void Trace(Display::IRenderCanvas* canvas, uchar4* canvasData);
             };
 
         }

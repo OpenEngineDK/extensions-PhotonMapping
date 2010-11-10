@@ -19,6 +19,10 @@ namespace OpenEngine {
         class GeometrySet;
         typedef boost::shared_ptr<GeometrySet> GeometrySetPtr;
     }
+    namespace Resources {
+        class IDataBlock;
+        typedef boost::shared_ptr<IDataBlock> IDataBlockPtr;
+    }
     namespace Utils {
         namespace CUDA {
             class PhotonMap;
@@ -36,6 +40,8 @@ namespace OpenEngine {
                 TriangleMap* triangleMap;
                 PhotonMap* photonMap;
                 RayTracer* raytracer;
+
+                IDataBlockPtr pbo;
                 
                 bool renderPhotons, renderTree;
                 GeometrySetPtr photons;

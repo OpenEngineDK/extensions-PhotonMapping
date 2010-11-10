@@ -25,8 +25,8 @@ namespace OpenEngine {
         namespace OpenGL {
             
             PhotonRenderingView::PhotonRenderingView()
-                : RenderingView(), triangleMap(NULL), photonMap(NULL), 
-                  renderPhotons(false), renderTree(false){
+                : RenderingView(), triangleMap(NULL), 
+                  renderTree(false){
             }
             
             void PhotonRenderingView::Handle(RenderingEventArg arg){
@@ -37,12 +37,43 @@ namespace OpenEngine {
                     Initialize(arg);
                     UpdateGeometry();
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
-                    if (renderPhotons)
-                        RenderPhotons();
                     if (renderTree)
                         RenderTree(arg);
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PROCESS){
-                    raytracer->Trace(&arg.canvas);
+                    
+                    cudaGraphicsResource *pboResource;
+                    cudaGraphicsGLRegisterBuffer(&pboResource, pbo->GetID(), cudaGraphicsMapFlagsWriteDiscard);
+                    cudaGraphicsMapResources(1, &pboResource, 0);
+                    CHECK_FOR_CUDA_ERROR();
+
+                    size_t bytes;
+                    uchar4* pixels;
+                    cudaGraphicsResourceGetMappedPointer((void**)&pixels, &bytes,
+                                                         pboResource);
+                    CHECK_FOR_CUDA_ERROR();
+
+                    raytracer->Trace(&arg.canvas, pixels);
+
+                    cudaGraphicsUnmapResources(1, &pboResource, 0);
+                    cudaGraphicsUnregisterResource(pboResource);
+                    CHECK_FOR_CUDA_ERROR();
+
+                    glMatrixMode(GL_MODELVIEW);
+                    glLoadIdentity();
+                    
+                    glMatrixMode(GL_PROJECTION);
+                    glLoadIdentity();
+                    glOrtho(0,1,0,1,0,1);
+
+                    glDisable(GL_DEPTH_TEST);
+                    glRasterPos2i(0, 0);
+                    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo->GetID());
+                    CHECK_FOR_GL_ERROR();
+                    glDrawPixels(arg.canvas.GetWidth(), arg.canvas.GetHeight(), 
+                                 GL_RGBA, GL_UNSIGNED_BYTE, 0);
+                    CHECK_FOR_GL_ERROR();
+                    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+                    CHECK_FOR_GL_ERROR();
                 }
             }
 
@@ -51,14 +82,22 @@ namespace OpenEngine {
 
                 triangleMap = new TriangleMap(arg.canvas.GetScene());
                 raytracer = new RayTracer(triangleMap);
-                
-                unsigned int size = (1<<17)-7;
+                //raytracer->SetVisualizeRays(true);
+
+                int size = arg.canvas.GetWidth() * arg.canvas.GetHeight();
+                pbo = IDataBlockPtr(new DataBlock<4, unsigned char>(size, NULL, PIXEL_UNPACK));
+                arg.renderer.BindDataBlock(pbo.get());                
+                glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+                //unsigned int size = (1<<17)-7;
                 //photonMap = new PhotonMap(size);
+                /*
                 IDataBlockPtr vertices = IDataBlockPtr(new DataBlock<4, float>(size));
                 map<string, IDataBlockPtr> attr;
                 attr["vertex"] = vertices;
                 photons = GeometrySetPtr(new GeometrySet(attr));
                 arg.renderer.BindDataBlock(vertices.get());
+                */
             }
 
             void PhotonRenderingView::UpdateGeometry(){

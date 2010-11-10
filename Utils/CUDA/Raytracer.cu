@@ -60,7 +60,75 @@ namespace OpenEngine {
                 }
             }
 
-            void RayTracer::Trace(IRenderCanvas* canvas){
+            __global__ void RenderRayDir(float4* dir, uchar4 *canvas){
+                const int id = blockDim.x * blockIdx.x + threadIdx.x;
+                
+                if (id < d_rays){
+                    float4 d = dir[id] * 0.5f + make_float4(0.5f);
+                    canvas[id] = make_uchar4(d.x * 255, d.y * 255, d.z * 255, d.w * 255);
+                }
+            }
+
+            __global__ void KDRestart(float4* origins, float4* directions,
+                                      char* nodeInfo, float* splitPos,
+                                      int* leftChild, int* rightChild,
+                                      uchar4 *canvas){
+                
+                const int id = blockDim.x * blockIdx.x + threadIdx.x;
+                
+                if (id < d_rays){
+                    
+                    float4 origin = origins[id];
+                    float4 direction = directions[id];
+
+                    float tMin = 0.0f;
+                    while (tMin != fInfinity){
+                        float tNext = fInfinity;
+                        int node = 0;
+                        char info = nodeInfo[node];
+                        
+                        while(!(info &= KDNode::PROXY)){
+                            // Trace
+                            float ori, dir;
+                            switch(info & 3){
+                            case KDNode::X:
+                                ori = origin.x; dir = direction.x;
+                                break;
+                            case KDNode::Y:
+                                ori = origin.y; dir = direction.y;
+                                break;
+                            case KDNode::Z:
+                                ori = origin.z; dir = direction.z;
+                                break;
+                            }
+                            
+                            float tSplit = (splitPos[id] - ori) / dir;
+                            int left = leftChild[id];
+                            int right = rightChild[id];
+                            int lowerChild = 0 < dir ? left : right;
+                            int upperChild = 0 < dir ? right : left;
+                            if (tMin < tSplit){
+                                node = lowerChild;
+                                tNext = min(tSplit, tNext);
+                            }else
+                                node = upperChild;
+                            
+                        }
+
+                        tMin = tNext;
+
+                        // Test intersection
+                        
+
+                        // Debug
+                        float4 pos = origin + tNext * direction;
+                        canvas[id] = make_uchar4(pos.x * 51, pos.y * 51, pos.z * 51, 255);
+                        tMin = fInfinity;
+                    }
+                }
+            }
+
+            void RayTracer::Trace(IRenderCanvas* canvas, uchar4* canvasData){
                 //logger.info << "Trace!" << logger.end;
 
                 Matrix<4, 4, float> viewProjection = 
@@ -90,6 +158,19 @@ namespace OpenEngine {
                                                 dir->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
 
+                if (visualizeRays){
+                    RenderRayDir<<<blocks, threads>>>(dir->GetDeviceData(),
+                                                      canvasData);
+                    CHECK_FOR_CUDA_ERROR();
+                    return;
+                }
+                
+                KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), dir->GetDeviceData(),
+                                               map->nodes->GetInfoData(), map->nodes->GetSplitPositionData(),
+                                               map->nodes->GetLeftData(), map->nodes->GetRightData(),
+                                               canvasData);
+                CHECK_FOR_CUDA_ERROR();
+                                               
                 /*
                 logger.info << "dirs: " << Convert::ToString(dir->GetDeviceData(), 5) << logger.end;
 
@@ -99,49 +180,6 @@ namespace OpenEngine {
                 logger.info << "RayDir for upper left cornor: " << Convert::ToString(rayDir) << logger.end;
                 */
 
-                GLint fb, tex;
-                glGetIntegerv(GL_FRAMEBUFFER_BINDING_EXT, &fb);
-                CHECK_FOR_GL_ERROR();
-
-                glGetFramebufferAttachmentParameterivEXT(GL_FRAMEBUFFER_EXT, 
-                                                         GL_COLOR_ATTACHMENT0_EXT,
-                                                         GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME_EXT, 
-                                                         &tex);
-                CHECK_FOR_GL_ERROR();
-
-                //logger.info << "Frame buffer " << fb << logger.end;
-                //logger.info << "Texture " << tex << logger.end;
-
-                glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-                glBindTexture(GL_TEXTURE_2D, tex);
-                CHECK_FOR_GL_ERROR();
-                
-                cudaGraphicsResource *backBuffer;
-                //cudaGraphicsGLRegisterImage(&backBuffer, 1, GL_RENDERBUFFER, cudaGraphicsMapFlagsWriteDiscard);
-                //cudaGraphicsGLRegisterImage(&backBuffer, tex, GL_TEXTURE_2D, cudaGraphicsMapFlagsWriteDiscard);
-                cudaGraphicsGLRegisterImage(&backBuffer, tex, GL_TEXTURE_2D, cudaGraphicsMapFlagsReadOnly);
-                CHECK_FOR_CUDA_ERROR();
-
-                cudaStream_t stream;
-                cudaStreamCreate(&stream);
-                //logger.info << "stream " << stream << logger.end;
-                //cudaGraphicsMapResources(1, &backBuffer, stream);
-                cudaGraphicsMapResources(1, &backBuffer, 0);
-                CHECK_FOR_CUDA_ERROR();
-                
-                size_t bytes;
-                uchar4* pixels;
-                cudaGraphicsResourceGetMappedPointer((void**)&pixels, &bytes,
-                                                     backBuffer);
-                CHECK_FOR_CUDA_ERROR();
-
-                logger.info << "size: " << bytes / sizeof(uchar4) << logger.end;
-
-                cudaGraphicsUnmapResources(1, &backBuffer, 0);
-                CHECK_FOR_CUDA_ERROR();
-
-                cudaGraphicsUnregisterResource(backBuffer);
-                CHECK_FOR_CUDA_ERROR();
             }
 
         }
