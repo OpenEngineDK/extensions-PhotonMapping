@@ -67,7 +67,6 @@ namespace OpenEngine {
                 CUDADataBlock<1, int2> *childSize; // Use upperNodes arrays?
                 int upperLeafPrimitives;
 
-                int upperNodeLeafs;
                 CUDADataBlock<1, int> *upperNodeLeafList;
                 
                 CUDADataBlock<1, int4> *splitTriangleSet;

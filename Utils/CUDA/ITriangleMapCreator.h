@@ -19,7 +19,6 @@ namespace OpenEngine {
 
             class ITriangleMapCreator {
             private:
-                //int leafs;
                 Resources::CUDA::CUDADataBlock<1, float4>* primMin;
                 Resources::CUDA::CUDADataBlock<1, float4>* primMax;
 

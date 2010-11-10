@@ -20,7 +20,7 @@ namespace OpenEngine {
             using namespace Kernels;
 
             void TriangleMap::CreateLowerNodes(){
-                int activeIndex = nodes->size; int activeRange = upperNodeLeafs;
+                int activeIndex = nodes->size; int activeRange = upperNodeLeafList->GetSize();
                 int childrenCreated;
 
                 cudaMemcpyToSymbol(d_triangles, &triangles, sizeof(int));

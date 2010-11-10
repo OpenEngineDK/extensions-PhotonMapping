@@ -53,8 +53,6 @@ namespace OpenEngine {
                     float2 screenPos = make_float2((x / (float)d_screenWidth) * 2.0f - 1.0f,
                                                    (y / (float)d_screenHeight) * 2.0f - 1.0f);
                     
-                    //dir[id] = make_float4(x, y, screenPos.x, screenPos.y);
-
                     float3 rayDir = Unproject(screenPos, d_ViewProjectionMatrixInverse, d_camPos);
                     dir[id] = make_float4(rayDir, 0.0f);
                 }

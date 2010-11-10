@@ -28,7 +28,8 @@ namespace OpenEngine {
                 int activeIndex = 0, activeRange = 1;
                 int childrenCreated;
                 
-                upperNodeLeafs = upperLeafPrimitives = 0;
+                upperLeafPrimitives = 0;
+                upperNodeLeafList->Extend(0);
                 
                 cudaMemcpyToSymbol(d_emptySpaceThreshold, &emptySpaceThreshold, sizeof(float));
 
@@ -432,7 +433,8 @@ namespace OpenEngine {
                     nodes->size += activeRange * 2;
                     childrenCreated = activeRange * 2 - leafNodes;
 
-                    upperNodeLeafList->Extend(upperNodeLeafs + leafNodes);
+                    int upperNodeLeafs = upperNodeLeafList->GetSize();
+                    upperNodeLeafList->Extend(upperNodeLeafList->GetSize() + leafNodes);
                     Calc1DKernelDimensions(leafNodes, blocks, threads);
                     int leafIndex = nodes->size - activeRange * 2;
                     //logger.info << "leaf index " << leafIndex << logger.end;
@@ -440,7 +442,6 @@ namespace OpenEngine {
                         <<<blocks, threads>>>(upperNodeLeafList->GetDeviceData() + upperNodeLeafs, 
                                               nodes->GetInfoData() + leafIndex,
                                               leafIndex, leafNodes);
-                    upperNodeLeafs += leafNodes;
                     
                     //logger.info << "UpperNode Leafs: " << upperNodeLeafs << logger.end;
                     
