@@ -12,25 +12,31 @@
 
 #include <Utils/CUDA/IRayTracer.h>
 #include <Utils/CUDA/TriangleMap.h>
-#include <Display/IViewingVolume.h>
 #include <Display/IRenderCanvas.h>
 #include <Resources/CUDA/CUDADataBlock.h>
 
 namespace OpenEngine {
+    namespace Scene {
+        class TriangleNode;
+    }
     namespace Utils {
         namespace CUDA {
             
             class RayTracer : public IRayTracer {
             public:
+                unsigned int timerID;
+
                 TriangleMap *map;
                 Resources::CUDA::CUDADataBlock<1, float4> *origin;
                 Resources::CUDA::CUDADataBlock<1, float4> *dir;
                 
             public:
                 RayTracer(TriangleMap* map);
-                virtual ~RayTracer() {}
+                virtual ~RayTracer();
 
                 void Trace(Display::IRenderCanvas* canvas, uchar4* canvasData);
+
+                void HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes);
             };
 
         }

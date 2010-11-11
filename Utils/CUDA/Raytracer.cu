@@ -8,21 +8,33 @@
 //--------------------------------------------------------------------
 
 #include <Meta/OpenGL.h>
+#include <Display/IViewingVolume.h>
+#include <Scene/TriangleNode.h>
 #include <Utils/CUDA/Raytracer.h>
 #include <Utils/CUDA/Convert.h>
 #include <Utils/CUDA/Utils.h>
+
 
 namespace OpenEngine {
     using namespace Display;
     using namespace Resources;
     using namespace Resources::CUDA;
+    using namespace Scene;
     namespace Utils {
         namespace CUDA {
 
             RayTracer::RayTracer(TriangleMap* map)
                 : map(map) {
+                
+                cutCreateTimer(&timerID);
+
                 origin = new CUDADataBlock<1, float4>(1);
                 dir = new CUDADataBlock<1, float4>(1);
+            }
+
+            RayTracer::~RayTracer(){
+                delete origin;
+                delete dir;
             }
 
             __constant__ float3 d_camPos;
@@ -67,17 +79,47 @@ namespace OpenEngine {
                 }
             }
 
+            __device__ __host__ void TraceNode(float3 origin, float3 direction, 
+                                               char axes, float splitPos,
+                                               int left, int right, float tMin,
+                                               int &node, float &tNext){
+                float ori, dir;
+                switch(axes){
+                case KDNode::X:
+                    ori = origin.x; dir = direction.x;
+                    break;
+                case KDNode::Y:
+                    ori = origin.y; dir = direction.y;
+                    break;
+                case KDNode::Z:
+                    ori = origin.z; dir = direction.z;
+                    break;
+                }
+
+                float tSplit = (splitPos - ori) / dir;
+                int lowerChild = 0 < dir ? left : right;
+                int upperChild = 0 < dir ? right : left;
+                if (tMin < tSplit){
+                    node = lowerChild;
+                    tNext = min(tSplit, tNext);
+                }else
+                    node = upperChild;
+            }
+
             __global__ void KDRestart(float4* origins, float4* directions,
                                       char* nodeInfo, float* splitPos,
                                       int* leftChild, int* rightChild,
+                                      //int2 *primitiveInfo, 
+                                      //float4 *aabbMin, 
+                                      //float4 *v0, float4 *v1, float4 *v2,
                                       uchar4 *canvas){
                 
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
                 if (id < d_rays){
                     
-                    float4 origin = origins[id];
-                    float4 direction = directions[id];
+                    float3 origin = make_float3(origins[id]);
+                    float3 direction = make_float3(directions[id]);
 
                     float tMin = 0.0f;
                     while (tMin != fInfinity){
@@ -85,43 +127,28 @@ namespace OpenEngine {
                         int node = 0;
                         char info = nodeInfo[node];
                         
-                        while(!(info &= KDNode::PROXY)){
+                        while((info & 3) != KDNode::LEAF){
                             // Trace
-                            float ori, dir;
-                            switch(info & 3){
-                            case KDNode::X:
-                                ori = origin.x; dir = direction.x;
-                                break;
-                            case KDNode::Y:
-                                ori = origin.y; dir = direction.y;
-                                break;
-                            case KDNode::Z:
-                                ori = origin.z; dir = direction.z;
-                                break;
-                            }
-                            
-                            float tSplit = (splitPos[id] - ori) / dir;
-                            int left = leftChild[id];
-                            int right = rightChild[id];
-                            int lowerChild = 0 < dir ? left : right;
-                            int upperChild = 0 < dir ? right : left;
-                            if (tMin < tSplit){
-                                node = lowerChild;
-                                tNext = min(tSplit, tNext);
-                            }else
-                                node = upperChild;
-                            
+                            float splitValue = splitPos[node];
+                            int left = leftChild[node];
+                            int right = rightChild[node];
+
+                            TraceNode(origin, direction, info & 3, splitValue, left, right, tMin,
+                                      node, tNext);
+                                                        
+                            info = nodeInfo[node];
                         }
 
                         tMin = tNext;
 
                         // Test intersection
+                        //int2 primInfo = primitiveInfo[node];
                         
 
                         // Debug
-                        float4 pos = origin + tNext * direction;
+                        float3 pos = origin + tNext * direction;
                         canvas[id] = make_uchar4(pos.x * 51, pos.y * 51, pos.z * 51, 255);
-                        tMin = fInfinity;
+                        //tMin = fInfinity;
                     }
                 }
             }
@@ -156,28 +183,69 @@ namespace OpenEngine {
                                                 dir->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
 
+                /*
+                float3 o = make_float3(0.0f, 0.0f, 0.0f);
+                float3 d = make_float3(1.0f, 1.0f, 1.0f);
+                HostTrace(o, d, map->nodes);
+                */
+
                 if (visualizeRays){
                     RenderRayDir<<<blocks, threads>>>(dir->GetDeviceData(),
                                                       canvasData);
                     CHECK_FOR_CUDA_ERROR();
                     return;
                 }
-                
+
+                START_TIMER(timerID); 
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), dir->GetDeviceData(),
                                                map->nodes->GetInfoData(), map->nodes->GetSplitPositionData(),
                                                map->nodes->GetLeftData(), map->nodes->GetRightData(),
                                                canvasData);
+                PRINT_TIMER(timerID, "KDRestart");
                 CHECK_FOR_CUDA_ERROR();
                                                
-                /*
-                logger.info << "dirs: " << Convert::ToString(dir->GetDeviceData(), 5) << logger.end;
+            }
 
-                float2 screenPos = make_float2(-1.0f, -1.0f);
-                float3 origin = make_float3(camPos.Get(0), camPos.Get(1), camPos.Get(2));
-                float3 rayDir = Unproject(screenPos, viewProjectionInv.ToArray(), origin);
-                logger.info << "RayDir for upper left cornor: " << Convert::ToString(rayDir) << logger.end;
-                */
+            void RayTracer::HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes){
+                
+                float tMin = 0.0f;
+                while (tMin != fInfinity){
+                    float tNext = fInfinity;
+                    int node = 0;
+                    char info;
+                    cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    while (!(info & KDNode::PROXY) && (info & 3) != KDNode::LEAF){
+                        logger.info << "Tracing " << node << logger.end;
 
+                        float splitValue;
+                        cudaMemcpy(&splitValue, nodes->GetSplitPositionData() + node, sizeof(float), cudaMemcpyDeviceToHost);
+                        CHECK_FOR_CUDA_ERROR();
+                        
+                        int left;
+                        cudaMemcpy(&left, nodes->GetLeftData() + node, sizeof(int), cudaMemcpyDeviceToHost);
+                        //logger.info << "left child " << left << logger.end;
+                        int right;
+                        cudaMemcpy(&right, nodes->GetRightData() + node, sizeof(int), cudaMemcpyDeviceToHost);
+                        //logger.info << "right child " << right << logger.end;
+                        CHECK_FOR_CUDA_ERROR();
+                        
+                        TraceNode(origin, direction, info & 3, splitValue, left, right, tMin,
+                                  node, tNext);
+
+                        cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
+                        
+                        //logger.info << "tNext " << tNext << logger.end;
+                        
+                    }
+
+                    logger.info << "Found leaf " << nodes->ToString(node) << logger.end;
+                    
+                    tMin = tNext;
+                    //logger.info << "new tMin " << tMin << logger.end;
+                    
+                }
             }
 
         }
