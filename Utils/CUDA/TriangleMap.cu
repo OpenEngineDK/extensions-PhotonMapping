@@ -29,7 +29,7 @@ namespace OpenEngine {
                 scanConfig.op = CUDPP_ADD;
                 scanConfig.datatype = CUDPP_INT;
                 scanConfig.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_EXCLUSIVE;
-                //scanSize = triangles+1;
+                scanSize = triangles+1;
                 scanSize = 262144;
                 
                 CUDPPResult res = cudppPlan(&scanHandle, scanConfig, scanSize, 1, 0);
@@ -51,8 +51,8 @@ namespace OpenEngine {
                 aabbMax = new CUDADataBlock<1, float4>(1);
                 tempAabbMin = new CUDADataBlock<1, float4>(1);
                 tempAabbMax = new CUDADataBlock<1, float4>(1);
-                resultMin = new CUDADataBlock<1, float4>(1);
-                resultMax = new CUDADataBlock<1, float4>(1);
+                primMin = new CUDADataBlock<1, float4>(1);
+                primMax = new CUDADataBlock<1, float4>(1);
 
                 segments = Segments(1);
                 nodeSegments = new CUDADataBlock<1, int>(1);
@@ -65,7 +65,7 @@ namespace OpenEngine {
                 emptySpaceAddrs = new CUDADataBlock<1, int>(1);
                 childSize = new CUDADataBlock<1, int2>(1);
 
-                upperNodeLeafList = new CUDADataBlock<1, int>(1);
+                leafIDs = new CUDADataBlock<1, int>(1);
 
                 splitTriangleSet =  new CUDADataBlock<1, int4>(1);
 
@@ -88,17 +88,19 @@ namespace OpenEngine {
 
                 logger.info << "Triangles " << triangles << logger.end;
                 
+                /*
                 aabbMin->Extend(triangles);
                 aabbMax->Extend(triangles);
                 tempAabbMin->Extend(triangles);
                 tempAabbMax->Extend(triangles);
-                resultMin->Extend(triangles);
-                resultMax->Extend(triangles);
+                primMin->Extend(triangles);
+                primMax->Extend(triangles);
 
                 int approxSize = (2 * triangles / TriangleNode::MAX_LOWER_SIZE) - 1;
                 nodes->Extend(approxSize);
 
                 segments.Extend(triangles / Segments::SEGMENT_SIZE);
+                */
             }
             
         }

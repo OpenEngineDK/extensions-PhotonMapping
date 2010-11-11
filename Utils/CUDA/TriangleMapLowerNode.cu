@@ -10,17 +10,19 @@
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
 #include <Utils/CUDA/Convert.h>
+#include <Scene/TriangleNode.h>
 
 #include <Utils/CUDA/Kernels/LowerTriangleMap.h>
 
 namespace OpenEngine {
+    using namespace Scene;
     namespace Utils {
         namespace CUDA {
 
             using namespace Kernels;
 
             void TriangleMap::CreateLowerNodes(){
-                int activeIndex = nodes->size; int activeRange = upperNodeLeafList->GetSize();
+                int activeIndex = nodes->size; int activeRange = leafIDs->GetSize();
                 int childrenCreated;
 
                 cudaMemcpyToSymbol(d_triangles, &triangles, sizeof(int));
@@ -49,11 +51,11 @@ namespace OpenEngine {
                 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activeRange, blocks, threads);
-                PreprocesLowerNodes<<<blocks, threads>>>(upperNodeLeafList->GetDeviceData(),
+                PreprocesLowerNodes<<<blocks, threads>>>(leafIDs->GetDeviceData(),
                                                          nodes->GetInfoData(),
                                                          nodes->GetPrimitiveInfoData(),
                                                          nodes->GetSurfaceAreaData(),
-                                                         resultMax->GetDeviceData(),
+                                                         primMax->GetDeviceData(),
                                                          nodes->GetLeftData(), nodes->GetRightData(),
                                                          activeIndex, activeRange);
                 CHECK_FOR_CUDA_ERROR();
@@ -63,7 +65,7 @@ namespace OpenEngine {
                 CreateSplittingPlanes<<<blocks, threads, smemSize>>>
                     (splitTriangleSet->GetDeviceData(), 
                      nodes->GetPrimitiveInfoData() + activeIndex,
-                     resultMin->GetDeviceData(), resultMax->GetDeviceData(),
+                     primMin->GetDeviceData(), primMax->GetDeviceData(),
                      activeRange);
                 CHECK_FOR_CUDA_ERROR();
 
@@ -74,17 +76,17 @@ namespace OpenEngine {
 
             void TriangleMap::CheckLowerPreprocess(int activeIndex, int activeRange){
 
-                int leafIDs[activeRange];
-                cudaMemcpy(leafIDs, upperNodeLeafList->GetDeviceData(), activeRange * sizeof(int), cudaMemcpyDeviceToHost);
+                int h_leafIDs[activeRange];
+                cudaMemcpy(h_leafIDs, leafIDs->GetDeviceData(), activeRange * sizeof(int), cudaMemcpyDeviceToHost);
                 CHECK_FOR_CUDA_ERROR();
 
                 char info[activeRange];
                 int2 leafPrimInfo[activeRange];
                 int left[activeRange];
                 for (int i = 0; i < activeRange; ++i){
-                    cudaMemcpy(info + i, nodes->GetInfoData() + leafIDs[i], sizeof(char), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(leafPrimInfo + i, nodes->GetPrimitiveInfoData() + leafIDs[i], sizeof(int2), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(left + i, nodes->GetLeftData() + leafIDs[i], sizeof(int), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(info + i, nodes->GetInfoData() + h_leafIDs[i], sizeof(char), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(leafPrimInfo + i, nodes->GetPrimitiveInfoData() + h_leafIDs[i], sizeof(int2), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(left + i, nodes->GetLeftData() + h_leafIDs[i], sizeof(int), cudaMemcpyDeviceToHost);
                 }
                 CHECK_FOR_CUDA_ERROR();
 
@@ -97,7 +99,7 @@ namespace OpenEngine {
                         if (lowerPrimInfo[i].y != 0)
                             throw Exception("Empty lower node didn't result in upper leaf.");
                     }else if (info[i] != KDNode::PROXY){
-                        logger.info << nodes->ToString(leafIDs[i]) << logger.end;
+                        logger.info << nodes->ToString(h_leafIDs[i]) << logger.end;
                         logger.info << nodes->ToString(activeIndex + i) << logger.end;
                         throw Exception("info not equal to PROXY.");
                     }
@@ -107,12 +109,12 @@ namespace OpenEngine {
 
                 for (int i = 0; i < activeRange; ++i){
                     if (lowerPrimInfo[i].x != leafPrimInfo[i].x)
-                        throw Exception("Leaf node " + Utils::Convert::ToString(leafIDs[i]) +
+                        throw Exception("Leaf node " + Utils::Convert::ToString(h_leafIDs[i]) +
                                         "'s index " + Utils::Convert::ToString(leafPrimInfo[i].x) + 
                                         " does not match lower node " + Utils::Convert::ToString(activeIndex + i) +
                                         "'s " + Utils::Convert::ToString(lowerPrimInfo[i].x));
                     if (bitcount(lowerPrimInfo[i].y) > leafPrimInfo[i].y)
-                        throw Exception("Leaf node " + Utils::Convert::ToString(leafIDs[i]) +
+                        throw Exception("Leaf node " + Utils::Convert::ToString(h_leafIDs[i]) +
                                         "'s size of " + Utils::Convert::ToString(leafPrimInfo[i].y) + 
                                         " does not match lower node " + Utils::Convert::ToString(activeIndex + i) +
                                         "'s bitmap " + BitmapToString(lowerPrimInfo[i].y));
@@ -142,8 +144,8 @@ namespace OpenEngine {
                                                        nodes->GetSplitPositionData() + activeIndex,
                                                        nodes->GetPrimitiveInfoData() + activeIndex,
                                                        nodes->GetSurfaceAreaData() + activeIndex,
-                                                       resultMin->GetDeviceData(),
-                                                       resultMax->GetDeviceData(),
+                                                       primMin->GetDeviceData(),
+                                                       primMax->GetDeviceData(),
                                                        splitTriangleSet->GetDeviceData(),
                                                        childAreas->GetDeviceData(),
                                                        childSets->GetDeviceData(),
@@ -151,20 +153,22 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 /*
-                logger.info << nodes->ToString(activeIndex+40) << logger.end;
-
-                int primOffset = 632;
-                int primRange = 6;
-
-                logger.info << "primMin: " << Convert::ToString(resultMin->GetDeviceData() + primOffset, primRange) << logger.end;
-                logger.info << "primMax: " << Convert::ToString(resultMax->GetDeviceData() + primOffset, primRange) << logger.end;
-
-                logger.info << "X splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset, primRange) << logger.end;
-                logger.info << "Y splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset + triangles, primRange) << logger.end;
-                logger.info << "Z splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset + 2 * triangles, primRange) << logger.end;
-
-                logger.info << "Child areas: " << Convert::ToString(childAreas->GetDeviceData() + 40, 1) << logger.end;
-                logger.info << "Child sets: " << Convert::ToString(childSets->GetDeviceData() + 40, 1) << logger.end;
+                if (activeIndex == 2399){
+                    logger.info << nodes->ToString(activeIndex+40) << logger.end;
+                    
+                    int primOffset = 632;
+                    int primRange = 6;
+                    
+                    logger.info << "primMin: " << Convert::ToString(primMin->GetDeviceData() + primOffset, primRange) << logger.end;
+                    logger.info << "primMax: " << Convert::ToString(primMax->GetDeviceData() + primOffset, primRange) << logger.end;
+                    
+                    logger.info << "X splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset, primRange) << logger.end;
+                    logger.info << "Y splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset + triangles, primRange) << logger.end;
+                    logger.info << "Z splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset + 2 * triangles, primRange) << logger.end;
+                    
+                    logger.info << "Child areas: " << Convert::ToString(childAreas->GetDeviceData() + 40, 1) << logger.end;
+                    logger.info << "Child sets: " << Convert::ToString(childSets->GetDeviceData() + 40, 1) << logger.end;
+                }
                 */
 
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), activeRange+1);
@@ -174,6 +178,7 @@ namespace OpenEngine {
                 cudaMemcpy(&splits, splitAddr->GetDeviceData() + activeRange, sizeof(int), cudaMemcpyDeviceToHost);
 
                 nodes->Extend(activeIndex + activeRange + 2 * splits);
+                nodes->size = activeIndex + activeRange + 2 * splits;
 
                 Calc1DKernelDimensions(activeRange, blocks, threads);
                 CreateLowerSAHChildren<<<blocks, threads>>>(splitSide->GetDeviceData(),
@@ -185,7 +190,6 @@ namespace OpenEngine {
                                                             splits);
                 CHECK_FOR_CUDA_ERROR();
 
-                nodes->size += 2 * splits;
                 childrenCreated = splits * 2;
             }
 

@@ -11,7 +11,6 @@
 #define _TRIANGLE_MAP_H_
 
 #include <Utils/CUDA/GeometryList.h>
-#include <Scene/TriangleNode.h>
 #include <Utils/CUDA/GeometryList.h>
 #include <Utils/CUDA/Segments.h>
 
@@ -22,6 +21,7 @@
 namespace OpenEngine {
     namespace Scene {
         class ISceneNode;
+        class TriangleNode;
     }
     namespace Utils {
         namespace CUDA {
@@ -51,8 +51,8 @@ namespace OpenEngine {
                 CUDADataBlock<1, float4> *aabbMax;
                 CUDADataBlock<1, float4> *tempAabbMin;
                 CUDADataBlock<1, float4> *tempAabbMax;
-                CUDADataBlock<1, float4> *resultMin;
-                CUDADataBlock<1, float4> *resultMax;
+                CUDADataBlock<1, float4> *primMin;
+                CUDADataBlock<1, float4> *primMax;
 
                 Segments segments;
                 CUDADataBlock<1, int> *nodeSegments;
@@ -67,7 +67,7 @@ namespace OpenEngine {
                 CUDADataBlock<1, int2> *childSize; // Use upperNodes arrays?
                 int upperLeafPrimitives;
 
-                CUDADataBlock<1, int> *upperNodeLeafList;
+                CUDADataBlock<1, int> *leafIDs;
                 
                 CUDADataBlock<1, int4> *splitTriangleSet;
 
