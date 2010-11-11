@@ -1,6 +1,10 @@
+#ifndef _CUDA_KERNEL_LOWER_TRIANGLE_MAP_H_
+#define _CUDA_KERNEL_LOWER_TRIANGLE_MAP_H_
+
 #include <Meta/CUDA.h>
 #include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
 #include <Utils/CUDA/SharedMemory.h>
+#include <Utils/CUDA/Utils.h>
 #include <Scene/TriangleNode.h>
 
 namespace OpenEngine {
@@ -291,3 +295,5 @@ namespace Kernels {
 }
 }
 }
+
+#endif
