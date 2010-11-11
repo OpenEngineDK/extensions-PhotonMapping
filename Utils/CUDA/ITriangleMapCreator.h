@@ -10,27 +10,27 @@
 #ifndef _I_TRIANGLE_MAP_CREATOR_H_
 #define _I_TRIANGLE_MAP_CREATOR_H_
 
-#include <Scene/TriangleNode.h>
 #include <Resources/CUDA/CUDADataBlock.h>
 
 namespace OpenEngine {
     namespace Utils {
         namespace CUDA {
 
+            class TriangleMap;
+
             class ITriangleMapCreator {
-            private:
+            protected:
                 Resources::CUDA::CUDADataBlock<1, float4>* primMin;
                 Resources::CUDA::CUDADataBlock<1, float4>* primMax;
 
                 Resources::CUDA::CUDADataBlock<1, int>* leafIDs;
 
             public:
-                ITriangleMapCreator() : leafIDs(NULL) {}
+                ITriangleMapCreator() : primMin(NULL), primMax(NULL), leafIDs(NULL) {}
                 virtual ~ITriangleMapCreator() { if (leafIDs) delete leafIDs;}
 
-                virtual void Create(Scene::TriangleNode* nodes, 
-                                    int activeIndex, int activeRange,
-                                    ITriangleMapCreator* upper);
+                virtual void Create(TriangleMap* map,
+                                    Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
                 
                 Resources::CUDA::CUDADataBlock<1, int>* GetLeafIDs() { return leafIDs; }
             };
