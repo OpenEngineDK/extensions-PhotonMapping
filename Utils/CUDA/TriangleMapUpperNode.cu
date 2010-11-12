@@ -57,9 +57,6 @@ namespace OpenEngine {
                     ProcessUpperNodes(activeIndex, activeRange, 
                                       childrenCreated);
 
-                    //for (int i = 0; i < activeRange; ++i)
-                    //logger.info << nodes->ToString(i + activeIndex) << logger.end;
-
                     activeIndex = nodes->size - childrenCreated;
                     activeRange = childrenCreated;
                 }
@@ -67,6 +64,7 @@ namespace OpenEngine {
 
                 triangles = primMin->GetSize();
 
+                // @TODO do this while creating the tree, not after.
                 Calc1DKernelDimensions(primMin->GetSize(), blocks, threads, 128);
                 START_TIMER(timerID);                
                 AdjustBoundingBox<<<blocks, threads>>>(primMin->GetDeviceData(), 
@@ -80,7 +78,10 @@ namespace OpenEngine {
                                                        primMin->GetSize());
                 PRINT_TIMER(timerID, "Adjusting bounding box");
                 CHECK_FOR_CUDA_ERROR();
-
+                
+                // Extract indices from primMin.
+                
+                
                 /*
                 float4 min[resultMin->GetSize()];
                 cudaMemcpy(min, resultMin->GetDeviceData(), sizeof(float4) * resultMin->GetSize(), cudaMemcpyDeviceToHost);

@@ -11,9 +11,12 @@
 #define _TRIANGLE_MAP_SAH_CREATOR_H_
 
 #include <Utils/CUDA/ITriangleMapCreator.h>
+
 #include <Meta/CUDPP.h>
 
-namespace OpenEngine {
+//#define CPU_VERIFY true
+
+namespace OpenEngine {    
     namespace Utils {
         namespace CUDA {
 
@@ -35,20 +38,21 @@ namespace OpenEngine {
             public:
                 TriangleMapSAHCreator();
                 virtual ~TriangleMapSAHCreator();
-
+                
                 virtual void Create(TriangleMap* map, 
                                     Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
 
                 void PreprocessLowerNodes(int activeIndex, int activeRange, 
                                           TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
-
+                
                 void ProcessLowerNodes(int activeIndex, int activeRange, 
                                        TriangleMap* map, int &childrenCreated);
 
                 void CheckPreprocess(int activeIndex, int activeRange, 
                                      TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* leafIDs);
+
             };
-            
+
         }
     }
 }

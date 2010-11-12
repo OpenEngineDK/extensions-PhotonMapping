@@ -26,6 +26,8 @@ namespace OpenEngine {
     namespace Utils {
         namespace CUDA {
 
+            class ITriangleMapCreator;
+
             class TriangleMap {
             public:
                 unsigned int timerID;
@@ -37,6 +39,8 @@ namespace OpenEngine {
 
                 int triangles;
 
+                ITriangleMapCreator* lowerCreator;
+                
                 float emptySpaceThreshold;
 
                 CUDPPConfiguration scanConfig;
@@ -92,16 +96,9 @@ namespace OpenEngine {
                 void CreateChildren(int activeIndex, int activeRange,
                                     int &childrenCreated);
 
-                void CreateLowerNodes();
-                void PreprocessLowerNodes(int activeIndex, int activeRange);
-                void ProcessLowerNodes(int activeIndex, int activeRange, 
-                                       int &childrenCreated);
-
                 void CheckUpperNode(int index, float4 aabbMin, float4 aabbMax, int activeRange = 0);
                 void CheckUpperLeaf(int index, float4 aabbMin, float4 aabbMax);
                 void CheckSplits();
-
-                void CheckLowerPreprocess(int activeIndex, int activeRange);
 
             };
 

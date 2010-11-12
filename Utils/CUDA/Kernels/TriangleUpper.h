@@ -27,6 +27,17 @@ namespace Kernels {
         }
 
     }
+
+    __global__ void ExtractIndexFromAabb(float4 *aabbIn,
+                                         int *out, int size){
+        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        
+        if (id < size){
+            float4 aabb = aabbIn[id];
+            out[id] = aabb.w;
+        }
+
+    }
     
 }
 }

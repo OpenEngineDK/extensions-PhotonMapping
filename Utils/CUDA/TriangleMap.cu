@@ -9,6 +9,9 @@
 
 #include <Utils/CUDA/TriangleMap.h>
 #include <Scene/ISceneNode.h>
+#include <Scene/TriangleNode.h>
+#include <Utils/CUDA/TriangleMapSAHCreator.h>
+#include <Utils/CUDA/Convert.h>
 
 using namespace OpenEngine::Scene;
 
@@ -53,6 +56,7 @@ namespace OpenEngine {
                 tempAabbMax = new CUDADataBlock<1, float4>(1);
                 primMin = new CUDADataBlock<1, float4>(1);
                 primMax = new CUDADataBlock<1, float4>(1);
+                primIndices = new CUDADataBlock<1, int>(1);
 
                 segments = Segments(1);
                 nodeSegments = new CUDADataBlock<1, int>(1);
@@ -71,6 +75,8 @@ namespace OpenEngine {
 
                 childAreas = new CUDADataBlock<1, float2>(1);
                 childSets = childSize;
+
+                lowerCreator = new TriangleMapSAHCreator();
             }
 
             void TriangleMap::Create(){
@@ -79,7 +85,7 @@ namespace OpenEngine {
                 
                 CreateUpperNodes();
 
-                CreateLowerNodes();
+                lowerCreator->Create(this, leafIDs);
             }
 
             void TriangleMap::Setup(){
