@@ -12,6 +12,7 @@
 #include <Display/IRenderCanvas.h>
 #include <Display/IViewingVolume.h>
 #include <Utils/CUDA/GeometryList.h>
+#include <Utils/CUDA/SharedMemory.h>
 #include <Utils/CUDA/Utils.h>
 
 namespace OpenEngine {
@@ -45,7 +46,7 @@ namespace OpenEngine {
                                                 vpMatInv[3] * screenPos.x + vpMatInv[7] * screenPos.y + vpMatInv[11] + vpMatInv[15]);
                 
                 float3 rayEnd = make_float3(currentPos.x / currentPos.w, currentPos.y / currentPos.w, currentPos.z / currentPos.w);
-                return normalize(rayEnd-origin);
+                return normalize(origin - rayEnd);
             }
             
             __global__ void CreateRays(float4* origin,
@@ -75,31 +76,62 @@ namespace OpenEngine {
             }
 
             __global__ void BruteTracing(float4* origins, float4* directions,
-                                         float4 *v0, float4 *v1, float4 *v2,
+                                         float4 *v0s, float4 *v1s, float4 *v2s,
                                          uchar4 *c0,
                                          uchar4 *canvas,
                                          int prims){
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
                 if (id < d_rays){
+
+                    float3 *v0 = SharedMemory<float3>();
+                    float3 *v1 = v0 + blockDim.x;
+                    float3 *v2 = v1 + blockDim.x;
+                    
                     float3 origin = make_float3(origins[id]);
                     float3 dir = make_float3(directions[id]);
                     
                     float tHit = fInfinity;
+                    int primHit = 0;
                     uchar4 color = make_uchar4(0, 0, 0, 0);
 
                     for (int prim = 0; prim < prims; ++prim){
                         float3 hitCoords;
-                        bool hit = TriangleRayIntersection(make_float3(v0[prim]), make_float3(v1[prim]), make_float3(v2[prim]), 
+                        bool hit = TriangleRayIntersection(make_float3(v0s[prim]), make_float3(v1s[prim]), make_float3(v2s[prim]), 
                                                            origin, dir, hitCoords);
-
+                        
                         if (hit && hitCoords.x < tHit){
-                            color = c0[prim];
+                            primHit = prim;
                             tHit = hitCoords.x;
                         }
                     }
-                    
-                    canvas[id] = color;
+
+                    /*
+                    for (int primOffset = 0; primOffset < prims; primOffset += blockDim.x){
+
+                        int primIndex = primOffset + threadIdx.x;
+                        v0[threadIdx.x] = primIndex < prims ? make_float3(v0s[primIndex]) : make_float3(1.0f, 0.0f, 0.0f);
+                        v1[threadIdx.x] = primIndex < prims ? make_float3(v1s[primIndex]) : make_float3(1.0f, 0.0f, 0.0f);
+                        v2[threadIdx.x] = primIndex < prims ? make_float3(v2s[primIndex]) : make_float3(1.0f, 0.0f, 0.0f);
+                        __syncthreads();
+
+                        for (int prim = primOffset; prim < primOffset + blockDim.x; ++prim){
+                            float3 hitCoords;
+                            bool hit = TriangleRayIntersection(v0[prim], v1[prim], v2[prim], 
+                                                               origin, dir, hitCoords);
+                            
+                            if (hit && hitCoords.x < tHit){
+                                primHit = prim;
+                                tHit = hitCoords.x;
+                            }
+                        }
+                    }
+                    */                    
+
+                    if (tHit < fInfinity)
+                        canvas[id] = c0[primHit];
+                    else
+                        canvas[id] = color;
                 }
             }
 
@@ -137,11 +169,16 @@ namespace OpenEngine {
                     return;
                 }
 
-                BruteTracing<<<blocks, threads>>>(origin->GetDeviceData(), dir->GetDeviceData(),
-                                                  geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), 
-                                                  geom->GetColor0Data(),
-                                                  canvasData,
-                                                  geom->GetSize());
+                Calc1DKernelDimensions(rays, blocks, threads, 128);
+                int smemSize = threads * sizeof(float3) * 3;
+                START_TIMER(timerID);
+                logger.info << "BruteTracing<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
+                BruteTracing<<<blocks, threads, smemSize>>>(origin->GetDeviceData(), dir->GetDeviceData(),
+                                                            geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), 
+                                                            geom->GetColor0Data(),
+                                                            canvasData,
+                                                            geom->GetSize());
+                PRINT_TIMER(timerID, "Brute tracing");
                 CHECK_FOR_CUDA_ERROR();
                 
             }
