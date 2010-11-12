@@ -16,11 +16,10 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Utils/CUDA/SplittingPlanes.cu
   Utils/CUDA/GeometryList.cu
   Utils/CUDA/Raytracer.cu
-#  Utils/CUDA/ITriangleMapCreator.h
-#  Utils/CUDA/TriangleMapSAHCreator.cu
+  Utils/CUDA/ITriangleMapCreator.h
+  Utils/CUDA/TriangleMapSAHCreator.cu
   Utils/CUDA/TriangleMap.cu
   Utils/CUDA/TriangleMapUpperNode.cu
-  Utils/CUDA/TriangleMapLowerNode.cu
   Utils/CUDA/PhotonMap.cu
   Utils/CUDA/PhotonMapCheck.cu
   Utils/CUDA/PhotonMapLowerNodes.cu

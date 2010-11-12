@@ -57,6 +57,7 @@ namespace OpenEngine {
                 CUDADataBlock<1, float4> *tempAabbMax;
                 CUDADataBlock<1, float4> *primMin;
                 CUDADataBlock<1, float4> *primMax;
+                CUDADataBlock<1, int> *primIndices;
 
                 Segments segments;
                 CUDADataBlock<1, int> *nodeSegments;

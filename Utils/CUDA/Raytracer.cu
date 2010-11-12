@@ -137,6 +137,9 @@ namespace OpenEngine {
                                       node, tNext);
                                                         
                             info = nodeInfo[node];
+                            
+                            if (info & KDNode::PROXY)
+                                node = leftChild[node];
                         }
 
                         tMin = tNext;
@@ -235,6 +238,9 @@ namespace OpenEngine {
                                   node, tNext);
 
                         cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
+
+                        if (info & KDNode::PROXY)
+                            cudaMemcpy(&node, nodes->GetLeftData() + node, sizeof(int), cudaMemcpyDeviceToHost);
                         
                         //logger.info << "tNext " << tNext << logger.end;
                         
