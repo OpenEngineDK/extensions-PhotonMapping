@@ -69,22 +69,21 @@ namespace OpenEngine {
                 CUDADataBlock<1, int> *leafAddr;
                 CUDADataBlock<1, int> *emptySpaceSplits;
                 CUDADataBlock<1, int> *emptySpaceAddrs;
-                CUDADataBlock<1, int2> *childSize; // Use upperNodes arrays?
+                CUDADataBlock<1, int2> *childSize;
                 int upperLeafPrimitives;
 
                 CUDADataBlock<1, int> *leafIDs;
                 
-                CUDADataBlock<1, int4> *splitTriangleSet;
-
-                CUDADataBlock<1, float2> *childAreas;
-                CUDADataBlock<1, int2> *childSets;
-
             public:
                 TriangleMap(Scene::ISceneNode* scene);
 
                 void Create();
                 void Setup();
 
+                GeometryList* GetGeometry() const { return geom; }
+                Scene::TriangleNode* GetNodes() const { return nodes; }
+                CUDADataBlock<1, int>* GetPrimitiveIndices() const { return primIndices; }
+                
                 void CreateUpperNodes();
 
                 void ProcessUpperNodes(int activeIndex, int activeRange, 

@@ -59,6 +59,9 @@ namespace OpenEngine {
                 float4* GetP0Data() const { return p0->GetDeviceData(); }
                 float4* GetP1Data() const { return p1->GetDeviceData(); }
                 float4* GetP2Data() const { return p2->GetDeviceData(); }
+                uchar4* GetColor0Data() const { return c0->GetDeviceData(); }
+                uchar4* GetColor1Data() const { return c1->GetDeviceData(); }
+                uchar4* GetColor2Data() const { return c2->GetDeviceData(); }
                 float4* GetAabbMinData() const { return aabbMin->GetDeviceData(); }
                 float4* GetAabbMaxData() const { return aabbMax->GetDeviceData(); }
                 float* GetSurfaceAreaData() const { return surfaceArea->GetDeviceData(); }

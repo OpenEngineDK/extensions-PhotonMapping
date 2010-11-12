@@ -14,7 +14,6 @@
 #include <Utils/CUDA/Convert.h>
 #include <Utils/CUDA/Utils.h>
 
-
 namespace OpenEngine {
     using namespace Display;
     using namespace Resources;
@@ -109,9 +108,10 @@ namespace OpenEngine {
             __global__ void KDRestart(float4* origins, float4* directions,
                                       char* nodeInfo, float* splitPos,
                                       int* leftChild, int* rightChild,
-                                      //int2 *primitiveInfo, 
-                                      //float4 *aabbMin, 
-                                      //float4 *v0, float4 *v1, float4 *v2,
+                                      int2 *primitiveInfo, 
+                                      int *primIndices, 
+                                      float4 *v0, float4 *v1, float4 *v2,
+                                      uchar4 *c0,
                                       uchar4 *canvas){
                 
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -120,6 +120,10 @@ namespace OpenEngine {
                     
                     float3 origin = make_float3(origins[id]);
                     float3 direction = make_float3(directions[id]);
+
+                    uchar4 color = make_uchar4(0, 0, 0, 0);
+                    
+                    // @OPT early out bounding box maximums
 
                     float tMin = 0.0f;
                     while (tMin != fInfinity){
@@ -145,14 +149,27 @@ namespace OpenEngine {
                         tMin = tNext;
 
                         // Test intersection
-                        //int2 primInfo = primitiveInfo[node];
-                        
+                        int2 primInfo = primitiveInfo[node];
+                        int triangles = primInfo.y;
+                        while (triangles){
+                            int i = __ffs(triangles) - 1;
 
-                        // Debug
-                        float3 pos = origin + tNext * direction;
-                        canvas[id] = make_uchar4(pos.x * 51, pos.y * 51, pos.z * 51, 255);
-                        //tMin = fInfinity;
+                            int prim = primIndices[primInfo.x + i];
+                            
+                            float3 hitCoords;
+                            bool hit = TriangleRayIntersection(make_float3(v0[prim]), make_float3(v1[prim]), make_float3(v2[prim]), 
+                                                               origin, direction, hitCoords);
+
+                            if (hit){
+                                color = c0[prim];
+                                tMin = fInfinity;
+                            }
+
+                            triangles -= 1<<i;
+                        }
                     }
+
+                    canvas[id] = make_uchar4(color.x, color.y, color.z, 255);
                 }
             }
 
@@ -199,10 +216,17 @@ namespace OpenEngine {
                     return;
                 }
 
+                TriangleNode* nodes = map->GetNodes();
+                GeometryList* geom = map->GetGeometry();
+
                 START_TIMER(timerID); 
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), dir->GetDeviceData(),
-                                               map->nodes->GetInfoData(), map->nodes->GetSplitPositionData(),
-                                               map->nodes->GetLeftData(), map->nodes->GetRightData(),
+                                               nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                                               nodes->GetLeftData(), nodes->GetRightData(),
+                                               nodes->GetPrimitiveInfoData(),
+                                               map->GetPrimitiveIndices()->GetDeviceData(),
+                                               geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                                               geom->GetColor0Data(),
                                                canvasData);
                 PRINT_TIMER(timerID, "KDRestart");
                 CHECK_FOR_CUDA_ERROR();

@@ -30,6 +30,10 @@ namespace OpenEngine {
                 ITriangleMapCreator() : primMin(NULL), primMax(NULL), primIndices(NULL), leafIDs(NULL) {}
                 virtual ~ITriangleMapCreator() { if (leafIDs) delete leafIDs; }
 
+                /**
+                 * Creates more nodes in the triangle map from the previous leaf nodes.
+                 * Is responsible for updating the triangle map's datablocks afterwards.
+                 */
                 virtual void Create(TriangleMap* map,
                                     Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs) = 0;
                 

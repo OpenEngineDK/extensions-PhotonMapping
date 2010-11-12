@@ -80,8 +80,12 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
                 
                 // Extract indices from primMin.
-                
-                
+                primIndices->Extend(primMin->GetSize(), false);
+                ExtractIndexFromAabb<<<blocks, threads>>>(primMin->GetDeviceData(), 
+                                                          primIndices->GetDeviceData(),
+                                                          triangles);
+                CHECK_FOR_CUDA_ERROR();
+
                 /*
                 float4 min[resultMin->GetSize()];
                 cudaMemcpy(min, resultMin->GetDeviceData(), sizeof(float4) * resultMin->GetSize(), cudaMemcpyDeviceToHost);

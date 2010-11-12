@@ -71,11 +71,6 @@ namespace OpenEngine {
 
                 leafIDs = new CUDADataBlock<1, int>(1);
 
-                splitTriangleSet =  new CUDADataBlock<1, int4>(1);
-
-                childAreas = new CUDADataBlock<1, float2>(1);
-                childSets = childSize;
-
                 lowerCreator = new TriangleMapSAHCreator();
             }
 
@@ -93,20 +88,6 @@ namespace OpenEngine {
                 triangles = geom->GetSize();
 
                 logger.info << "Triangles " << triangles << logger.end;
-                
-                /*
-                aabbMin->Extend(triangles);
-                aabbMax->Extend(triangles);
-                tempAabbMin->Extend(triangles);
-                tempAabbMax->Extend(triangles);
-                primMin->Extend(triangles);
-                primMax->Extend(triangles);
-
-                int approxSize = (2 * triangles / TriangleNode::MAX_LOWER_SIZE) - 1;
-                nodes->Extend(approxSize);
-
-                segments.Extend(triangles / Segments::SEGMENT_SIZE);
-                */
             }
             
         }

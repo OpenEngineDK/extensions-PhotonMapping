@@ -57,9 +57,9 @@ inline bool Calc1DKernelDimensions(const unsigned int size,
     }
 }
 
-inline __host__ bool TriangleRayIntersection(float3 v0, float3 v1, float3 v2,
-                                             float3 origin, float3 direction,
-                                             float3 &hit){
+inline __host__ __device__ bool TriangleRayIntersection(float3 v0, float3 v1, float3 v2,
+                                                        float3 origin, float3 direction,
+                                                        float3 &hit){
     
     float3 e1 = v1 - v0;
     float3 e2 = v2 - v0;
