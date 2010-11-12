@@ -31,10 +31,7 @@ namespace OpenEngine {
                 dir = new CUDADataBlock<1, float4>(1);
             }
 
-            RayTracer::~RayTracer(){
-                delete origin;
-                delete dir;
-            }
+            RayTracer::~RayTracer(){}
 
             __constant__ float3 d_camPos;
             __constant__ int d_rays;

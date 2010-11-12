@@ -1,4 +1,4 @@
-// Raytracer class for CUDA
+// Brute force ray tracer for CUDA
 // -------------------------------------------------------------------
 // Copyright (C) 2010 OpenEngine.dk (See AUTHORS) 
 // 
@@ -7,33 +7,28 @@
 // See the GNU General Public License for more details (see LICENSE). 
 //--------------------------------------------------------------------
 
-#ifndef _CUDA_RAY_TRACER_H_
-#define _CUDA_RAY_TRACER_H_
+#ifndef _CUDA_BRUTE_RAY_TRACER_H_
+#define _CUDA_BRUTE_RAY_TRACER_H_
 
 #include <Utils/CUDA/IRayTracer.h>
-#include <Utils/CUDA/TriangleMap.h>
-#include <Display/IRenderCanvas.h>
 
 namespace OpenEngine {
-    namespace Scene {
-        class TriangleNode;
-    }
     namespace Utils {
         namespace CUDA {
-            
-            class RayTracer : public IRayTracer {
-            public:
+
+            class GeometryList;
+
+            class BruteTracer : public IRayTracer {
+            protected:
                 unsigned int timerID;
 
-                TriangleMap *map;
-                
+                GeometryList* geom;
+
             public:
-                RayTracer(TriangleMap* map);
-                virtual ~RayTracer();
+                BruteTracer(GeometryList* geom);
+                virtual ~BruteTracer();
 
                 void Trace(Display::IRenderCanvas* canvas, uchar4* canvasData);
-
-                void HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes);
             };
 
         }

@@ -15,8 +15,10 @@
 #include <Scene/PhotonNode.h>
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/PhotonMap.h>
-#include <Utils/CUDA/Raytracer.h>
 #include <Utils/CUDA/Utils.h>
+
+#include <Utils/CUDA/BruteTracer.h>
+#include <Utils/CUDA/Raytracer.h>
 
 #include <Logging/Logger.h>
 
@@ -81,7 +83,8 @@ namespace OpenEngine {
                 INITIALIZE_CUDA();
 
                 triangleMap = new TriangleMap(arg.canvas.GetScene());
-                raytracer = new RayTracer(triangleMap);
+                //raytracer = new RayTracer(triangleMap);
+                raytracer = new BruteTracer(triangleMap->geom);
                 //raytracer->SetVisualizeRays(true);
 
                 int size = arg.canvas.GetWidth() * arg.canvas.GetHeight();
@@ -102,6 +105,7 @@ namespace OpenEngine {
 
             void PhotonRenderingView::UpdateGeometry(){
                 logger.info << "Pew pew, triangles everywhere" << logger.end;
+                triangleMap->Create();
                 triangleMap->Create();
                 CHECK_FOR_CUDA_ERROR();
                 //ShootPhotons();

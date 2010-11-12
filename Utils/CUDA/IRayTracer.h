@@ -10,6 +10,8 @@
 #ifndef _I_RAY_TRACER_H_
 #define _I_RAY_TRACER_H_
 
+#include <Resources/CUDA/CUDADataBlock.h>
+
 namespace OpenEngine {
     namespace Display {
         class IRenderCanvas;
@@ -20,10 +22,16 @@ namespace OpenEngine {
             class IRayTracer {
             protected:
                 bool visualizeRays;
+
+                Resources::CUDA::CUDADataBlock<1, float4> *origin;
+                Resources::CUDA::CUDADataBlock<1, float4> *dir;
                 
             public:
-                IRayTracer() : visualizeRays(false) {}
-                virtual ~IRayTracer() {}
+                IRayTracer() : visualizeRays(false), origin(NULL), dir(NULL) {}
+                virtual ~IRayTracer() {
+                    if (origin) delete origin;
+                    if (dir) delete dir;
+                }
 
                 virtual void Trace(Display::IRenderCanvas* canvas, uchar4* canvasData) = 0;
 

@@ -27,7 +27,7 @@ namespace OpenEngine {
         namespace CUDA {
             class PhotonMap;
             class TriangleMap;
-            class RayTracer;
+            class IRayTracer;
         }
     }
     namespace Renderers {
@@ -39,7 +39,7 @@ namespace OpenEngine {
             protected:
                 TriangleMap* triangleMap;
                 PhotonMap* photonMap;
-                RayTracer* raytracer;
+                IRayTracer* raytracer;
 
                 IDataBlockPtr pbo;
                 
