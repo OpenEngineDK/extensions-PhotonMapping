@@ -46,7 +46,7 @@ namespace OpenEngine {
                                                 vpMatInv[3] * screenPos.x + vpMatInv[7] * screenPos.y + vpMatInv[11] + vpMatInv[15]);
                 
                 float3 rayEnd = make_float3(currentPos.x / currentPos.w, currentPos.y / currentPos.w, currentPos.z / currentPos.w);
-                return normalize(origin - rayEnd);
+                return normalize(rayEnd - origin);
             }
             
             __global__ void CreateRays(float4* origin,
@@ -171,14 +171,14 @@ namespace OpenEngine {
 
                 Calc1DKernelDimensions(rays, blocks, threads, 128);
                 int smemSize = threads * sizeof(float3) * 3;
-                START_TIMER(timerID);
-                logger.info << "BruteTracing<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
+                //START_TIMER(timerID);
+                //logger.info << "BruteTracing<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
                 BruteTracing<<<blocks, threads, smemSize>>>(origin->GetDeviceData(), dir->GetDeviceData(),
                                                             geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), 
                                                             geom->GetColor0Data(),
                                                             canvasData,
                                                             geom->GetSize());
-                PRINT_TIMER(timerID, "Brute tracing");
+                //PRINT_TIMER(timerID, "Brute tracing");
                 CHECK_FOR_CUDA_ERROR();
                 
             }
