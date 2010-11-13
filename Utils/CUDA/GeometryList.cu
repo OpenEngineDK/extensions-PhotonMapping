@@ -88,14 +88,11 @@ namespace OpenEngine {
                 cudaMemcpy(&h_n2, n2->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
                 out << "Normals: " << Utils::CUDA::Convert::ToString(h_n0) << ", " << Utils::CUDA::Convert::ToString(h_n1) << " & " << Utils::CUDA::Convert::ToString(h_n2) << "\n";
 
-                float4 h_aabbMin, h_aabbMax;
-                cudaMemcpy(&h_aabbMin, aabbMin->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&h_aabbMax, aabbMax->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                out << "aabb: " << Utils::CUDA::Convert::ToString(h_aabbMin) << " -> " << Utils::CUDA::Convert::ToString(h_aabbMax) << "\n";
-
-                float area;
-                cudaMemcpy(&area, surfaceArea->GetDeviceData() + i, sizeof(float), cudaMemcpyDeviceToHost);
-                out << "surface area: " << area << "\n";
+                uchar4 h_c0, h_c1, h_c2;
+                cudaMemcpy(&h_c0, c0->GetDeviceData() + i, sizeof(uchar4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&h_c1, c1->GetDeviceData() + i, sizeof(uchar4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&h_c2, c2->GetDeviceData() + i, sizeof(uchar4), cudaMemcpyDeviceToHost);
+                out << "Colors: " << Utils::CUDA::Convert::ToString(h_c0) << ", " << Utils::CUDA::Convert::ToString(h_c1) << " & " << Utils::CUDA::Convert::ToString(h_c2) << "\n";
                 
                 return out.str();
             }
@@ -190,7 +187,7 @@ namespace OpenEngine {
 
                     unsigned int blocks, threads;
                     Calc1DKernelDimensions(indices->GetSize(), blocks, threads);
-                    Math::CUDA::Matrix44f mat = Math::CUDA::Matrix44f(modelMat.GetInverse());
+                    Math::CUDA::Matrix44f mat = Math::CUDA::Matrix44f(modelMat.GetTranspose());
                     Math::CUDA::Matrix33f normMat = Math::CUDA::Matrix33f(mat);
                     AddMeshKernel<<<blocks, threads>>>(in, pos, norms, cols,
                                                        mat, normMat,
