@@ -14,7 +14,6 @@
 #include <Resources/DataBlock.h>
 #include <Scene/PhotonNode.h>
 #include <Utils/CUDA/TriangleMap.h>
-#include <Utils/CUDA/PhotonMap.h>
 #include <Utils/CUDA/Utils.h>
 
 #include <Utils/CUDA/BruteTracer.h>
@@ -28,7 +27,7 @@ namespace OpenEngine {
             
             PhotonRenderingView::PhotonRenderingView()
                 : RenderingView(), triangleMap(NULL), 
-                  renderTree(false){
+                  renderTree(false), raytrace(true){
             }
             
             void PhotonRenderingView::Handle(RenderingEventArg arg){
@@ -39,43 +38,44 @@ namespace OpenEngine {
                     Initialize(arg);
                     UpdateGeometry();
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
-                    if (renderTree)
-                        RenderTree(arg);
+                    //if (renderTree)
+                    //RenderTree(arg);
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PROCESS){
-                    
-                    cudaGraphicsResource *pboResource;
-                    cudaGraphicsGLRegisterBuffer(&pboResource, pbo->GetID(), cudaGraphicsMapFlagsWriteDiscard);
-                    cudaGraphicsMapResources(1, &pboResource, 0);
-                    CHECK_FOR_CUDA_ERROR();
-
-                    size_t bytes;
-                    uchar4* pixels;
-                    cudaGraphicsResourceGetMappedPointer((void**)&pixels, &bytes,
-                                                         pboResource);
-                    CHECK_FOR_CUDA_ERROR();
-
-                    raytracer->Trace(&arg.canvas, pixels);
-
-                    cudaGraphicsUnmapResources(1, &pboResource, 0);
-                    cudaGraphicsUnregisterResource(pboResource);
-                    CHECK_FOR_CUDA_ERROR();
-
-                    glMatrixMode(GL_MODELVIEW);
-                    glLoadIdentity();
-                    
-                    glMatrixMode(GL_PROJECTION);
-                    glLoadIdentity();
-                    glOrtho(0,1,0,1,0,1);
-
-                    glDisable(GL_DEPTH_TEST);
-                    glRasterPos2i(0, 0);
-                    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo->GetID());
-                    CHECK_FOR_GL_ERROR();
-                    glDrawPixels(arg.canvas.GetWidth(), arg.canvas.GetHeight(), 
-                                 GL_RGBA, GL_UNSIGNED_BYTE, 0);
-                    CHECK_FOR_GL_ERROR();
-                    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-                    CHECK_FOR_GL_ERROR();
+                    if (raytrace){
+                        cudaGraphicsResource *pboResource;
+                        cudaGraphicsGLRegisterBuffer(&pboResource, pbo->GetID(), cudaGraphicsMapFlagsWriteDiscard);
+                        cudaGraphicsMapResources(1, &pboResource, 0);
+                        CHECK_FOR_CUDA_ERROR();
+                        
+                        size_t bytes;
+                        uchar4* pixels;
+                        cudaGraphicsResourceGetMappedPointer((void**)&pixels, &bytes,
+                                                             pboResource);
+                        CHECK_FOR_CUDA_ERROR();
+                        
+                        raytracer->Trace(&arg.canvas, pixels);
+                        
+                        cudaGraphicsUnmapResources(1, &pboResource, 0);
+                        cudaGraphicsUnregisterResource(pboResource);
+                        CHECK_FOR_CUDA_ERROR();
+                        
+                        glMatrixMode(GL_MODELVIEW);
+                        glLoadIdentity();
+                        
+                        glMatrixMode(GL_PROJECTION);
+                        glLoadIdentity();
+                        glOrtho(0,1,0,1,0,1);
+                        
+                        glDisable(GL_DEPTH_TEST);
+                        glRasterPos2i(0, 0);
+                        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo->GetID());
+                        CHECK_FOR_GL_ERROR();
+                        glDrawPixels(arg.canvas.GetWidth(), arg.canvas.GetHeight(), 
+                                     GL_RGBA, GL_UNSIGNED_BYTE, 0);
+                        CHECK_FOR_GL_ERROR();
+                        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+                        CHECK_FOR_GL_ERROR();
+                    }
                 }
             }
 
@@ -91,45 +91,16 @@ namespace OpenEngine {
                 pbo = IDataBlockPtr(new DataBlock<4, unsigned char>(size, NULL, PIXEL_UNPACK));
                 arg.renderer.BindDataBlock(pbo.get());                
                 glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-                //unsigned int size = (1<<17)-7;
-                //photonMap = new PhotonMap(size);
-                /*
-                IDataBlockPtr vertices = IDataBlockPtr(new DataBlock<4, float>(size));
-                map<string, IDataBlockPtr> attr;
-                attr["vertex"] = vertices;
-                photons = GeometrySetPtr(new GeometrySet(attr));
-                arg.renderer.BindDataBlock(vertices.get());
-                */
             }
 
             void PhotonRenderingView::UpdateGeometry(){
                 logger.info << "Pew pew, triangles everywhere" << logger.end;
                 triangleMap->Create();
-                triangleMap->Create();
-                CHECK_FOR_CUDA_ERROR();
-                //ShootPhotons();
-            }
-
-            void PhotonRenderingView::ShootPhotons(){
-                logger.info << "Pew pew, photons everywhere" << logger.end;
-                photonMap->Create();
+                //triangleMap->Create();
                 CHECK_FOR_CUDA_ERROR();
             }
 
-            void PhotonRenderingView::RenderPhotons(){
-                // Copy Photons to OpenGL buffer
-                photonMap->photons.MapToDataBlocks(photons->GetVertices().get());
-                
-                glColor3f(0.0f, 1.0f, 0.0f);
-                glEnableClientState(GL_VERTEX_ARRAY);
-                IDataBlockPtr verts = photons->GetDataBlock("vertex");
-                glBindBuffer(GL_ARRAY_BUFFER, verts->GetID());
-                glVertexPointer(verts->GetDimension(), GL_FLOAT, 0, 0);
-                glDrawArrays(GL_POINTS, 0, verts->GetSize());
-                glDisableClientState(GL_VERTEX_ARRAY);
-            }
-
+            /*
             void PhotonRenderingView::RenderTree(RenderingEventArg arg){
                 unsigned int size = photonMap->upperNodes->size * 12;
 
@@ -166,7 +137,7 @@ namespace OpenEngine {
                 glDisableClientState(GL_VERTEX_ARRAY);
                 glDisableClientState(GL_COLOR_ARRAY);
             }
-
+            */
         }
     }
 }

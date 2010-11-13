@@ -25,7 +25,6 @@ namespace OpenEngine {
     }
     namespace Utils {
         namespace CUDA {
-            class PhotonMap;
             class TriangleMap;
             class IRayTracer;
         }
@@ -38,13 +37,11 @@ namespace OpenEngine {
             class PhotonRenderingView : public RenderingView {
             protected:
                 TriangleMap* triangleMap;
-                PhotonMap* photonMap;
                 IRayTracer* raytracer;
 
                 IDataBlockPtr pbo;
                 
-                bool renderPhotons, renderTree;
-                GeometrySetPtr photons;
+                bool renderTree, raytrace;
                 GeometrySetPtr upperNodes;
                 
             public:
@@ -55,10 +52,8 @@ namespace OpenEngine {
 
                 void Initialize(RenderingEventArg arg);
                 void UpdateGeometry();
-                void ShootPhotons();
 
-                void RenderPhotons();
-                void RenderTree(RenderingEventArg arg);
+                //void RenderTree(RenderingEventArg arg);
             };
 
         }
