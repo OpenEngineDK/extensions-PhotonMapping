@@ -27,15 +27,14 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, float4> *dir;
                 
             public:
-                IRayTracer() : visualizeRays(false), origin(NULL), dir(NULL) {}
-                virtual ~IRayTracer() {
-                    if (origin) delete origin;
-                    if (dir) delete dir;
-                }
+                IRayTracer();
+                virtual ~IRayTracer();
 
                 virtual void Trace(Display::IRenderCanvas* canvas, uchar4* canvasData) = 0;
 
                 void SetVisualizeRays(const bool v) {visualizeRays = v;}
+
+                void CreateInitialRays(Display::IRenderCanvas* canvas);
             };
 
         }

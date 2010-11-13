@@ -15,6 +15,7 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Utils/CUDA/Segments.cu
   Utils/CUDA/SplittingPlanes.cu
   Utils/CUDA/GeometryList.cu
+  Utils/CUDA/IRayTracer.cu
   Utils/CUDA/Raytracer.cu
   Utils/CUDA/BruteTracer.cu
   Utils/CUDA/ITriangleMapCreator.h
