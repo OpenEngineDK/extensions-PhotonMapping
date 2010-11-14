@@ -35,6 +35,7 @@ namespace OpenEngine {
                 void SetVisualizeRays(const bool v) {visualizeRays = v;}
 
                 void CreateInitialRays(Display::IRenderCanvas* canvas);
+                void RenderRays(uchar4 *canvas, int rays);
             };
 
         }

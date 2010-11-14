@@ -94,6 +94,26 @@ namespace OpenEngine {
                 CreateRays<<<blocks, threads>>>(origin->GetDeviceData(),
                                                 dir->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
+
+                //float4 ori, direction;
+            }
+            
+            __global__ void RenderRayDir(float4* dir, uchar4 *canvas){
+                const int id = blockDim.x * blockIdx.x + threadIdx.x;
+                
+                if (id < d_rays){
+                    float4 d = dir[id] * 0.5f + make_float4(0.5f);
+                    canvas[id] = make_uchar4(d.x * 255, d.y * 255, d.z * 255, d.w * 255);
+                }
+            }
+
+            void IRayTracer::RenderRays(uchar4 *canvas, int rays){
+                unsigned int blocks, threads;
+                Calc1DKernelDimensions(rays, blocks, threads, 128);
+                RenderRayDir<<<blocks, threads>>>(dir->GetDeviceData(),
+                                                  canvas);
+                CHECK_FOR_CUDA_ERROR();
+
             }
             
         }

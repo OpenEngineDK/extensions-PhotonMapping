@@ -34,15 +34,6 @@ namespace OpenEngine {
             __constant__ int d_screenHeight;
             __constant__ int d_screenWidth;
 
-            __global__ void RenderRayDir(float4* dir, uchar4 *canvas){
-                const int id = blockDim.x * blockIdx.x + threadIdx.x;
-                
-                if (id < d_rays){
-                    float4 d = dir[id] * 0.5f + make_float4(0.5f);
-                    canvas[id] = make_uchar4(d.x * 255, d.y * 255, d.z * 255, d.w * 255);
-                }
-            }
-
             __device__ __host__ void TraceNode(float3 origin, float3 direction, 
                                                char axes, float splitPos,
                                                int left, int right, float tMin,
@@ -152,19 +143,16 @@ namespace OpenEngine {
                 cudaMemcpyToSymbol(d_screenHeight, &height, sizeof(int));
                 cudaMemcpyToSymbol(d_rays, &rays, sizeof(int));
 
-                unsigned int blocks, threads;
-                Calc1DKernelDimensions(rays, blocks, threads, 128);
-
                 if (visualizeRays){
-                    RenderRayDir<<<blocks, threads>>>(dir->GetDeviceData(),
-                                                      canvasData);
-                    CHECK_FOR_CUDA_ERROR();
+                    RenderRays(canvasData, rays);
                     return;
                 }
 
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
+                unsigned int blocks, threads;
+                Calc1DKernelDimensions(rays, blocks, threads, 128);
                 START_TIMER(timerID); 
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), dir->GetDeviceData(),
                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
