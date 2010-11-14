@@ -65,28 +65,6 @@ namespace OpenEngine {
                         }
                     }
 
-                    /*
-                    for (int primOffset = 0; primOffset < prims; primOffset += blockDim.x){
-
-                        int primIndex = primOffset + threadIdx.x;
-                        v0[threadIdx.x] = primIndex < prims ? make_float3(v0s[primIndex]) : make_float3(1.0f, 0.0f, 0.0f);
-                        v1[threadIdx.x] = primIndex < prims ? make_float3(v1s[primIndex]) : make_float3(1.0f, 0.0f, 0.0f);
-                        v2[threadIdx.x] = primIndex < prims ? make_float3(v2s[primIndex]) : make_float3(1.0f, 0.0f, 0.0f);
-                        __syncthreads();
-
-                        for (int prim = primOffset; prim < primOffset + blockDim.x; ++prim){
-                            float3 hitCoords;
-                            bool hit = TriangleRayIntersection(v0[prim], v1[prim], v2[prim], 
-                                                               origin, dir, hitCoords);
-                            
-                            if (hit && hitCoords.x < tHit){
-                                primHit = prim;
-                                tHit = hitCoords.x;
-                            }
-                        }
-                    }
-                    */                    
-
                     if (tHit < fInfinity)
                         canvas[id] = c0[primHit];
                     else
@@ -116,7 +94,7 @@ namespace OpenEngine {
                 int smemSize = threads * sizeof(float3) * 3;
                 //START_TIMER(timerID);
                 //logger.info << "BruteTracing<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
-                BruteTracing<<<blocks, threads, smemSize>>>(origin->GetDeviceData(), dir->GetDeviceData(),
+                BruteTracing<<<blocks, threads, smemSize>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                             geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), 
                                                             geom->GetColor0Data(),
                                                             canvasData,

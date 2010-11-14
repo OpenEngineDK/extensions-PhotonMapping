@@ -83,8 +83,8 @@ namespace OpenEngine {
                 INITIALIZE_CUDA();
 
                 triangleMap = new TriangleMap(arg.canvas.GetScene());
-                raytracer = new RayTracer(triangleMap);
-                //raytracer = new BruteTracer(triangleMap->geom);
+                //raytracer = new RayTracer(triangleMap);
+                raytracer = new BruteTracer(triangleMap->geom);
                 //raytracer->SetVisualizeRays(true);
 
                 int size = arg.canvas.GetWidth() * arg.canvas.GetHeight();

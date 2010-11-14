@@ -154,7 +154,7 @@ namespace OpenEngine {
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(rays, blocks, threads, 128);
                 START_TIMER(timerID); 
-                KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), dir->GetDeviceData(),
+                KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                nodes->GetLeftData(), nodes->GetRightData(),
                                                nodes->GetPrimitiveInfoData(),

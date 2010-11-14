@@ -12,6 +12,7 @@
 #include <Display/IRenderCanvas.h>
 #include <Display/IViewingVolume.h>
 #include <Math/Matrix.h>
+#include <Utils/CUDA/Convert.h>
 #include <Utils/CUDA/Utils.h>
 
 using namespace OpenEngine::Display;
@@ -26,12 +27,12 @@ namespace OpenEngine {
                 : visualizeRays(false) {
 
                 origin = new CUDADataBlock<1, float4>(1);
-                dir = new CUDADataBlock<1, float4>(1);
+                direction = new CUDADataBlock<1, float4>(1);
             }
             
             IRayTracer::~IRayTracer() {
                 if (origin) delete origin;
-                if (dir) delete dir;
+                if (direction) delete direction;
             }
 
             __constant__ float3 d_camPos;
@@ -55,7 +56,7 @@ namespace OpenEngine {
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
                 if (id < d_rays){
-                    origin[id] = make_float4(d_camPos, 0.0f);
+                    origin[id] = make_float4(d_camPos, 1.0f);
 
                     int x = id % d_screenWidth;
                     int y = id / d_screenWidth;
@@ -74,6 +75,7 @@ namespace OpenEngine {
                 
                 Matrix<4, 4, float> viewProjectionInv = viewProjection.GetInverse();
                 Vector<3, float> camPos = canvas->GetViewingVolume()->GetPosition();
+                float3 h_camPos; h_camPos.x = camPos.Get(0); h_camPos.y = camPos.Get(1); h_camPos.z = camPos.Get(2);
                 
                 int height = canvas->GetHeight();
                 int width = canvas->GetWidth();
@@ -82,20 +84,39 @@ namespace OpenEngine {
                 cudaMemcpyToSymbol(d_screenWidth, &width, sizeof(int));
                 cudaMemcpyToSymbol(d_screenHeight, &height, sizeof(int));
                 cudaMemcpyToSymbol(d_rays, &rays, sizeof(int));
-                cudaMemcpyToSymbol(d_camPos, camPos.ToArray(), sizeof(int));
+                cudaMemcpyToSymbol(d_camPos, &h_camPos, sizeof(float3));
                 cudaMemcpyToSymbol(d_ViewProjectionMatrixInverse, viewProjectionInv.ToArray(), 16 * sizeof(float));
                 CHECK_FOR_CUDA_ERROR();
-                
+
                 origin->Extend(rays);
-                dir->Extend(rays);
+                direction->Extend(rays);
                 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(rays, blocks, threads);
                 CreateRays<<<blocks, threads>>>(origin->GetDeviceData(),
-                                                dir->GetDeviceData());
+                                                direction->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
 
-                //float4 ori, direction;
+                /*
+                logger.info << "Camera positioned at " << camPos << logger.end;
+
+                float4 ori, dir;
+                cudaMemcpy(&ori, origin->GetDeviceData(), sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&dir, direction->GetDeviceData(), sizeof(float4), cudaMemcpyDeviceToHost);
+                logger.info << "lower left -> origin: " << Convert::ToString(ori) << ", direction: " << Convert::ToString(dir) << logger.end;
+
+                cudaMemcpy(&ori, origin->GetDeviceData() + width-1, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&dir, direction->GetDeviceData() + width-1, sizeof(float4), cudaMemcpyDeviceToHost);
+                logger.info << "lower right -> origin: " << Convert::ToString(ori) << ", direction: " << Convert::ToString(dir) << logger.end;
+
+                cudaMemcpy(&ori, origin->GetDeviceData() + rays-1-width, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&dir, direction->GetDeviceData() + rays-1-width, sizeof(float4), cudaMemcpyDeviceToHost);
+                logger.info << "upper left -> origin: " << Convert::ToString(ori) << ", direction: " << Convert::ToString(dir) << logger.end;
+
+                cudaMemcpy(&ori, origin->GetDeviceData() + rays-1, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&dir, direction->GetDeviceData() + rays-1, sizeof(float4), cudaMemcpyDeviceToHost);
+                logger.info << "upper right -> origin: " << Convert::ToString(ori) << ", direction: " << Convert::ToString(dir) << logger.end;
+                */
             }
             
             __global__ void RenderRayDir(float4* dir, uchar4 *canvas){
@@ -110,7 +131,7 @@ namespace OpenEngine {
             void IRayTracer::RenderRays(uchar4 *canvas, int rays){
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(rays, blocks, threads, 128);
-                RenderRayDir<<<blocks, threads>>>(dir->GetDeviceData(),
+                RenderRayDir<<<blocks, threads>>>(direction->GetDeviceData(),
                                                   canvas);
                 CHECK_FOR_CUDA_ERROR();
 

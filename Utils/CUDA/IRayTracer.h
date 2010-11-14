@@ -24,7 +24,7 @@ namespace OpenEngine {
                 bool visualizeRays;
 
                 Resources::CUDA::CUDADataBlock<1, float4> *origin;
-                Resources::CUDA::CUDADataBlock<1, float4> *dir;
+                Resources::CUDA::CUDADataBlock<1, float4> *direction;
                 
             public:
                 IRayTracer();
