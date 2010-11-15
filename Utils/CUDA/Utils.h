@@ -148,4 +148,8 @@ inline __host__ __device__ float4 min(float4 v, float4 u){
                        min(v.w, u.w));
 }
 
+inline __host__ __device__ float4 operator*(float4 v, float4 u){
+    return make_float4(v.x * u.x, v.y * u.y, v.z * u.z, v.w * u.w);
+}
+
 #endif // _CUDA_PHOTON_UTILS_H_

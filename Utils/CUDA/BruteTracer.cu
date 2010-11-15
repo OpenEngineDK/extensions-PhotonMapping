@@ -50,36 +50,64 @@ namespace OpenEngine {
 
             BruteTracer::~BruteTracer() {}
 
-            __device__ float4 PhongLighting(float4 color, float3 normal, float3 point){
+            __device__ float4 PhongLighting(float4 color, float3 normal, float3 point, float3 origin){
 
                 float3 lightDir = normalize(d_lightPosition - point);
-
+                
                 // Diffuse
                 float ndotl = dot(lightDir, normal);
                 float diffuse = ndotl < 0.0f ? 0.0f : ndotl;
 
+                // Calculate specular
+                float3 reflect = 2.0f * dot(normal, lightDir) * normal - lightDir;
+                reflect = normalize(reflect);
+                float stemp = dot(normalize(origin - point), reflect);
+                stemp = stemp < 0.0f ? 0.0f : stemp;
+                float specProp = 1.0f - color.w;
+                float specular = specProp * pow(stemp, 128.0f * specProp);
+
                 float4 light = (d_lightAmbient +
-                                d_lightDiffuse * diffuse);
+                                (d_lightDiffuse * diffuse) +
+                                (d_lightSpecular * specular));
                 
-                return make_float4(color.x * light.x,
-                                   color.y * light.y,
-                                   color.z * light.z,
-                                   color.w * light.w);
+                return clamp(color * light, 0.0f, 1.0f);
+            }
+
+            __device__ float4 Lighting(int prim, float3 hitCoords, 
+                                       float3 &origin, float3 &direction,
+                                       float4 *n0s, float4 *n1s, float4 *n2s,
+                                       uchar4 *c0s){
+
+                float3 point = origin + hitCoords.x * direction;
+
+                float3 n0 = make_float3(n0s[prim]);
+                float3 n1 = make_float3(n1s[prim]);
+                float3 n2 = make_float3(n2s[prim]);
+                
+                float3 normal = (1 - hitCoords.y - hitCoords.z) * n0 + hitCoords.y * n1 + hitCoords.z * n2;
+                normal = normalize(normal);
+                
+                uchar4 c = c0s[prim];
+                float4 color = make_float4(c.x / 255.0f, c.y / 255.0f, c.z / 255.0f, c.w / 255.0f);
+
+                return PhongLighting(color, normal, point, origin);
             }
             
             __global__ void BruteTracing(float4* origins, float4* directions,
                                          float4 *v0s, float4 *v1s, float4 *v2s,
                                          float4 *n0s, float4 *n1s, float4 *n2s,
-                                         uchar4 *c0,
+                                         uchar4 *c0s,
                                          uchar4 *canvas,
                                          int prims){
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
                 if (id < d_rays){
 
+                    /*
                     float3 *v0 = SharedMemory<float3>();
                     float3 *v1 = v0 + blockDim.x;
                     float3 *v2 = v1 + blockDim.x;
+                    */
                     
                     float3 origin = make_float3(origins[id]);
                     float3 dir = make_float3(directions[id]);
@@ -121,6 +149,7 @@ namespace OpenEngine {
                     }
 
                     if (tHit.x < fInfinity){
+                        /*
                         float3 n0 = make_float3(n0s[primHit]);
                         float3 n1 = make_float3(n1s[primHit]);
                         float3 n2 = make_float3(n2s[primHit]);
@@ -133,8 +162,12 @@ namespace OpenEngine {
                         
                         float3 point = origin + tHit.x * dir;
                         
-                        color = PhongLighting(color, normal, point);
-
+                        color = PhongLighting(color, normal, point, origin);
+                        */
+                        float4 color = Lighting(primHit, tHit, origin, dir, 
+                                                n0s, n1s, n2s,
+                                                c0s);
+                        
                         canvas[id] = make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
                     }else
                         canvas[id] = make_uchar4(0, 0, 0, 0);
