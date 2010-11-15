@@ -261,6 +261,7 @@ __global__ void CreateLowerSAHChildren(int *childSplit,
                                        int2 *childSets,
                                        float* nodeArea,
                                        int2* primitiveInfo,
+                                       int *leftChild, int *rightChild, 
                                        int nodeSplits){
 
     // @OPT 'or' the childSets onto float4 nodeArea. That way we
@@ -283,16 +284,14 @@ __global__ void CreateLowerSAHChildren(int *childSplit,
             const int leftChildID = d_activeNodeIndex + d_activeNodeRange + childOffset;
             nodeArea[leftChildID] = childrenArea.x;
             primitiveInfo[leftChildID] = make_int2(parentPrimInfo.x, childrenSet.x);
+            leftChild[parentID] = leftChildID;
                 
             const int rightChildID = leftChildID + nodeSplits;
             nodeArea[rightChildID] = childrenArea.y;
             primitiveInfo[rightChildID] = make_int2(parentPrimInfo.x, childrenSet.y);
+            rightChild[parentID] = rightChildID;
         }
     }        
-}
-
-__global__ void OverwriteProxyNodes(){
-
 }
 
 #endif

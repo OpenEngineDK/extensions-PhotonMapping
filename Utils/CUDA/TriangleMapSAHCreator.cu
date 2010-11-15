@@ -191,6 +191,8 @@ namespace OpenEngine {
                                                             childSets->GetDeviceData(),
                                                             nodes->GetSurfaceAreaData(),
                                                             nodes->GetPrimitiveInfoData(),
+                                                            nodes->GetLeftData(),
+                                                            nodes->GetRightData(),
                                                             splits);
                 CHECK_FOR_CUDA_ERROR();
 
