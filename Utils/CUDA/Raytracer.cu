@@ -22,10 +22,23 @@ namespace OpenEngine {
     namespace Utils {
         namespace CUDA {
 
+#include <Utils/CUDA/Kernels/ColorKernels.h>
+
             RayTracer::RayTracer(TriangleMap* map)
                 : map(map) {
                 
                 cutCreateTimer(&timerID);
+
+                float3 lightPosition = make_float3(0.0f, 4.0f, 0.0f);
+                cudaMemcpyToSymbol(d_lightPosition, &lightPosition, sizeof(float3));
+                float3 lightColor = make_float3(1.0f, 0.92f, 0.8f);
+                float3 ambient = lightColor * 0.3f;
+                cudaMemcpyToSymbol(d_lightAmbient, &ambient, sizeof(float3));
+                float3 diffuse = lightColor * 0.7f;
+                cudaMemcpyToSymbol(d_lightDiffuse, &diffuse, sizeof(float3));
+                float3 specular = lightColor * 0.3f;
+                cudaMemcpyToSymbol(d_lightSpecular, &specular, sizeof(float3));
+                CHECK_FOR_CUDA_ERROR();
             }
 
             RayTracer::~RayTracer(){}
@@ -67,7 +80,8 @@ namespace OpenEngine {
                                       int2 *primitiveInfo, 
                                       int *primIndices, 
                                       float4 *v0, float4 *v1, float4 *v2,
-                                      uchar4 *c0,
+                                      float4 *n0s, float4 *n1s, float4 *n2s,
+                                      uchar4 *c0s,
                                       uchar4 *canvas){
                 
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -77,12 +91,14 @@ namespace OpenEngine {
                     float3 origin = make_float3(origins[id]);
                     float3 direction = make_float3(directions[id]);
 
-                    uchar4 color = make_uchar4(0, 0, 0, 0);
-                    
-                    // @OPT early out bounding box maximums
+                    float3 tHit;
+                    int primHit = -1;
 
-                    float tMin = 0.0f;
-                    while (tMin != fInfinity){
+                    float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+
+                    do {
+                        tHit.x = fInfinity;
+
                         float tNext = fInfinity;
                         int node = 0;
                         char info = nodeInfo[node];
@@ -93,7 +109,7 @@ namespace OpenEngine {
                             int left = leftChild[node];
                             int right = rightChild[node];
 
-                            TraceNode(origin, direction, info & 3, splitValue, left, right, tMin,
+                            TraceNode(origin, direction, info & 3, splitValue, left, right, tHit.x,
                                       node, tNext);
                                                         
                             info = nodeInfo[node];
@@ -102,30 +118,38 @@ namespace OpenEngine {
                                 node = leftChild[node];
                         }
 
-                        tMin = tNext;
+                        tHit.x = tNext;
 
-                        // Test intersection
                         int2 primInfo = primitiveInfo[node];
                         int triangles = primInfo.y;
                         while (triangles){
                             int i = __ffs(triangles) - 1;
-
-                            int prim = primIndices[primInfo.x + i];
                             
+                            int prim = primIndices[primInfo.x + i];
+
                             float3 hitCoords;
                             bool hit = TriangleRayIntersection(make_float3(v0[prim]), make_float3(v1[prim]), make_float3(v2[prim]), 
                                                                origin, direction, hitCoords);
 
-                            if (hit){
-                                color = c0[prim];
-                                tMin = fInfinity;
+                            if (hit && hitCoords.x < tHit.x){
+                                primHit = prim;
+                                tHit = hitCoords;
                             }
-
+                            
                             triangles -= 1<<i;
                         }
-                    }
 
-                    canvas[id] = make_uchar4(color.x, color.y, color.z, 255);
+                        if (primHit != -1){
+                            float4 newColor = Lighting(primHit, tHit, origin, direction, 
+                                                       n0s, n1s, n2s,
+                                                       c0s);
+                            
+                            color = BlendColor(color, newColor);
+                        }
+
+                    } while(tHit.x < fInfinity && color.w < 0.97f);
+
+                    canvas[id] = make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
                 }
             }
 
@@ -160,6 +184,7 @@ namespace OpenEngine {
                                                nodes->GetPrimitiveInfoData(),
                                                map->GetPrimitiveIndices()->GetDeviceData(),
                                                geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                                               geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                                                geom->GetColor0Data(),
                                                canvasData);
                 PRINT_TIMER(timerID, "KDRestart");
@@ -168,6 +193,11 @@ namespace OpenEngine {
             }
 
             void RayTracer::HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes){
+
+                float3 tHit;
+                int primHit = -1;
+
+                float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
                 
                 float tMin = 0.0f;
                 while (tMin != fInfinity){

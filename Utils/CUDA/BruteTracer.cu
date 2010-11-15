@@ -107,12 +107,12 @@ namespace OpenEngine {
                         
                         if (tHit.x < fInfinity){
                             float4 newColor = Lighting(primHit, tHit, origin, dir, 
-                                                n0s, n1s, n2s,
-                                                c0s);
+                                                       n0s, n1s, n2s,
+                                                       c0s);
                             
                             color = BlendColor(color, newColor);
                         }
-                    }while(tHit.x < fInfinity && color.w < 0.97f);
+                    } while(tHit.x < fInfinity && color.w < 0.97f);
                     
                     canvas[id] = make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
                 }

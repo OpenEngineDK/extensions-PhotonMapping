@@ -12,8 +12,8 @@ __constant__ float3 d_lightAmbient;
 __constant__ float3 d_lightDiffuse;
 __constant__ float3 d_lightSpecular;
 
-__device__ float4 PhongLighting(float4 color, float3 normal, float3 point, float3 origin){
-
+inline __device__ __host__ float4 PhongLighting(float4 color, float3 normal, float3 point, float3 origin){
+    
     float3 lightDir = normalize(d_lightPosition - point);
                 
     // Diffuse
@@ -37,10 +37,10 @@ __device__ float4 PhongLighting(float4 color, float3 normal, float3 point, float
     return make_float4(clamp(make_float3(color) * light, 0.0f, 1.0f), alpha);
 }
 
-__device__ float4 Lighting(int prim, float3 hitCoords, 
-                           float3 &origin, float3 &direction,
-                           float4 *n0s, float4 *n1s, float4 *n2s,
-                           uchar4 *c0s){
+inline __device__ __host__ float4 Lighting(int prim, float3 hitCoords, 
+                                           float3 &origin, float3 &direction,
+                                           float4 *n0s, float4 *n1s, float4 *n2s,
+                                           uchar4 *c0s){
 
     float3 point = origin + hitCoords.x * direction;
 
@@ -72,7 +72,7 @@ __device__ float4 Lighting(int prim, float3 hitCoords,
     return color;
 }
 
-__device__ float4 BlendColor(float4 orig, float4 newColor){
+inline __device__ __host__ float4 BlendColor(float4 orig, float4 newColor){
     float newAlpha = newColor.w;
     newColor.w = 1.0f;
                 
