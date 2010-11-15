@@ -74,6 +74,35 @@ namespace OpenEngine {
                     node = upperChild;
             }
 
+            __host__ void TraceNodeHost(float3 origin, float3 direction, 
+                                        char axes, float splitPos,
+                                        int left, int right, float tMin,
+                                        int &node, float &tNext){
+                float ori, dir;
+                switch(axes){
+                case KDNode::X:
+                    ori = origin.x; dir = direction.x;
+                    break;
+                case KDNode::Y:
+                    ori = origin.y; dir = direction.y;
+                    break;
+                case KDNode::Z:
+                    ori = origin.z; dir = direction.z;
+                    break;
+                }
+
+                logger.info << "tMin = " << tMin << logger.end;
+                float tSplit = (splitPos - ori) / dir;
+                logger.info << "tSplit = (" << splitPos << " - " << ori << ") / " << dir << " = " << tSplit << logger.end;
+                int lowerChild = 0 < dir ? left : right;
+                int upperChild = 0 < dir ? right : left;
+                if (tMin < tSplit){
+                    node = lowerChild;
+                    tNext = min(tSplit, tNext);
+                }else
+                    node = upperChild;
+            }
+
             __global__ void KDRestart(float4* origins, float4* directions,
                                       char* nodeInfo, float* splitPos,
                                       int* leftChild, int* rightChild,
@@ -92,13 +121,12 @@ namespace OpenEngine {
                     float3 direction = make_float3(directions[id]);
 
                     float3 tHit;
+                    tHit.x = 0.0f;
                     int primHit = -1;
 
                     float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
                     do {
-                        tHit.x = fInfinity;
-
                         float tNext = fInfinity;
                         int node = 0;
                         char info = nodeInfo[node];
@@ -114,8 +142,10 @@ namespace OpenEngine {
                                                         
                             info = nodeInfo[node];
                             
-                            if (info & KDNode::PROXY)
+                            if (info & KDNode::PROXY){
                                 node = leftChild[node];
+                                info = nodeInfo[node];
+                            }
                         }
 
                         tHit.x = tNext;
@@ -140,9 +170,9 @@ namespace OpenEngine {
                         }
 
                         if (primHit != -1){
-                            float4 newColor = Lighting(primHit, tHit, origin, direction, 
-                                                       n0s, n1s, n2s,
-                                                       c0s);
+                            float4 newColor = Lighting(tHit, origin, direction, 
+                                                       n0s[primHit], n1s[primHit], n2s[primHit],
+                                                       c0s[primHit]);
                             
                             color = BlendColor(color, newColor);
                         }
@@ -177,7 +207,7 @@ namespace OpenEngine {
 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(rays, blocks, threads, 128);
-                START_TIMER(timerID); 
+                //START_TIMER(timerID); 
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                nodes->GetLeftData(), nodes->GetRightData(),
@@ -187,59 +217,62 @@ namespace OpenEngine {
                                                geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                                                geom->GetColor0Data(),
                                                canvasData);
-                PRINT_TIMER(timerID, "KDRestart");
+                //PRINT_TIMER(timerID, "KDRestart");
                 CHECK_FOR_CUDA_ERROR();
                                                
             }
 
             void RayTracer::HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes){
 
+                logger.info << "Origin " << Convert::ToString(origin) << logger.end;
+                logger.info << "Direction " << Convert::ToString(direction) << logger.end;
+
                 float3 tHit;
+                tHit.x = 0.0f;
                 int primHit = -1;
 
                 float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-                
-                float tMin = 0.0f;
-                while (tMin != fInfinity){
+
+                do {
                     float tNext = fInfinity;
                     int node = 0;
                     char info;
                     cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
                     CHECK_FOR_CUDA_ERROR();
-                    
-                    while (!(info & KDNode::PROXY) && (info & 3) != KDNode::LEAF){
-                        logger.info << "Tracing " << node << logger.end;
 
+                    while ((info & 3) != KDNode::LEAF){
+                        logger.info << "Tracing " << node << " with info " << (int)info << logger.end;
+                        
                         float splitValue;
                         cudaMemcpy(&splitValue, nodes->GetSplitPositionData() + node, sizeof(float), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
-                        
+
                         int left;
                         cudaMemcpy(&left, nodes->GetLeftData() + node, sizeof(int), cudaMemcpyDeviceToHost);
-                        //logger.info << "left child " << left << logger.end;
                         int right;
                         cudaMemcpy(&right, nodes->GetRightData() + node, sizeof(int), cudaMemcpyDeviceToHost);
-                        //logger.info << "right child " << right << logger.end;
                         CHECK_FOR_CUDA_ERROR();
                         
-                        TraceNode(origin, direction, info & 3, splitValue, left, right, tMin,
+                        TraceNode(origin, direction, info & 3, splitValue, left, right, tHit.x,
                                   node, tNext);
+
+                        //logger.info << "tNext " << tNext << logger.end;
 
                         cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
 
-                        if (info & KDNode::PROXY)
+                        if (info & KDNode::PROXY){
                             cudaMemcpy(&node, nodes->GetLeftData() + node, sizeof(int), cudaMemcpyDeviceToHost);
-                        
-                        //logger.info << "tNext " << tNext << logger.end;
-                        
+                            cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
+                        }
                     }
 
-                    logger.info << "Found leaf " << nodes->ToString(node) << logger.end;
+                    logger.info << "Found leaf: " << node << "\n" << logger.end;
                     
-                    tMin = tNext;
-                    //logger.info << "new tMin " << tMin << logger.end;
+                    tHit.x = tNext;
+
                     
-                }
+
+                } while(tHit.x < fInfinity && color.w < 0.97f);
             }
 
         }

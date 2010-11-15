@@ -37,22 +37,19 @@ inline __device__ __host__ float4 PhongLighting(float4 color, float3 normal, flo
     return make_float4(clamp(make_float3(color) * light, 0.0f, 1.0f), alpha);
 }
 
-inline __device__ __host__ float4 Lighting(int prim, float3 hitCoords, 
+inline __device__ __host__ float4 Lighting(float3 hitCoords, 
                                            float3 &origin, float3 &direction,
-                                           float4 *n0s, float4 *n1s, float4 *n2s,
-                                           uchar4 *c0s){
+                                           float4 n0, float4 n1, float4 n2,
+                                           uchar4 c0){
 
     float3 point = origin + hitCoords.x * direction;
 
-    float3 n0 = make_float3(n0s[prim]);
-    float3 n1 = make_float3(n1s[prim]);
-    float3 n2 = make_float3(n2s[prim]);
-                
-    float3 normal = (1 - hitCoords.y - hitCoords.z) * n0 + hitCoords.y * n1 + hitCoords.z * n2;
+    float3 normal = (1 - hitCoords.y - hitCoords.z) * make_float3(n0) + 
+                    hitCoords.y * make_float3(n1) + 
+                    hitCoords.z * make_float3(n2);
     normal = normalize(normal);
                 
-    uchar4 c = c0s[prim];
-    float4 color = make_float4(c.x / 255.0f, c.y / 255.0f, c.z / 255.0f, c.w / 255.0f);
+    float4 color = make_float4(c0.x / 255.0f, c0.y / 255.0f, c0.z / 255.0f, c0.w / 255.0f);
 
     if (color.w < 1.0f - 0.00001f){
         //direction -= 0.3f * 0.5f * dot(normal, normalize(origin - point)) * normal;
