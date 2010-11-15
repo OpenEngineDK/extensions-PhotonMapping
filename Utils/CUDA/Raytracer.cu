@@ -122,7 +122,6 @@ namespace OpenEngine {
 
                     float3 tHit;
                     tHit.x = 0.0f;
-                    int primHit = -1;
 
                     float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
@@ -151,6 +150,7 @@ namespace OpenEngine {
                         tHit.x = tNext;
 
                         int2 primInfo = primitiveInfo[node];
+                        int primHit = -1;
                         int triangles = primInfo.y;
                         while (triangles){
                             int i = __ffs(triangles) - 1;
@@ -229,7 +229,6 @@ namespace OpenEngine {
 
                 float3 tHit;
                 tHit.x = 0.0f;
-                int primHit = -1;
 
                 float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
@@ -269,6 +268,21 @@ namespace OpenEngine {
                     logger.info << "Found leaf: " << node << "\n" << logger.end;
                     
                     tHit.x = tNext;
+                    
+                    int2 primInfo;
+                    cudaMemcpy(&primInfo, nodes->GetPrimitiveInfoData() + node, sizeof(int2), cudaMemcpyDeviceToHost);
+                    CHECK_FOR_CUDA_ERROR();
+                    int primHit = -1;
+                    int triangles = primInfo.y;
+                    while (triangles){
+                        int i = ffs(triangles) - 1;
+
+                        int prim;
+                        cudaMemcpy(&prim, map->GetPrimitiveIndices()->GetDeviceData() + primInfo.x + i, sizeof(int), cudaMemcpyDeviceToHost);
+                        CHECK_FOR_CUDA_ERROR();
+
+                        triangles -= 1<<i;
+                    }
 
                     
 
