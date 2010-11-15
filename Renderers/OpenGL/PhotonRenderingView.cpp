@@ -32,12 +32,14 @@ namespace OpenEngine {
             
             void PhotonRenderingView::Handle(RenderingEventArg arg){
                 // Send arg to parent
-                RenderingView::Handle(arg);
+
                 
                 if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_INITIALIZE){
+                    RenderingView::Handle(arg);
                     Initialize(arg);
                     UpdateGeometry();
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
+                    RenderingView::Handle(arg);
                     //if (renderTree)
                     //RenderTree(arg);
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PROCESS){
@@ -75,7 +77,8 @@ namespace OpenEngine {
                         CHECK_FOR_GL_ERROR();
                         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
                         CHECK_FOR_GL_ERROR();
-                    }
+                    }else
+                        RenderingView::Handle(arg);
                 }
             }
 
