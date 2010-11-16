@@ -16,7 +16,7 @@
 
 #include <Meta/CUDPP.h>
 
-#define CPU_VERIFY true
+//#define CPU_VERIFY true
 
 namespace OpenEngine {
     namespace Scene {
