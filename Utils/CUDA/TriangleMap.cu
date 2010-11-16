@@ -81,6 +81,11 @@ namespace OpenEngine {
                 CreateUpperNodes();
 
                 lowerCreator->Create(this, leafIDs);
+
+                /*
+                for (int i = 0; i < nodes->GetSize(); ++i)
+                    logger.info << nodes->ToString(i) << logger.end;
+                */
             }
 
             void TriangleMap::Setup(){

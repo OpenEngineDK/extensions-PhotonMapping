@@ -66,6 +66,7 @@ namespace OpenEngine {
 
                 // @TODO do this while creating the tree, not after.
                 Calc1DKernelDimensions(primMin->GetSize(), blocks, threads, 128);
+                /*
                 START_TIMER(timerID);                
                 AdjustBoundingBox<<<blocks, threads>>>(primMin->GetDeviceData(), 
                                                        primMax->GetDeviceData(),
@@ -78,7 +79,8 @@ namespace OpenEngine {
                                                        primMin->GetSize());
                 PRINT_TIMER(timerID, "Adjusting bounding box");
                 CHECK_FOR_CUDA_ERROR();
-                
+                */                
+
                 // Extract indices from primMin.
                 primIndices->Extend(primMin->GetSize(), false);
                 ExtractIndexFromAabb<<<blocks, threads>>>(primMin->GetDeviceData(), 
