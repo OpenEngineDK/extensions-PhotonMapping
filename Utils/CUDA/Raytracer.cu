@@ -126,6 +126,8 @@ namespace OpenEngine {
                     float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
                     do {
+                        // Calc max bounderies
+
                         float tNext = fInfinity;
                         int node = 0;
                         char info = nodeInfo[node];
@@ -207,7 +209,7 @@ namespace OpenEngine {
 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(rays, blocks, threads, 128);
-                //START_TIMER(timerID); 
+                START_TIMER(timerID); 
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                nodes->GetLeftData(), nodes->GetRightData(),
@@ -217,15 +219,17 @@ namespace OpenEngine {
                                                geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                                                geom->GetColor0Data(),
                                                canvasData);
-                //PRINT_TIMER(timerID, "KDRestart");
+                PRINT_TIMER(timerID, "KDRestart");
                 CHECK_FOR_CUDA_ERROR();
                                                
             }
 
             void RayTracer::HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes){
 
+                GeometryList* geom = map->GetGeometry();
+
                 logger.info << "Origin " << Convert::ToString(origin) << logger.end;
-                logger.info << "Direction " << Convert::ToString(direction) << logger.end;
+                logger.info << "Direction " << Convert::ToString(direction) << "\n" << logger.end;
 
                 float3 tHit;
                 tHit.x = 0.0f;
@@ -246,9 +250,8 @@ namespace OpenEngine {
                         cudaMemcpy(&splitValue, nodes->GetSplitPositionData() + node, sizeof(float), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
 
-                        int left;
+                        int left, right;
                         cudaMemcpy(&left, nodes->GetLeftData() + node, sizeof(int), cudaMemcpyDeviceToHost);
-                        int right;
                         cudaMemcpy(&right, nodes->GetRightData() + node, sizeof(int), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
                         
@@ -260,6 +263,7 @@ namespace OpenEngine {
                         cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
 
                         if (info & KDNode::PROXY){
+                            logger.info << "Skipped proxy node " << node << logger.end;
                             cudaMemcpy(&node, nodes->GetLeftData() + node, sizeof(int), cudaMemcpyDeviceToHost);
                             cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
                         }
@@ -277,14 +281,50 @@ namespace OpenEngine {
                     while (triangles){
                         int i = ffs(triangles) - 1;
 
+                        logger.info << "Testing indice " << primInfo.x << " + " << i << " = " << primInfo.x + i << logger.end;
+
                         int prim;
                         cudaMemcpy(&prim, map->GetPrimitiveIndices()->GetDeviceData() + primInfo.x + i, sizeof(int), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
+                        
+                        logger.info << "Testing primitive " << prim << logger.end;
 
+                        float3 v0, v1, v2;
+                        cudaMemcpy(&v0, geom->GetP0Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
+                        cudaMemcpy(&v1, geom->GetP1Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
+                        cudaMemcpy(&v2, geom->GetP2Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
+                        CHECK_FOR_CUDA_ERROR();
+
+                        float3 hitCoords;
+                        bool hit = TriangleRayIntersection(v0, v1, v2, 
+                                                           origin, direction, hitCoords);
+
+                        if (hit && hitCoords.x < tHit.x){
+                            primHit = prim;
+                            tHit = hitCoords;
+                        }
+                        
                         triangles -= 1<<i;
                     }
-
                     
+                    logger.info << "\n" << logger.end;
+                    
+                    if (primHit != -1){
+                        float4 n0, n1, n2;
+                        cudaMemcpy(&n0, geom->GetNormal0Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
+                        cudaMemcpy(&n1, geom->GetNormal1Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
+                        cudaMemcpy(&n2, geom->GetNormal2Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
+                        CHECK_FOR_CUDA_ERROR();
+
+                        uchar4 c0;
+                        cudaMemcpy(&c0, geom->GetColor0Data() + primHit, sizeof(uchar4), cudaMemcpyDeviceToHost);                        
+
+                        float4 newColor = Lighting(tHit, origin, direction, 
+                                                   n0, n1, n2,
+                                                   c0);
+                        
+                        color = BlendColor(color, newColor);
+                    }
 
                 } while(tHit.x < fInfinity && color.w < 0.97f);
             }

@@ -31,13 +31,19 @@ namespace OpenEngine {
             }
             
             void PhotonRenderingView::Handle(RenderingEventArg arg){
-                // Send arg to parent
-
-                
                 if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_INITIALIZE){
                     RenderingView::Handle(arg);
                     Initialize(arg);
                     UpdateGeometry();
+
+                    /*
+                    float3 origin = make_float3(0, 0, 0);
+                    //float3 dir = normalize(make_float3(-1.0f, -1.00f, -1.0) - origin);
+                    float3 dir = normalize(make_float3(-0.454499, -0.340874, -0.822943));
+                    RayTracer* rt = new RayTracer(triangleMap);
+                    rt->HostTrace(origin, dir, triangleMap->nodes);
+                    */
+
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
                     RenderingView::Handle(arg);
                     //if (renderTree)
