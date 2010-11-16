@@ -57,11 +57,9 @@ namespace OpenEngine {
                 
                 if (id < d_rays){
 
-                    /*
                     float3 *v0 = SharedMemory<float3>();
                     float3 *v1 = v0 + blockDim.x;
                     float3 *v2 = v1 + blockDim.x;
-                    */
                     
                     float3 origin = make_float3(origins[id]);
                     float3 dir = make_float3(directions[id]);
@@ -71,29 +69,30 @@ namespace OpenEngine {
 
                     float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
-                    /*
-                    for (int i = 0; i < prims; i += blockDim.x){
-                        int index = i + threadIdx.x;
-                        v0[threadIdx.x] = index < prims ? make_float3(v0s[index]) : make_float3(0.0f);
-                        v1[threadIdx.x] = index < prims ? make_float3(v1s[index]) : make_float3(0.0f);
-                        v2[threadIdx.x] = index < prims ? make_float3(v2s[index]) : make_float3(0.0f);
-                        __syncthreads();
-                        
-                        for (int prim = 0; prim < blockDim.x; ++prim){
-                            float3 hitCoords;
-                            bool hit = TriangleRayIntersection(v0[prim], v1[prim], v2[prim], 
-                                                               origin, dir, hitCoords);
-                            
-                            if (hit && hitCoords.x < tHit){
-                                primHit = prim;
-                                tHit = hitCoords.x;
-                            }
-                        }
-                    }
-                    */
 
                     do {
                         tHit.x = fInfinity;
+
+                        for (int i = 0; i < prims; i += blockDim.x){
+                            int index = i + threadIdx.x;
+                            v0[threadIdx.x] = index < prims ? make_float3(v0s[index]) : make_float3(0.0f);
+                            v1[threadIdx.x] = index < prims ? make_float3(v1s[index]) : make_float3(0.0f);
+                            v2[threadIdx.x] = index < prims ? make_float3(v2s[index]) : make_float3(0.0f);
+                            __syncthreads();
+                          
+                            for (int prim = 0; prim < blockDim.x; ++prim){
+                                float3 hitCoords;
+                                bool hit = TriangleRayIntersection(v0[prim], v1[prim], v2[prim], 
+                                                                   origin, dir, hitCoords);
+                                
+                                if (hit && hitCoords.x < tHit.x){
+                                    primHit = prim;
+                                    tHit = hitCoords;
+                                }
+                            }
+                        }
+                        
+                        /*
                         for (int prim = 0; prim < prims; ++prim){
                             float3 hitCoords;
                             bool hit = TriangleRayIntersection(make_float3(v0s[prim]), make_float3(v1s[prim]), make_float3(v2s[prim]), 
@@ -104,6 +103,7 @@ namespace OpenEngine {
                                 tHit = hitCoords;
                             }
                         }
+                        */
                         
                         if (tHit.x < fInfinity){
                             float4 newColor = Lighting(tHit, origin, dir, 
@@ -138,7 +138,7 @@ namespace OpenEngine {
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(rays, blocks, threads, 64);
                 int smemSize = threads * sizeof(float3) * 3;
-                //START_TIMER(timerID);
+                START_TIMER(timerID);
                 //logger.info << "BruteTracing<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
                 BruteTracing<<<blocks, threads, smemSize>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                             geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), 
@@ -146,7 +146,7 @@ namespace OpenEngine {
                                                             geom->GetColor0Data(),
                                                             canvasData,
                                                             geom->GetSize());
-                //PRINT_TIMER(timerID, "Brute tracing");
+                PRINT_TIMER(timerID, "Brute tracing");
                 CHECK_FOR_CUDA_ERROR();
                 
             }
