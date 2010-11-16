@@ -151,6 +151,10 @@ namespace OpenEngine {
                 
             }
 
+            void BruteTracer::HostTrace(float3 origin, float3 direction, TriangleNode* nodes){
+                throw Core::Exception("Not implemented");
+            }            
+
         }
     }
 }

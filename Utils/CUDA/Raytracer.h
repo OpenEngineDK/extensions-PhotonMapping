@@ -11,15 +11,12 @@
 #define _CUDA_RAY_TRACER_H_
 
 #include <Utils/CUDA/IRayTracer.h>
-#include <Utils/CUDA/TriangleMap.h>
-#include <Display/IRenderCanvas.h>
 
 namespace OpenEngine {
-    namespace Scene {
-        class TriangleNode;
-    }
     namespace Utils {
         namespace CUDA {
+
+            class TriangleMap;
             
             class RayTracer : public IRayTracer {
             public:

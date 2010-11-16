@@ -16,6 +16,9 @@ namespace OpenEngine {
     namespace Display {
         class IRenderCanvas;
     }
+    namespace Scene {
+        class TriangleNode;
+    }
     namespace Utils {
         namespace CUDA {
             
@@ -31,9 +34,11 @@ namespace OpenEngine {
                 virtual ~IRayTracer();
 
                 virtual void Trace(Display::IRenderCanvas* canvas, uchar4* canvasData) = 0;
+                virtual void HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes) = 0;
 
                 void SetVisualizeRays(const bool v) {visualizeRays = v;}
 
+            protected:
                 void CreateInitialRays(Display::IRenderCanvas* canvas);
                 void RenderRays(uchar4 *canvas, int rays);
             };

@@ -29,6 +29,8 @@ namespace OpenEngine {
                 virtual ~BruteTracer();
 
                 void Trace(Display::IRenderCanvas* canvas, uchar4* canvasData);
+
+                void HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes);
             };
 
         }

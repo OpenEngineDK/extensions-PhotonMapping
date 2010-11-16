@@ -7,11 +7,13 @@
 // See the GNU General Public License for more details (see LICENSE). 
 //--------------------------------------------------------------------
 
-#include <Meta/OpenGL.h>
-#include <Display/IViewingVolume.h>
-#include <Scene/TriangleNode.h>
 #include <Utils/CUDA/Raytracer.h>
+
+#include <Display/IViewingVolume.h>
+#include <Display/IRenderCanvas.h>
+#include <Scene/TriangleNode.h>
 #include <Utils/CUDA/Convert.h>
+#include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
 
 namespace OpenEngine {
@@ -41,11 +43,11 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
             }
 
-            RayTracer::~RayTracer(){}
+            RayTracer::~RayTracer() {}
 
             __constant__ int d_rays;
-            __constant__ int d_screenHeight;
-            __constant__ int d_screenWidth;
+            //__constant__ float3 d_aabbMin;
+            //__constant__ float3 d_aabbMax;
 
             __device__ __host__ void TraceNode(float3 origin, float3 direction, 
                                                char axes, float splitPos,
@@ -65,35 +67,6 @@ namespace OpenEngine {
                 }
 
                 float tSplit = (splitPos - ori) / dir;
-                int lowerChild = 0 < dir ? left : right;
-                int upperChild = 0 < dir ? right : left;
-                if (tMin < tSplit){
-                    node = lowerChild;
-                    tNext = min(tSplit, tNext);
-                }else
-                    node = upperChild;
-            }
-
-            __host__ void TraceNodeHost(float3 origin, float3 direction, 
-                                        char axes, float splitPos,
-                                        int left, int right, float tMin,
-                                        int &node, float &tNext){
-                float ori, dir;
-                switch(axes){
-                case KDNode::X:
-                    ori = origin.x; dir = direction.x;
-                    break;
-                case KDNode::Y:
-                    ori = origin.y; dir = direction.y;
-                    break;
-                case KDNode::Z:
-                    ori = origin.z; dir = direction.z;
-                    break;
-                }
-
-                logger.info << "tMin = " << tMin << logger.end;
-                float tSplit = (splitPos - ori) / dir;
-                logger.info << "tSplit = (" << splitPos << " - " << ori << ") / " << dir << " = " << tSplit << logger.end;
                 int lowerChild = 0 < dir ? left : right;
                 int upperChild = 0 < dir ? right : left;
                 if (tMin < tSplit){
@@ -126,8 +99,6 @@ namespace OpenEngine {
                     float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
                     do {
-                        // Calc max bounderies
-
                         float tNext = fInfinity;
                         int node = 0;
                         char info = nodeInfo[node];
@@ -195,8 +166,6 @@ namespace OpenEngine {
                 
                 int rays = height * width;
 
-                cudaMemcpyToSymbol(d_screenWidth, &width, sizeof(int));
-                cudaMemcpyToSymbol(d_screenHeight, &height, sizeof(int));
                 cudaMemcpyToSymbol(d_rays, &rays, sizeof(int));
 
                 if (visualizeRays){
@@ -207,8 +176,13 @@ namespace OpenEngine {
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
+                // Copy scene bounding box to GPU
+                // cudaMemcpyToSymbol(d_aabbMin, nodes->GetAabbMinData(), sizeof(float3));
+                // cudaMemcpyToSymbol(d_aabbMax, nodes->GetAabbMaxData(), sizeof(float3));
+                // CHECK_FOR_CUDA_ERROR();
+                
                 unsigned int blocks, threads;
-                Calc1DKernelDimensions(rays, blocks, threads, 128);
+                Calc1DKernelDimensions(rays, blocks, threads, 64);
                 START_TIMER(timerID); 
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
@@ -220,11 +194,10 @@ namespace OpenEngine {
                                                geom->GetColor0Data(),
                                                canvasData);
                 PRINT_TIMER(timerID, "KDRestart");
-                CHECK_FOR_CUDA_ERROR();
-                                               
+                CHECK_FOR_CUDA_ERROR();                                               
             }
 
-            void RayTracer::HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes){
+            void RayTracer::HostTrace(float3 origin, float3 direction, TriangleNode* nodes){
 
                 GeometryList* geom = map->GetGeometry();
 
