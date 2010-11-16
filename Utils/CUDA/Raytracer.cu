@@ -254,13 +254,13 @@ namespace OpenEngine {
                     while (triangles){
                         int i = ffs(triangles) - 1;
 
-                        logger.info << "Testing indice " << primInfo.x << " + " << i << " = " << primInfo.x + i << logger.end;
+                        //logger.info << "Testing indice " << primInfo.x << " + " << i << " = " << primInfo.x + i << logger.end;
 
                         int prim;
                         cudaMemcpy(&prim, map->GetPrimitiveIndices()->GetDeviceData() + primInfo.x + i, sizeof(int), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
                         
-                        logger.info << "Testing primitive " << prim << logger.end;
+                        //logger.info << "Testing primitive " << prim << logger.end;
 
                         float3 v0, v1, v2;
                         cudaMemcpy(&v0, geom->GetP0Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
@@ -292,14 +292,22 @@ namespace OpenEngine {
                         uchar4 c0;
                         cudaMemcpy(&c0, geom->GetColor0Data() + primHit, sizeof(uchar4), cudaMemcpyDeviceToHost);                        
 
+                        logger.info << "Prim color: " << Convert::ToString(c0) << logger.end;
+
                         float4 newColor = Lighting(tHit, origin, direction, 
                                                    n0, n1, n2,
                                                    c0);
+
+                        logger.info << "New color: " << Convert::ToString(newColor) << logger.end;
                         
                         color = BlendColor(color, newColor);
+
+                        logger.info << "Color: " << Convert::ToString(color) << logger.end;
                     }
 
                 } while(tHit.x < fInfinity && color.w < 0.97f);
+
+                logger.info << "Final color: " << Convert::ToString(color) << logger.end;
             }
 
         }

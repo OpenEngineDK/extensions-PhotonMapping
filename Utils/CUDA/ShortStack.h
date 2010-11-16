@@ -12,6 +12,8 @@
 
 #include <Utils/CUDA/IRayTracer.h>
 
+#include <sstream>
+
 namespace OpenEngine {
     namespace Utils {
         namespace CUDA {
@@ -20,6 +22,48 @@ namespace OpenEngine {
 
             class ShortStack : public IRayTracer {
             protected:
+                struct Element {
+                    int node;
+                    float tMin, tMax;
+
+                    __device__ __host__ Element()
+                        : node(0), tMin(0.0f), tMax(0.0f) {}
+                    __device__ __host__ Element(int node, float tMin, float tMax)
+                        : node(node), tMin(tMin), tMax(tMax) {}
+
+                    __host__ std::string ToString() {
+                        std::ostringstream out;
+                        out << "{node: " << node << ", tMin: " << tMin << ", tMax: " << tMax << "}";
+                        return out.str();
+                    }
+                };
+
+                template <int N> struct Stack {
+                    Element elm[N];
+                    int next;
+                    int count;
+
+                    __device__ __host__ Stack() 
+                        : next(0), count(0) {}
+
+                    __device__ __host__ bool Empty() { return count == 0; }
+                    
+                    __device__ __host__ void Push(Element e) {
+                        elm[next] = e;
+                        next++;
+                        if (next == N) next = 0;
+                        count++;
+                        if (count > N) count = N;
+                    }
+                    
+                    __device__ __host__ Element Pop() { 
+                        next--;
+                        if (next == -1) next = N-1;
+                        count--;
+                        return elm[next];
+                    }
+                };
+                
                 unsigned int timerID;
 
                 TriangleMap *map;

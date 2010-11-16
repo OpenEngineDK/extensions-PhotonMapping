@@ -104,6 +104,8 @@ namespace OpenEngine {
             void ShortStack::HostTrace(float3 origin, float3 direction, TriangleNode* nodes){
                 GeometryList* geom = map->GetGeometry();
 
+                Stack<8> stack;
+
                 logger.info << "Origin " << Convert::ToString(origin) << logger.end;
                 logger.info << "Direction " << Convert::ToString(direction) << "\n" << logger.end;
 

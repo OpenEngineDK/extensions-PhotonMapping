@@ -13,7 +13,7 @@ using namespace OpenEngine::Scene;
 using namespace OpenEngine::Utils::CUDA::Kernels;
 */
 
-#define traverselCost 2.0f
+#define traverselCost 8.0f
 
 __global__ void PreprocesLowerNodes(int *upperLeafIDs,
                                     char* upperNodeInfo,
