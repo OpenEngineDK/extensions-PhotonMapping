@@ -21,7 +21,7 @@ namespace OpenEngine {
             class TriangleMap;
 
             class ShortStack : public IRayTracer {
-            protected:
+            public:
                 struct Element {
                     int node;
                     float tMin, tMax;
@@ -48,6 +48,8 @@ namespace OpenEngine {
 
                     __device__ __host__ bool Empty() { return count == 0; }
                     
+                    // @OPT replace if with modulo or ? :
+
                     __device__ __host__ void Push(Element e) {
                         elm[next] = e;
                         next++;

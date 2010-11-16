@@ -18,6 +18,7 @@
 
 #include <Utils/CUDA/BruteTracer.h>
 #include <Utils/CUDA/Raytracer.h>
+#include <Utils/CUDA/ShortStack.h>
 
 #include <Logging/Logger.h>
 
