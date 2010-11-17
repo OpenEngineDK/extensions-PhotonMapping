@@ -61,12 +61,12 @@ namespace OpenEngine {
                 
                 if (id < d_rays){
                     
-                    ShortStack::Stack<1> stack;
+                    ShortStack::Stack<3> stack;
 
                     float3 origin = make_float3(origins[id]);
                     float3 direction = make_float3(directions[id]);
 
-                    float tMin, tMax = 0.0f;
+                    float tMin, tNext = 0.0f;
                     float3 tHit;
                     tHit.x = fInfinity;
 
@@ -74,15 +74,15 @@ namespace OpenEngine {
 
                     do {
                         int node;
-                        if (stack.Empty()){
+                        if (stack.IsEmpty()){
                             node = 0;
-                            tMin = tMax;
-                            tMax = fInfinity;
+                            tMin = tNext;
+                            tNext = fInfinity;
                         }else{
                             ShortStack::Element e = stack.Pop();
                             node = e.node;
                             tMin = e.tMin;
-                            tMax = e.tMax;
+                            tNext = e.tMax;
                         }
                         
                         char info = nodeInfo[node];
@@ -109,15 +109,13 @@ namespace OpenEngine {
                             int lowerChild = 0 < dir ? left : right;
                             int upperChild = 0 < dir ? right : left;
                         
-                            if (tSplit >= tMax || tSplit < 0)
+                            if (tMin < tSplit){
                                 node = lowerChild;
-                            else if (tSplit <= tMin)
+                                if (tNext < tSplit)
+                                    stack.Push(ShortStack::Element(upperChild, tNext, tSplit));
+                                tNext = min(tSplit, tNext);
+                            }else
                                 node = upperChild;
-                            else{
-                                stack.Push(ShortStack::Element(upperChild, tSplit, tMax));
-                                node = lowerChild;
-                                tMax = min(tSplit, tMax);
-                            }
 
                             info = nodeInfo[node];
 
@@ -127,7 +125,7 @@ namespace OpenEngine {
                             }
                         }
                         
-                        tHit.x = tMax;
+                        tHit.x = tNext;
                         
                         int2 primInfo = primitiveInfo[node];
                         int primHit = -1;
@@ -150,6 +148,9 @@ namespace OpenEngine {
                         }
 
                         if (primHit != -1){
+                            // Invalidate the short stack as a new ray has been spawned.
+                            stack.Erase();
+                            
                             float4 newColor = Lighting(tHit, origin, direction, 
                                                        n0s[primHit], n1s[primHit], n2s[primHit],
                                                        c0s[primHit]);
@@ -157,7 +158,7 @@ namespace OpenEngine {
                             color = BlendColor(color, newColor);
                         }
                         
-                    } while(tMax < fInfinity && color.w < 0.97f);
+                    } while(tNext < fInfinity && color.w < 0.97f);
 
                     canvas[id] = make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
                 }
@@ -183,7 +184,7 @@ namespace OpenEngine {
 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(rays, blocks, threads, 128);
-                START_TIMER(timerID); 
+                //START_TIMER(timerID); 
                 ShortStackTrace<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                      nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                      nodes->GetLeftData(), nodes->GetRightData(),
@@ -193,7 +194,7 @@ namespace OpenEngine {
                                                      geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                                                      geom->GetColor0Data(),
                                                      canvasData);
-                PRINT_TIMER(timerID, "Short stack");
+                //PRINT_TIMER(timerID, "Short stack");
                 CHECK_FOR_CUDA_ERROR();                                               
             }
             
@@ -202,27 +203,26 @@ namespace OpenEngine {
 
                 Stack<8> stack;
 
-                logger.info << "Origin " << Convert::ToString(origin) << logger.end;
-                logger.info << "Direction " << Convert::ToString(direction) << "\n" << logger.end;
-
-                float tMin, tMax = 0.0f;
+                float tMin, tNext = 0.0f;
                 float3 tHit;
                 tHit.x = fInfinity;
 
                 float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
                 do {
+                    logger.info << "=== Ray:  " << Convert::ToString(origin) << " -> " << Convert::ToString(direction) << " ===" << logger.end;
+                    logger.info << stack.ToString() << logger.end;
                     
                     int node;
-                    if (stack.Empty()){
+                    if (stack.IsEmpty()){
                         node = 0;
-                        tMin = tMax;
-                        tMax = fInfinity;
+                        tMin = tNext;
+                        tNext = fInfinity;
                     }else{
                         Element e = stack.Pop();
                         node = e.node;
                         tMin = e.tMin;
-                        tMax = e.tMax;
+                        tNext = e.tMax;
                     }
 
                     char info;
@@ -258,17 +258,15 @@ namespace OpenEngine {
                         float tSplit = (splitValue - ori) / dir;
                         int lowerChild = 0 < dir ? left : right;
                         int upperChild = 0 < dir ? right : left;
-                        
-                        if (tSplit >= tMax || tSplit < 0)
-                            node = lowerChild;
-                        else if (tSplit <= tMin)
-                            node = upperChild;
-                        else{
-                            stack.Push(Element(upperChild, tSplit, tMax));
-                            node = lowerChild;
-                            tMax = tSplit;
-                        }
 
+                        if (tMin < tSplit){
+                            node = lowerChild;
+                            if (tNext < tSplit)
+                                stack.Push(Element(upperChild, tNext, tSplit));
+                            tNext = min(tSplit, tNext);
+                        }else
+                            node = upperChild;
+                        
                         // New nodes info
                         cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
 
@@ -280,7 +278,9 @@ namespace OpenEngine {
                         }
                     }
 
-                    tHit.x = tMax;
+                    logger.info << "Found leaf: " << node << "\n" << logger.end;
+
+                    tHit.x = tNext;
 
                     int2 primInfo;
                     cudaMemcpy(&primInfo, nodes->GetPrimitiveInfoData() + node, sizeof(int2), cudaMemcpyDeviceToHost);
@@ -316,9 +316,12 @@ namespace OpenEngine {
                         triangles -= 1<<i;
                     }
                     
-                    logger.info << "\n" << logger.end;
+                    //logger.info << "\n" << logger.end;
 
                     if (primHit != -1){
+                        // Invalidate the shortstack as we're now tracing a new ray.
+                        stack.Erase();
+
                         float4 n0, n1, n2;
                         cudaMemcpy(&n0, geom->GetNormal0Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
                         cudaMemcpy(&n1, geom->GetNormal1Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
@@ -338,10 +341,10 @@ namespace OpenEngine {
                         
                         color = BlendColor(color, newColor);
 
-                        logger.info << "Color: " << Convert::ToString(color) << logger.end;
+                        logger.info << "Color: " << Convert::ToString(color) << "\n" << logger.end;
                     }
 
-                } while(tMax < fInfinity && color.w < 0.97f);
+                } while(tNext < fInfinity && color.w < 0.97f);
 
             }
 

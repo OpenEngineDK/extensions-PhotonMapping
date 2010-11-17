@@ -183,7 +183,7 @@ namespace OpenEngine {
                 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(rays, blocks, threads, 64);
-                START_TIMER(timerID); 
+                //START_TIMER(timerID); 
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                nodes->GetLeftData(), nodes->GetRightData(),
@@ -193,7 +193,7 @@ namespace OpenEngine {
                                                geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                                                geom->GetColor0Data(),
                                                canvasData);
-                PRINT_TIMER(timerID, "KDRestart");
+                //PRINT_TIMER(timerID, "KDRestart");
                 CHECK_FOR_CUDA_ERROR();                                               
             }
 
@@ -201,15 +201,14 @@ namespace OpenEngine {
 
                 GeometryList* geom = map->GetGeometry();
 
-                logger.info << "Origin " << Convert::ToString(origin) << logger.end;
-                logger.info << "Direction " << Convert::ToString(direction) << "\n" << logger.end;
-
                 float3 tHit;
                 tHit.x = 0.0f;
 
                 float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
                 do {
+                    logger.info << "=== Ray:  " << Convert::ToString(origin) << " -> " << Convert::ToString(direction) << " ===\n" << logger.end;
+                
                     float tNext = fInfinity;
                     int node = 0;
                     char info;
@@ -280,7 +279,7 @@ namespace OpenEngine {
                         triangles -= 1<<i;
                     }
                     
-                    logger.info << "\n" << logger.end;
+                    //logger.info << "\n" << logger.end;
                     
                     if (primHit != -1){
                         float4 n0, n1, n2;
@@ -302,7 +301,7 @@ namespace OpenEngine {
                         
                         color = BlendColor(color, newColor);
 
-                        logger.info << "Color: " << Convert::ToString(color) << logger.end;
+                        logger.info << "Color: " << Convert::ToString(color) << "\n" << logger.end;
                     }
 
                 } while(tHit.x < fInfinity && color.w < 0.97f);

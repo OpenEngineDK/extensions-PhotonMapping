@@ -28,10 +28,10 @@ namespace OpenEngine {
 
                     __device__ __host__ Element()
                         : node(0), tMin(0.0f), tMax(0.0f) {}
-                    __device__ __host__ Element(int node, float tMin, float tMax)
+                    __device__ __host__ Element(const int node, const float tMin, const float tMax)
                         : node(node), tMin(tMin), tMax(tMax) {}
 
-                    __host__ std::string ToString() {
+                    __host__ std::string ToString() const {
                         std::ostringstream out;
                         out << "{node: " << node << ", tMin: " << tMin << ", tMax: " << tMax << "}";
                         return out.str();
@@ -40,17 +40,18 @@ namespace OpenEngine {
 
                 template <int N> struct Stack {
                     Element elm[N];
-                    int next;
-                    int count;
+                    int next, count;
 
                     __device__ __host__ Stack() 
                         : next(0), count(0) {}
 
-                    __device__ __host__ bool Empty() { return count == 0; }
+                    __device__ __host__ void Erase() { next = count = 0; }
+
+                    __device__ __host__ bool IsEmpty() const { return count == 0; }
                     
                     // @OPT replace if with modulo or ? :
 
-                    __device__ __host__ void Push(Element e) {
+                    __device__ __host__ void Push(const Element e) {
                         elm[next] = e;
                         next++;
                         if (next == N) next = 0;
@@ -63,6 +64,23 @@ namespace OpenEngine {
                         if (next == -1) next = N-1;
                         count--;
                         return elm[next];
+                    }
+
+                    __host__ std::string ToString() const{
+                        std::ostringstream out;
+                        int e = next -1;
+                        if (e == -1) e = N-1;
+                        int cnt = count;
+                        out << "Stack: [";
+                        if (0 < cnt)
+                            elm[e].ToString();
+                        for (int i = 1; i < cnt; ++i){
+                            e--; if (e == -1) e = N-1;
+                            out << ", " << elm[e].ToString();
+                        }
+                        out << "]\n";
+                        //out << "count: " << count << ", next: " << next;
+                        return out.str();
                     }
                 };
                 
