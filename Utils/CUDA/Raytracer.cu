@@ -178,7 +178,7 @@ namespace OpenEngine {
                 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(rays, blocks, threads, 64);
-                //START_TIMER(timerID); 
+                START_TIMER(timerID); 
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                nodes->GetLeftData(), nodes->GetRightData(),
@@ -188,7 +188,7 @@ namespace OpenEngine {
                                                geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                                                geom->GetColor0Data(),
                                                canvasData);
-                //PRINT_TIMER(timerID, "KDRestart");
+                PRINT_TIMER(timerID, "KDRestart");
                 CHECK_FOR_CUDA_ERROR();                                               
             }
 

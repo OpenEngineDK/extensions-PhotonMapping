@@ -13,6 +13,7 @@
 #include <Display/IRenderCanvas.h>
 #include <Scene/TriangleNode.h>
 #include <Utils/CUDA/Convert.h>
+#include <Utils/CUDA/SharedMemory.h>
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
 
@@ -61,7 +62,7 @@ namespace OpenEngine {
                 
                 if (id < d_rays){
                     
-                    ShortStack::Stack<3> stack;
+                    ShortStack::Stack<6> stack;
 
                     float3 origin = make_float3(origins[id]);
                     float3 direction = make_float3(directions[id]);
@@ -108,7 +109,7 @@ namespace OpenEngine {
                         
                             if (tHit.x < tSplit){
                                 node = lowerChild;
-                                if (tNext < tSplit)
+                                if (tSplit < tNext)
                                     stack.Push(ShortStack::Element(upperChild, tSplit, tNext));
                                 tNext = min(tSplit, tNext);
                             }else
@@ -176,7 +177,7 @@ namespace OpenEngine {
 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(rays, blocks, threads, 128);
-                //START_TIMER(timerID); 
+                START_TIMER(timerID); 
                 ShortStackTrace<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                      nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                      nodes->GetLeftData(), nodes->GetRightData(),
@@ -186,7 +187,7 @@ namespace OpenEngine {
                                                      geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                                                      geom->GetColor0Data(),
                                                      canvasData);
-                //PRINT_TIMER(timerID, "Short stack");
+                PRINT_TIMER(timerID, "Short stack");
                 CHECK_FOR_CUDA_ERROR();                                               
             }
             
@@ -203,6 +204,7 @@ namespace OpenEngine {
                 do {
                     logger.info << "=== Ray:  " << Convert::ToString(origin) << " -> " << Convert::ToString(direction) << " ===" << logger.end;
                     logger.info << stack.ToString() << logger.end;
+                    logger.info << stack.count << logger.end;
                     
                     int node; float tNext;
                     if (stack.IsEmpty()){
@@ -250,7 +252,7 @@ namespace OpenEngine {
 
                         if (tHit.x < tSplit){
                             node = lowerChild;
-                            if (tNext < tSplit)
+                            if (tSplit < tNext)
                                 stack.Push(Element(upperChild, tSplit, tNext));
                             tNext = min(tSplit, tNext);
                         }else

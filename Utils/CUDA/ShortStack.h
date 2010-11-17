@@ -24,16 +24,16 @@ namespace OpenEngine {
             public:
                 struct Element {
                     int node;
-                    float tMin, tMax;
+                    float tMax;
 
                     __device__ __host__ Element()
-                        : node(0), tMin(0.0f), tMax(0.0f) {}
+                        : node(0), tMax(0.0f) {}
                     __device__ __host__ Element(const int node, const float tMin, const float tMax)
-                        : node(node), tMin(tMin), tMax(tMax) {}
+                        : node(node), tMax(tMax) {}
 
                     __host__ std::string ToString() const {
                         std::ostringstream out;
-                        out << "{node: " << node << ", tMin: " << tMin << ", tMax: " << tMax << "}";
+                        out << "{node: " << node << ", tMax: " << tMax << "}";
                         return out.str();
                     }
                 };
@@ -49,19 +49,14 @@ namespace OpenEngine {
 
                     __device__ __host__ bool IsEmpty() const { return count == 0; }
                     
-                    // @OPT replace if with modulo or ? :
-
                     __device__ __host__ void Push(const Element e) {
                         elm[next] = e;
-                        next++;
-                        if (next == N) next = 0;
-                        count++;
-                        if (count > N) count = N;
+                        next = next == N-1 ? 0 : next+1;
+                        count = count == N ? N : count+1;
                     }
                     
                     __device__ __host__ Element Pop() { 
-                        next--;
-                        if (next == -1) next = N-1;
+                        next = (next == 0 ? N : next) - 1;
                         count--;
                         return elm[next];
                     }
@@ -73,7 +68,7 @@ namespace OpenEngine {
                         int cnt = count;
                         out << "Stack: [";
                         if (0 < cnt)
-                            elm[e].ToString();
+                            out << elm[e].ToString();
                         for (int i = 1; i < cnt; ++i){
                             e--; if (e == -1) e = N-1;
                             out << ", " << elm[e].ToString();
