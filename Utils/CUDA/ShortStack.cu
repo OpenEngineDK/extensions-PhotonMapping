@@ -110,7 +110,7 @@ namespace OpenEngine {
                             if (tHit.x < tSplit){
                                 node = lowerChild;
                                 if (tSplit < tNext)
-                                    stack.Push(ShortStack::Element(upperChild, tSplit, tNext));
+                                    stack.Push(ShortStack::Element(upperChild, tNext));
                                 tNext = min(tSplit, tNext);
                             }else
                                 node = upperChild;
@@ -253,7 +253,7 @@ namespace OpenEngine {
                         if (tHit.x < tSplit){
                             node = lowerChild;
                             if (tSplit < tNext)
-                                stack.Push(Element(upperChild, tSplit, tNext));
+                                stack.Push(Element(upperChild, tNext));
                             tNext = min(tSplit, tNext);
                         }else
                             node = upperChild;

@@ -28,7 +28,7 @@ namespace OpenEngine {
 
                     __device__ __host__ Element()
                         : node(0), tMax(0.0f) {}
-                    __device__ __host__ Element(const int node, const float tMin, const float tMax)
+                    __device__ __host__ Element(const int node, const float tMax)
                         : node(node), tMax(tMax) {}
 
                     __host__ std::string ToString() const {
