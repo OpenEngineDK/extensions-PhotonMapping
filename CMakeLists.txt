@@ -4,14 +4,14 @@ SET ( EXTENSION_NAME "Extensions_PhotonMapping")
 CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Math/CUDA/Matrix.h
   Scene/KDNode.cu
-  Scene/KDPhotonUpperNode.cu
-  Scene/PhotonUpperNode.cu
-  Scene/PhotonLowerNode.cu
-  Scene/PhotonNode.cu
+#  Scene/KDPhotonUpperNode.cu
+#  Scene/PhotonUpperNode.cu
+#  Scene/PhotonLowerNode.cu
+#  Scene/PhotonNode.cu
   Scene/TriangleNode.cu
   Resources/CUDA/CUDADataBlock.h
-  Utils/CUDA/NodeChildren.cu
-  Utils/CUDA/UpperNodeLeafList.cu
+#  Utils/CUDA/NodeChildren.cu
+#  Utils/CUDA/UpperNodeLeafList.cu
   Utils/CUDA/Segments.cu
   Utils/CUDA/SplittingPlanes.cu
   Utils/CUDA/GeometryList.cu
@@ -23,9 +23,9 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Utils/CUDA/TriangleMapSAHCreator.cu
   Utils/CUDA/TriangleMap.cu
   Utils/CUDA/TriangleMapUpperNode.cu
-  Utils/CUDA/PhotonMap.cu
-  Utils/CUDA/PhotonMapCheck.cu
-  Utils/CUDA/PhotonMapLowerNodes.cu
+#  Utils/CUDA/PhotonMap.cu
+#  Utils/CUDA/PhotonMapCheck.cu
+#  Utils/CUDA/PhotonMapLowerNodes.cu
 )
 
 TARGET_LINK_LIBRARIES("CUDA_KERNELS"
