@@ -108,12 +108,10 @@ namespace OpenEngine {
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activeRange, blocks, threads);
                 PreprocesLowerNodes<<<blocks, threads>>>(upperLeafIDs->GetDeviceData(),
-                                                         nodes->GetInfoData(),
                                                          nodes->GetPrimitiveInfoData(),
                                                          nodes->GetSurfaceAreaData(),
                                                          primMax->GetDeviceData(),
-                                                         nodes->GetLeftData(), nodes->GetRightData(),
-                                                         activeIndex, activeRange);
+                                                         activeRange);
                 CHECK_FOR_CUDA_ERROR();
 
                 Calc1DKernelDimensions(activeRange * TriangleNode::MAX_LOWER_SIZE, blocks, threads, 448);

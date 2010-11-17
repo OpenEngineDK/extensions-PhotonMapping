@@ -13,15 +13,13 @@ using namespace OpenEngine::Scene;
 using namespace OpenEngine::Utils::CUDA::Kernels;
 */
 
-#define traverselCost 1.0f
+#define traverselCost 8.0f
 
 __global__ void PreprocesLowerNodes(int *upperLeafIDs,
-                                    char* upperNodeInfo,
                                     int2 *primitiveInfo,
                                     float* surfaceArea,
                                     float4* primMax,
-                                    int *upperLeft, int *upperRight,
-                                    int activeIndex, int activeRange){
+                                    int activeRange){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
