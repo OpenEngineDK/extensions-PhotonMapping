@@ -57,6 +57,12 @@ inline bool Calc1DKernelDimensions(const unsigned int size,
     }
 }
 
+inline bool Calc1DKernelDimensionsWithSmem(const unsigned int size, 
+                                           unsigned int &blocks, unsigned int &threads, unsigned int &memSize,
+                                           unsigned int maxThreads = 0){
+    return false;
+}
+
 inline __host__ __device__ bool TriangleRayIntersection(float3 v0, float3 v1, float3 v2,
                                                         float3 origin, float3 direction,
                                                         float3 &hit){
@@ -70,7 +76,7 @@ inline __host__ __device__ bool TriangleRayIntersection(float3 v0, float3 v1, fl
 
     // if det is 'equal' to zero, the ray lies in the triangles plane
     // and cannot be seen.
-    if (det == 0.0f) return false;
+    //if (det == 0.0f) return false;
 
     det = 1.0f / det;
 
@@ -81,16 +87,28 @@ inline __host__ __device__ bool TriangleRayIntersection(float3 v0, float3 v1, fl
     return hit.x >= 0.0f && hit.y >= 0.0f && hit.z >= 0.0f && hit.y + hit.z <= 1.0f;
 }
 
+inline __host__ __device__ int firstBitSet(int n){
+#ifdef __CUDA_ARCH__ // device code
+    return __ffs(n);
+#else
+    return ffs(n);
+#endif    
+}
+
 /**
  * Stolen from
  * http://gurmeetsingh.wordpress.com/2008/08/05/fast-bit-counting-routines
  *
  * How and why it works? Magic! Now go code something.
  */
-inline __host__ __device__ int bitcount(unsigned int n){
-    unsigned int tmp = n - ((n >> 1) & 033333333333)
+inline __host__ __device__ int bitcount(int n){
+#ifdef __CUDA_ARCH__ // device code
+    return __popc(n);
+#else
+    int tmp = n - ((n >> 1) & 033333333333)
         - ((n >> 2) & 011111111111);
     return ((tmp + (tmp >> 3)) & 030707070707) % 63;
+#endif
 }
 
 inline std::string BitmapToString(unsigned int n){

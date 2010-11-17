@@ -219,6 +219,7 @@ namespace OpenEngine {
 
                 throw Exception("CheckPreprocess was broken by removing PROXY");
 
+                /*
                 TriangleNode* nodes = map->nodes;
 
                 int h_leafIDs[activeRange];
@@ -260,7 +261,7 @@ namespace OpenEngine {
                                         " does not match lower node " + Utils::Convert::ToString(activeIndex + i) +
                                         "'s bitmap " + BitmapToString(lowerPrimInfo[i].y));
                 }
-
+                */
                 // @TODO check split set
 
             }

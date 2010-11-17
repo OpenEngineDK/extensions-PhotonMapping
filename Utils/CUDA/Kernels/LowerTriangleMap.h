@@ -13,7 +13,7 @@ using namespace OpenEngine::Scene;
 using namespace OpenEngine::Utils::CUDA::Kernels;
 */
 
-#define traverselCost 8.0f
+#define traverselCost 1.0f
 
 __global__ void PreprocesLowerNodes(int *upperLeafIDs,
                                     char* upperNodeInfo,
@@ -129,8 +129,8 @@ __device__ void CalcAreaForSets(int4 splittingSets, char splitAxis,
     splittingSets.w &= areaIndices;
 
     while (areaIndices){
-        int i = __ffs(areaIndices) - 1;
-            
+        int i = firstBitSet(areaIndices) - 1;
+
         setAreas.x += splittingSets.x & (1<<i) ? areas[i] : 0.0f;
         setAreas.y += splittingSets.y & (1<<i) ? areas[i] : 0.0f;
         setAreas.z += splittingSets.z & (1<<i) ? areas[i] : 0.0f;
@@ -139,8 +139,8 @@ __device__ void CalcAreaForSets(int4 splittingSets, char splitAxis,
         areaIndices -= 1<<i;
     }
         
-    float lowArea = __popc(splittingSets.x) * setAreas.x + __popc(splittingSets.y) * setAreas.y;
-    float highArea = __popc(splittingSets.z) * setAreas.z + __popc(splittingSets.w) * setAreas.w;
+    float lowArea = __popc(splittingSets.x) * setAreas.x + bitcount(splittingSets.y) * setAreas.y;
+    float highArea = __popc(splittingSets.z) * setAreas.z + bitcount(splittingSets.w) * setAreas.w;
 
     if (lowArea < optimalArea){
         leftSet = splittingSets.x;
