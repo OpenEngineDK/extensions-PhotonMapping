@@ -47,6 +47,8 @@ namespace OpenEngine {
 
             BruteTracer::~BruteTracer() {}
 
+#define MAX_PRIMS 128
+
             __global__ void BruteTracing(float4* origins, float4* directions,
                                          float4 *v0s, float4 *v1s, float4 *v2s,
                                          float4 *n0s, float4 *n1s, float4 *n2s,
@@ -57,22 +59,24 @@ namespace OpenEngine {
                 
                 if (id < d_rays){
 
-                    float3 *v0 = SharedMemory<float3>();
-                    float3 *v1 = v0 + blockDim.x;
-                    float3 *v2 = v1 + blockDim.x;
-                    
+                    prims = prims < MAX_PRIMS ? prims : MAX_PRIMS;
+
                     float3 origin = make_float3(origins[id]);
                     float3 dir = make_float3(directions[id]);
                     
                     float3 tHit;
-                    int primHit = 0;
 
                     float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
-
+                    float3 *v0 = SharedMemory<float3>();
+                    float3 *v1 = v0 + blockDim.x;
+                    float3 *v2 = v1 + blockDim.x;
+                    
                     do {
                         tHit.x = fInfinity;
 
+                        int primHit = -1;
+                        /*
                         for (int i = 0; i < prims; i += blockDim.x){
                             int index = i + threadIdx.x;
                             v0[threadIdx.x] = index < prims ? make_float3(v0s[index]) : make_float3(0.0f);
@@ -91,8 +95,8 @@ namespace OpenEngine {
                                 }
                             }
                         }
-                        
-                        /*
+                        */                        
+
                         for (int prim = 0; prim < prims; ++prim){
                             float3 hitCoords;
                             bool hit = TriangleRayIntersection(make_float3(v0s[prim]), make_float3(v1s[prim]), make_float3(v2s[prim]), 
@@ -103,7 +107,6 @@ namespace OpenEngine {
                                 tHit = hitCoords;
                             }
                         }
-                        */
                         
                         if (tHit.x < fInfinity){
                             float4 newColor = Lighting(tHit, origin, dir, 
