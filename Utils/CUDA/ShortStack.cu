@@ -66,22 +66,19 @@ namespace OpenEngine {
                     float3 origin = make_float3(origins[id]);
                     float3 direction = make_float3(directions[id]);
 
-                    float tMin, tNext = 0.0f;
                     float3 tHit;
-                    tHit.x = fInfinity;
+                    tHit.x = 0.0f;
 
                     float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
                     do {
-                        int node;
+                        int node; float tNext;
                         if (stack.IsEmpty()){
                             node = 0;
-                            tMin = tNext;
                             tNext = fInfinity;
                         }else{
                             ShortStack::Element e = stack.Pop();
                             node = e.node;
-                            tMin = e.tMin;
                             tNext = e.tMax;
                         }
                         
@@ -109,10 +106,10 @@ namespace OpenEngine {
                             int lowerChild = 0 < dir ? left : right;
                             int upperChild = 0 < dir ? right : left;
                         
-                            if (tMin < tSplit){
+                            if (tHit.x < tSplit){
                                 node = lowerChild;
                                 if (tNext < tSplit)
-                                    stack.Push(ShortStack::Element(upperChild, tNext, tSplit));
+                                    stack.Push(ShortStack::Element(upperChild, tSplit, tNext));
                                 tNext = min(tSplit, tNext);
                             }else
                                 node = upperChild;
@@ -153,7 +150,7 @@ namespace OpenEngine {
                             color = BlendColor(color, newColor);
                         }
                         
-                    } while(tNext < fInfinity && color.w < 0.97f);
+                    } while(tHit.x < fInfinity && color.w < 0.97f);
 
                     canvas[id] = make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
                 }
@@ -196,11 +193,10 @@ namespace OpenEngine {
             void ShortStack::HostTrace(float3 origin, float3 direction, TriangleNode* nodes){
                 GeometryList* geom = map->GetGeometry();
 
-                Stack<8> stack;
-
-                float tMin, tNext = 0.0f;
+                Stack<3> stack;
+                
                 float3 tHit;
-                tHit.x = fInfinity;
+                tHit.x = 0.0f;
 
                 float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
@@ -208,15 +204,13 @@ namespace OpenEngine {
                     logger.info << "=== Ray:  " << Convert::ToString(origin) << " -> " << Convert::ToString(direction) << " ===" << logger.end;
                     logger.info << stack.ToString() << logger.end;
                     
-                    int node;
+                    int node; float tNext;
                     if (stack.IsEmpty()){
                         node = 0;
-                        tMin = tNext;
                         tNext = fInfinity;
                     }else{
                         Element e = stack.Pop();
                         node = e.node;
-                        tMin = e.tMin;
                         tNext = e.tMax;
                     }
 
@@ -254,10 +248,10 @@ namespace OpenEngine {
                         int lowerChild = 0 < dir ? left : right;
                         int upperChild = 0 < dir ? right : left;
 
-                        if (tMin < tSplit){
+                        if (tHit.x < tSplit){
                             node = lowerChild;
                             if (tNext < tSplit)
-                                stack.Push(Element(upperChild, tNext, tSplit));
+                                stack.Push(Element(upperChild, tSplit, tNext));
                             tNext = min(tSplit, tNext);
                         }else
                             node = upperChild;
@@ -332,7 +326,7 @@ namespace OpenEngine {
                         logger.info << "Color: " << Convert::ToString(color) << "\n" << logger.end;
                     }
 
-                } while(tNext < fInfinity && color.w < 0.97f);
+                } while(tHit.x < fInfinity && color.w < 0.97f);
 
             }
 
