@@ -113,11 +113,6 @@ namespace OpenEngine {
                                       node, tNext);
                                                         
                             info = nodeInfo[node];
-                            
-                            if (info & KDNode::PROXY){
-                                node = leftChild[node];
-                                info = nodeInfo[node];
-                            }
                         }
 
                         tHit.x = tNext;
@@ -233,12 +228,6 @@ namespace OpenEngine {
                         //logger.info << "tNext " << tNext << logger.end;
 
                         cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
-
-                        if (info & KDNode::PROXY){
-                            logger.info << "Skipped proxy node " << node << logger.end;
-                            cudaMemcpy(&node, nodes->GetLeftData() + node, sizeof(int), cudaMemcpyDeviceToHost);
-                            cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
-                        }
                     }
 
                     logger.info << "Found leaf: " << node << "\n" << logger.end;

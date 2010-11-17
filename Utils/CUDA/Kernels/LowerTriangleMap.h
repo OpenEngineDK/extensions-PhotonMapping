@@ -27,7 +27,6 @@ __global__ void PreprocesLowerNodes(int *upperLeafIDs,
                 
     if (id < activeRange){
         int leafID = upperLeafIDs[id];
-        int lowerNodeID = id + activeIndex;
         int2 triInfo = primitiveInfo[leafID];
 
         float area = 0.0f;
@@ -38,24 +37,24 @@ __global__ void PreprocesLowerNodes(int *upperLeafIDs,
             triInfo.y += a > 0.0f ? (1<<i) : 0;
             area += a;
         }
-        surfaceArea[lowerNodeID] = area;
-
-        upperNodeInfo[leafID] = area > 0.0f ? KDNode::PROXY : KDNode::LEAF;
-
-        primitiveInfo[lowerNodeID] = triInfo;
-        upperLeft[leafID] = upperRight[leafID] = lowerNodeID;
+        surfaceArea[leafID] = area;
+        primitiveInfo[leafID] = triInfo;
     }
 }
 
-__global__ void CreateSplittingPlanes(int4 *splitTriangleSet,
+__global__ void CreateSplittingPlanes(int *upperLeafIDs,
                                       int2 *primitiveInfo,
                                       float4* aabbMins, float4* aabbMaxs,
-                                      int activeRange){
+                                      int4 *splitTriangleSet,
+                                      int activeIndex, int activeRange){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
-    const int nodeID = id / TriangleNode::MAX_LOWER_SIZE;
+    int nodeID = id / TriangleNode::MAX_LOWER_SIZE;
 
     if (nodeID < activeRange){
+    
+        nodeID = upperLeafIDs[nodeID];
+        
         const int2 primInfo = primitiveInfo[nodeID];
         const int primID = id % TriangleNode::MAX_LOWER_SIZE;
         const int primIndex = primInfo.x + primID;
@@ -104,9 +103,6 @@ __global__ void CreateSplittingPlanes(int4 *splitTriangleSet,
             triangles -= 1<<i;
         }
 
-        // @OPT Left split set should be smallest to facilitate
-        // better thread coherence.
-
         if (primInfo.y & 1<<primID){
             splitTriangleSet[primIndex] = splitX;
             splitTriangleSet[d_triangles + primIndex] = splitY;
@@ -115,7 +111,7 @@ __global__ void CreateSplittingPlanes(int4 *splitTriangleSet,
             
     }
 }
-    
+
 __device__ void CalcAreaForSets(int4 splittingSets, char splitAxis, 
                                 int setIndex,
                                 int areaIndices, float* areas, 
@@ -168,9 +164,11 @@ __device__ void CalcAreaForSets(int4 splittingSets, char splitAxis,
 }
 
 // @OPT move surfacearea to a single float array?
+template <bool useIndices>
 __global__ void 
 __launch_bounds__(96) 
-    CalcSAH(char *info,
+    CalcSAH(int *upperLeafIDs,
+            char *info,
             float *splitPoss,
             int2 *primitiveInfo,
             float *nodeSurface,
@@ -182,7 +180,9 @@ __launch_bounds__(96)
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
     if (id < d_activeNodeRange){
-        const int2 primInfo = primitiveInfo[id];
+        const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
+
+        const int2 primInfo = primitiveInfo[parentID];
             
         // @OPT. Perhaps the threads can fill the area array coalesced?
         float* area = SharedMemory<float>();
@@ -234,7 +234,7 @@ __launch_bounds__(96)
             triangles -= 1<<i;
         }
             
-        float nodeArea = nodeSurface[id];
+        float nodeArea = nodeSurface[parentID];
         bool split = optimalArea < (__popc(primInfo.y) - traverselCost) * nodeArea;
         if (split){
             // Dump stuff and move on.
@@ -248,14 +248,16 @@ __launch_bounds__(96)
                 // A low splitplane was used
                 splitPositions = make_float3(aabbMin[splitIndex]);
             }
-            splitPoss[id] = axis == KDNode::X ? splitPositions.x : (axis == KDNode::Y ? splitPositions.y : splitPositions.z);
+            splitPoss[parentID] = axis == KDNode::X ? splitPositions.x : (axis == KDNode::Y ? splitPositions.y : splitPositions.z);
         }
-        info[id] = split ? axis : KDNode::LEAF;
+        info[parentID] = split ? axis : KDNode::LEAF;
         splitSides[id] = split;
     }
 }
 
-__global__ void CreateLowerSAHChildren(int *childSplit,
+template <bool useIndices>
+__global__ void CreateLowerSAHChildren(int *upperLeafIDs,
+                                       int *childSplit,
                                        int *childAddrs,
                                        float2 *childAreas,
                                        int2 *childSets,
@@ -277,8 +279,8 @@ __global__ void CreateLowerSAHChildren(int *childSplit,
             int2 childrenSet = childSets[id];
                 
             const int childOffset = childAddrs[id];
-                
-            const int parentID = d_activeNodeIndex + id;
+
+            const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
             int2 parentPrimInfo = primitiveInfo[parentID];
                 
             const int leftChildID = d_activeNodeIndex + d_activeNodeRange + childOffset;

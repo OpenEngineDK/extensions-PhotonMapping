@@ -77,12 +77,16 @@ namespace OpenEngine {
                 PreprocessLowerNodes(activeIndex, activeRange, map, upperLeafIDs);
                 PRINT_TIMER(timerID, "Preprocess lower nodes using SAH");
 
-                // @OPT Don't use a proxy, but do the first step outside the kernel.
-
                 START_TIMER(timerID); 
+                ProcessLowerNodes(activeIndex, activeRange,
+                                  map, upperLeafIDs, childrenCreated);
+                
+                activeIndex = map->nodes->size - childrenCreated;
+                activeRange = childrenCreated;
+
                 while (activeRange > 0){
                     ProcessLowerNodes(activeIndex, activeRange,
-                                      map, childrenCreated);
+                                      map, NULL, childrenCreated);
 
                     activeIndex = map->nodes->size - childrenCreated;
                     activeRange = childrenCreated;
@@ -91,12 +95,13 @@ namespace OpenEngine {
             }
 
             void TriangleMapSAHCreator::PreprocessLowerNodes(int activeIndex, int activeRange, 
-                                      TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs) {
+                                      TriangleMap* map, CUDADataBlock<1, int>* upperLeafIDs) {
                 int triangles = primMin->GetSize();
                 logger.info << "=== Preprocess " << activeRange << " Lower Nodes Starting at " << activeIndex << " === with " << triangles << " triangles" << logger.end;
                 
                 TriangleNode* nodes = map->nodes;
                 nodes->Extend(activeIndex + activeRange);
+                nodes->size = activeIndex + activeRange;
 
                 splitTriangleSet->Extend(triangles * 3);
                 
@@ -114,10 +119,11 @@ namespace OpenEngine {
                 Calc1DKernelDimensions(activeRange * TriangleNode::MAX_LOWER_SIZE, blocks, threads, 448);
                 unsigned int smemSize = threads * (sizeof(float3) + sizeof(float3));
                 CreateSplittingPlanes<<<blocks, threads, smemSize>>>
-                    (splitTriangleSet->GetDeviceData(), 
-                     nodes->GetPrimitiveInfoData() + activeIndex,
+                    (upperLeafIDs->GetDeviceData(),
+                     nodes->GetPrimitiveInfoData(),
                      primMin->GetDeviceData(), primMax->GetDeviceData(),
-                     activeRange);
+                     splitTriangleSet->GetDeviceData(), 
+                     activeIndex, activeRange);
                 CHECK_FOR_CUDA_ERROR();
 
 #if CPU_VERIFY
@@ -127,7 +133,8 @@ namespace OpenEngine {
             }
                 
             void TriangleMapSAHCreator::ProcessLowerNodes(int activeIndex, int activeRange, 
-                                   TriangleMap* map, int &childrenCreated) {
+                                                          TriangleMap* map, CUDADataBlock<1, int>* upperLeafIDs, 
+                                                          int &childrenCreated) {
                 logger.info << "=== Process " << activeRange << " Lower Nodes Starting at " << activeIndex << " ===" << logger.end;
 
                 TriangleNode* nodes = map->nodes;
@@ -144,36 +151,31 @@ namespace OpenEngine {
                 Calc1DKernelDimensions(activeRange, blocks, threads, 96);
                 unsigned int smemSize = threads * TriangleNode::MAX_LOWER_SIZE * sizeof(float);
                 //logger.info << "<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
-                CalcSAH<<<blocks, threads, smemSize>>>(nodes->GetInfoData() + activeIndex,
-                                                       nodes->GetSplitPositionData() + activeIndex,
-                                                       nodes->GetPrimitiveInfoData() + activeIndex,
-                                                       nodes->GetSurfaceAreaData() + activeIndex,
-                                                       primMin->GetDeviceData(),
-                                                       primMax->GetDeviceData(),
-                                                       splitTriangleSet->GetDeviceData(),
-                                                       childAreas->GetDeviceData(),
-                                                       childSets->GetDeviceData(),
-                                                       splitSide->GetDeviceData());
+                if (upperLeafIDs)
+                    CalcSAH<true><<<blocks, threads, smemSize>>>(upperLeafIDs->GetDeviceData(), 
+                                                                 nodes->GetInfoData(),
+                                                                 nodes->GetSplitPositionData(),
+                                                                 nodes->GetPrimitiveInfoData(),
+                                                                 nodes->GetSurfaceAreaData(),
+                                                                 primMin->GetDeviceData(),
+                                                                 primMax->GetDeviceData(),
+                                                                 splitTriangleSet->GetDeviceData(),
+                                                                 childAreas->GetDeviceData(),
+                                                                 childSets->GetDeviceData(),
+                                                                 splitSide->GetDeviceData());
+                else
+                    CalcSAH<false><<<blocks, threads, smemSize>>>(NULL, 
+                                                                  nodes->GetInfoData(),
+                                                                  nodes->GetSplitPositionData(),
+                                                                  nodes->GetPrimitiveInfoData(),
+                                                                  nodes->GetSurfaceAreaData(),
+                                                                  primMin->GetDeviceData(),
+                                                                  primMax->GetDeviceData(),
+                                                                  splitTriangleSet->GetDeviceData(),
+                                                                  childAreas->GetDeviceData(),
+                                                                  childSets->GetDeviceData(),
+                                                                  splitSide->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
-
-                /*
-                if (activeIndex == 2399){
-                    logger.info << nodes->ToString(activeIndex+40) << logger.end;
-                    
-                    int primOffset = 632;
-                    int primRange = 6;
-                    
-                    logger.info << "primMin: " << Convert::ToString(primMin->GetDeviceData() + primOffset, primRange) << logger.end;
-                    logger.info << "primMax: " << Convert::ToString(primMax->GetDeviceData() + primOffset, primRange) << logger.end;
-                    
-                    logger.info << "X splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset, primRange) << logger.end;
-                    logger.info << "Y splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset + triangles, primRange) << logger.end;
-                    logger.info << "Z splittingSets: " << Convert::ToString(splitTriangleSet->GetDeviceData() + primOffset + 2 * triangles, primRange) << logger.end;
-                    
-                    logger.info << "Child areas: " << Convert::ToString(childAreas->GetDeviceData() + 40, 1) << logger.end;
-                    logger.info << "Child sets: " << Convert::ToString(childSets->GetDeviceData() + 40, 1) << logger.end;
-                }
-                */
 
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), activeRange+1);
                 CHECK_FOR_CUDA_ERROR();
@@ -185,15 +187,27 @@ namespace OpenEngine {
                 nodes->size = activeIndex + activeRange + 2 * splits;
 
                 Calc1DKernelDimensions(activeRange, blocks, threads);
-                CreateLowerSAHChildren<<<blocks, threads>>>(splitSide->GetDeviceData(),
-                                                            splitAddr->GetDeviceData(),
-                                                            childAreas->GetDeviceData(),
-                                                            childSets->GetDeviceData(),
-                                                            nodes->GetSurfaceAreaData(),
-                                                            nodes->GetPrimitiveInfoData(),
-                                                            nodes->GetLeftData(),
-                                                            nodes->GetRightData(),
-                                                            splits);
+                if (upperLeafIDs)
+                    CreateLowerSAHChildren<true><<<blocks, threads>>>(upperLeafIDs->GetDeviceData(), 
+                                                                      splitSide->GetDeviceData(),
+                                                                      splitAddr->GetDeviceData(),
+                                                                      childAreas->GetDeviceData(),
+                                                                      childSets->GetDeviceData(),
+                                                                      nodes->GetSurfaceAreaData(),
+                                                                      nodes->GetPrimitiveInfoData(),
+                                                                      nodes->GetLeftData(),
+                                                                      nodes->GetRightData(),
+                                                                      splits);
+                else
+                    CreateLowerSAHChildren<false><<<blocks, threads>>>(NULL, splitSide->GetDeviceData(),
+                                                                       splitAddr->GetDeviceData(),
+                                                                       childAreas->GetDeviceData(),
+                                                                       childSets->GetDeviceData(),
+                                                                       nodes->GetSurfaceAreaData(),
+                                                                       nodes->GetPrimitiveInfoData(),
+                                                                       nodes->GetLeftData(),
+                                                                       nodes->GetRightData(),
+                                                                       splits);
                 CHECK_FOR_CUDA_ERROR();
 
                 childrenCreated = splits * 2;
@@ -202,6 +216,8 @@ namespace OpenEngine {
 
             void TriangleMapSAHCreator::CheckPreprocess(int activeIndex, int activeRange, 
                                  TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* leafIDs) {
+
+                throw Exception("CheckPreprocess was broken by removing PROXY");
 
                 TriangleNode* nodes = map->nodes;
 
@@ -227,10 +243,6 @@ namespace OpenEngine {
                     if (info[i] == KDNode::LEAF){
                         if (lowerPrimInfo[i].y != 0)
                             throw Exception("Empty lower node didn't result in upper leaf.");
-                    }else if (info[i] != KDNode::PROXY){
-                        logger.info << nodes->ToString(h_leafIDs[i]) << logger.end;
-                        logger.info << nodes->ToString(activeIndex + i) << logger.end;
-                        throw Exception("info not equal to PROXY.");
                     }
                     if (left[i] != activeIndex + i)
                         throw Exception("leaf not pointing to correct lower node");

@@ -46,7 +46,8 @@ namespace OpenEngine {
                                           TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
                 
                 void ProcessLowerNodes(int activeIndex, int activeRange, 
-                                       TriangleMap* map, int &childrenCreated);
+                                       TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs,
+                                       int &childrenCreated);
 
                 void CheckPreprocess(int activeIndex, int activeRange, 
                                      TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* leafIDs);

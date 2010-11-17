@@ -60,7 +60,7 @@ namespace OpenEngine {
         }
         
         std::string KDNode::ToString(unsigned int i){
-            bool isLeaf = false, isProxy = false;
+            bool isLeaf = false;
             std::ostringstream out;
                     
             out << "Upper node " << i << ":\n";
@@ -85,10 +85,6 @@ namespace OpenEngine {
                 isLeaf = true;
                 out << "Is a leaf\n";
                 break;
-            case PROXY:
-                isProxy = true;
-                out << "Acts as a proxy\n";
-                break;
             }
 
             if (isLeaf){
@@ -98,7 +94,7 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
             }
             
-            if (!isLeaf && !isProxy){
+            if (!isLeaf){
                 point h_aabbmin, h_aabbmax;
                 cudaMemcpy(&h_aabbmin, aabbMin->GetDeviceData() + i, sizeof(point), cudaMemcpyDeviceToHost);
                 cudaMemcpy(&h_aabbmax, aabbMax->GetDeviceData() + i, sizeof(point), cudaMemcpyDeviceToHost);
@@ -112,9 +108,7 @@ namespace OpenEngine {
             cudaMemcpy(&h_left, left->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
             cudaMemcpy(&h_right, right->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
             CHECK_FOR_CUDA_ERROR();
-            if (isProxy){
-                out << "points to lowernode " << h_left << "\n";
-            }else if (!isLeaf){
+            if (!isLeaf){
                 out << "Has children " << h_left << " and " << h_right << "\n";
             }
                     
