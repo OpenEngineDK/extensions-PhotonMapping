@@ -50,7 +50,7 @@ namespace OpenEngine {
                 
                 CUDPPResult res = cudppPlan(&scanHandle, scanConfig, scanSize, 1, 0);
                 if (CUDPP_SUCCESS != res)
-                    throw Core::Exception("Error creating CUDPP scanPlan");
+                    throw Core::Exception("Error creating CUDPP scanPlan for Triangle Map SAH Creator");
             }
             
             TriangleMapSAHCreator::~TriangleMapSAHCreator() {
@@ -105,7 +105,7 @@ namespace OpenEngine {
 
                 splitTriangleSet->Extend(triangles * 3);
                 
-                unsigned int blocks, threads;
+                unsigned int blocks, threads, smemSize;
                 Calc1DKernelDimensions(activeRange, blocks, threads);
                 PreprocesLowerNodes<<<blocks, threads>>>(upperLeafIDs->GetDeviceData(),
                                                          nodes->GetPrimitiveInfoData(),
@@ -114,8 +114,10 @@ namespace OpenEngine {
                                                          activeRange);
                 CHECK_FOR_CUDA_ERROR();
 
-                Calc1DKernelDimensions(activeRange * TriangleNode::MAX_LOWER_SIZE, blocks, threads, 448);
-                unsigned int smemSize = threads * (sizeof(float3) + sizeof(float3));
+                unsigned int smemPrThread = sizeof(float3) + sizeof(float3);
+                Calc1DKernelDimensionsWithSmem(activeRange * TriangleNode::MAX_LOWER_SIZE, smemPrThread, 
+                                               blocks, threads, smemSize, 448);
+
                 CreateSplittingPlanes<<<blocks, threads, smemSize>>>
                     (upperLeafIDs->GetDeviceData(),
                      nodes->GetPrimitiveInfoData(),
@@ -145,9 +147,11 @@ namespace OpenEngine {
                 splitSide->Extend(activeRange+1);
                 splitAddr->Extend(activeRange+1);
 
-                unsigned int blocks, threads;
-                Calc1DKernelDimensions(activeRange, blocks, threads, 96);
-                unsigned int smemSize = threads * TriangleNode::MAX_LOWER_SIZE * sizeof(float);
+                unsigned int blocks, threads, smemSize;
+                unsigned int smemPrThread = TriangleNode::MAX_LOWER_SIZE * sizeof(float);
+                Calc1DKernelDimensionsWithSmem(activeRange, smemPrThread, 
+                                               blocks, threads, smemSize, 96);
+                
                 //logger.info << "<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
                 if (upperLeafIDs)
                     CalcSAH<true><<<blocks, threads, smemSize>>>(upperLeafIDs->GetDeviceData(), 

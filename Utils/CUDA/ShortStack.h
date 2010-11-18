@@ -12,6 +12,8 @@
 
 #include <Utils/CUDA/IRayTracer.h>
 
+#include <Utils/CUDA/Utils.h>
+
 #include <sstream>
 
 namespace OpenEngine {
@@ -42,8 +44,9 @@ namespace OpenEngine {
                     Element elm[N];
                     int next, count;
 
-                    __device__ __host__ Stack() 
-                        : next(0), count(0) {}
+                    __device__ __host__ Stack() {
+                        Erase();
+                    }
 
                     __device__ __host__ void Erase() { next = count = 0; }
 
@@ -71,10 +74,9 @@ namespace OpenEngine {
                             out << elm[e].ToString();
                         for (int i = 1; i < cnt; ++i){
                             e--; if (e == -1) e = N-1;
-                            out << ", " << elm[e].ToString();
+                            out << ",\n " << elm[e].ToString();
                         }
                         out << "]\n";
-                        //out << "count: " << count << ", next: " << next;
                         return out.str();
                     }
                 };

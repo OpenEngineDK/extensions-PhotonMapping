@@ -137,12 +137,14 @@ namespace OpenEngine {
                             triangles -= 1<<i;
                         }
 
-                        if (primHit != -1){
+                        if (primHit != -1){                            
                             float4 newColor = Lighting(tHit, origin, direction, 
                                                        n0s[primHit], n1s[primHit], n2s[primHit],
                                                        c0s[primHit]);
-                            
+
                             color = BlendColor(color, newColor);
+
+                            tHit.x = 0.0f;
                         }
 
                     } while(tHit.x < fInfinity && color.w < 0.97f);
@@ -291,6 +293,8 @@ namespace OpenEngine {
                         color = BlendColor(color, newColor);
 
                         logger.info << "Color: " << Convert::ToString(color) << "\n" << logger.end;
+
+                        tHit.x = 0.0f;
                     }
 
                 } while(tHit.x < fInfinity && color.w < 0.97f);

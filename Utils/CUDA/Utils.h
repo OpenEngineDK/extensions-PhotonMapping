@@ -47,20 +47,30 @@ inline bool Calc1DKernelDimensions(const unsigned int size,
     const unsigned int MAX_BLOCKS = activeCudaDevice.maxGridSize[0];
 
     if (size < MAX_THREADS){
-        threads = size;
+        threads = ((size - 1) / activeCudaDevice.warpSize + 1) * activeCudaDevice.warpSize;
         blocks = 1;
         return true;
     }else{
         threads = MAX_THREADS;
-        blocks = ((size+1) / MAX_THREADS) + 1;
+        blocks = ((size-1) / MAX_THREADS) + 1;
         return blocks > MAX_BLOCKS;
     }
 }
 
-inline bool Calc1DKernelDimensionsWithSmem(const unsigned int size, 
-                                           unsigned int &blocks, unsigned int &threads, unsigned int &memSize,
+inline bool Calc1DKernelDimensionsWithSmem(const unsigned int size, const unsigned int smemPrThread,
+                                           unsigned int &blocks, unsigned int &threads, unsigned int &smemSize,
                                            unsigned int maxThreads = 0){
-    return false;
+
+    const unsigned int MAX_THREADS = maxThreads ? maxThreads : activeCudaDevice.maxThreadsDim[0];
+    const unsigned int smemThreads = activeCudaDevice.sharedMemPerBlock / smemPrThread;
+    
+    maxThreads = MAX_THREADS < smemThreads ? MAX_THREADS : smemThreads;
+
+    bool succes = Calc1DKernelDimensions(size, blocks, threads, maxThreads);
+
+    smemSize = threads * smemPrThread;
+
+    return succes;
 }
 
 inline __host__ __device__ bool TriangleRayIntersection(float3 v0, float3 v1, float3 v2,

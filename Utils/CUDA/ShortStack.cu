@@ -17,6 +17,9 @@
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
 
+#define MAX_THREADS 128
+#define SHORT_STACK_SIZE 4
+
 namespace OpenEngine {
     using namespace Display;
     using namespace Resources;
@@ -48,7 +51,9 @@ namespace OpenEngine {
 
             __constant__ int d_rays;
 
-            __global__ void ShortStackTrace(float4* origins, float4* directions,
+            __global__ void 
+            __launch_bounds__(MAX_THREADS) 
+                ShortStackTrace(float4* origins, float4* directions,
                                             char* nodeInfo, float* splitPos,
                                             int* leftChild, int* rightChild,
                                             int2 *primitiveInfo, 
@@ -62,7 +67,9 @@ namespace OpenEngine {
                 
                 if (id < d_rays){
                     
-                    ShortStack::Stack<6> stack;
+                    //ShortStack::Stack<6> *stack = SharedMemory<ShortStack::Stack<6> >();
+                    //stack += threadIdx.x;
+                    ShortStack::Stack<SHORT_STACK_SIZE> stack;
 
                     float3 origin = make_float3(origins[id]);
                     float3 direction = make_float3(directions[id]);
@@ -141,14 +148,15 @@ namespace OpenEngine {
                         }
 
                         if (primHit != -1){
-                            // Invalidate the short stack as a new ray has been spawned.
-                            stack.Erase();
-                            
                             float4 newColor = Lighting(tHit, origin, direction, 
                                                        n0s[primHit], n1s[primHit], n2s[primHit],
                                                        c0s[primHit]);
                             
                             color = BlendColor(color, newColor);
+
+                            // Invalidate the short stack as a new ray has been spawned.
+                            stack.Erase();
+                            tHit.x = 0.0f;
                         }
                         
                     } while(tHit.x < fInfinity && color.w < 0.97f);
@@ -175,8 +183,13 @@ namespace OpenEngine {
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
-                unsigned int blocks, threads;
-                Calc1DKernelDimensions(rays, blocks, threads, 128);
+                unsigned int blocks, threads, smemSize;
+                unsigned int smemPrThread = sizeof(Stack<SHORT_STACK_SIZE>);
+                Calc1DKernelDimensionsWithSmem(rays, smemPrThread, blocks, threads, smemSize, MAX_THREADS);
+                //logger.info << "rays: " << rays << ", smemPrThread: " << smemPrThread << logger.end;
+                //logger.info << "ShortStackTrace<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
+                //Calc1DKernelDimensions(rays, blocks, threads, MAX_THREADS);
+
                 START_TIMER(timerID); 
                 ShortStackTrace<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                      nodes->GetInfoData(), nodes->GetSplitPositionData(),
@@ -194,7 +207,7 @@ namespace OpenEngine {
             void ShortStack::HostTrace(float3 origin, float3 direction, TriangleNode* nodes){
                 GeometryList* geom = map->GetGeometry();
 
-                Stack<3> stack;
+                Stack<SHORT_STACK_SIZE> stack;
                 
                 float3 tHit;
                 tHit.x = 0.0f;
@@ -204,7 +217,6 @@ namespace OpenEngine {
                 do {
                     logger.info << "=== Ray:  " << Convert::ToString(origin) << " -> " << Convert::ToString(direction) << " ===" << logger.end;
                     logger.info << stack.ToString() << logger.end;
-                    logger.info << stack.count << logger.end;
                     
                     int node; float tNext;
                     if (stack.IsEmpty()){
@@ -303,9 +315,6 @@ namespace OpenEngine {
                     //logger.info << "\n" << logger.end;
 
                     if (primHit != -1){
-                        // Invalidate the shortstack as we're now tracing a new ray.
-                        stack.Erase();
-
                         float4 n0, n1, n2;
                         cudaMemcpy(&n0, geom->GetNormal0Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
                         cudaMemcpy(&n1, geom->GetNormal1Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
@@ -326,6 +335,10 @@ namespace OpenEngine {
                         color = BlendColor(color, newColor);
 
                         logger.info << "Color: " << Convert::ToString(color) << "\n" << logger.end;
+
+                        // Invalidate the shortstack as we're now tracing a new ray.
+                        stack.Erase();
+                        tHit.x = 0.0f;
                     }
 
                 } while(tHit.x < fInfinity && color.w < 0.97f);

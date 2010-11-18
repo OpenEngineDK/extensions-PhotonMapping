@@ -37,7 +37,7 @@ namespace OpenEngine {
                 
                 CUDPPResult res = cudppPlan(&scanHandle, scanConfig, scanSize, 1, 0);
                 if (CUDPP_SUCCESS != res)
-                    throw Core::Exception("Error creating CUDPP scanPlan");
+                    throw Core::Exception("Error creating CUDPP scanPlan for Triangle Map");
 
                 scanInclConfig.algorithm = CUDPP_SCAN;
                 scanInclConfig.op = CUDPP_ADD;
@@ -48,7 +48,7 @@ namespace OpenEngine {
 
                 res = cudppPlan(&scanInclHandle, scanInclConfig, scanInclSize, 1, 0);
                 if (CUDPP_SUCCESS != res)
-                    throw Core::Exception("Error creating CUDPP inclusive scanPlan");
+                    throw Core::Exception("Error creating CUDPP inclusive scanPlan for Triangle Map");
                 
                 aabbMin = new CUDADataBlock<1, float4>(1);
                 aabbMax = new CUDADataBlock<1, float4>(1);

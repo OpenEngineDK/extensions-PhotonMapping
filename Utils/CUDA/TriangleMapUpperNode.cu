@@ -172,11 +172,11 @@ namespace OpenEngine {
                 // Reduce aabb pr segment
                 unsigned int blocks = segments.size;
                 unsigned int threads = Segments::SEGMENT_SIZE;
-                unsigned int memSize = 2 * sizeof(float4) * segments.SEGMENT_SIZE;
+                unsigned int smemSize = 2 * sizeof(float4) * segments.SEGMENT_SIZE;
 
                 //START_TIMER(timerID);
                 //logger.info << "ReduceSegments<<<" << blocks << ", " << threads << ", " << memSize << ">>>" << logger.end;
-                ReduceSegmentsShared<<<blocks, threads, memSize>>>(segments.GetPrimitiveInfoData(),
+                ReduceSegmentsShared<<<blocks, threads, smemSize>>>(segments.GetPrimitiveInfoData(),
                                                                    aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
                                                                    segments.GetAabbMinData(), segments.GetAabbMaxData());
                 //PRINT_TIMER(timerID, "ReduceSegments");
