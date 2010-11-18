@@ -14,7 +14,11 @@ __constant__ float3 d_lightSpecular;
 
 inline __device__ __host__ float4 PhongLighting(float4 color, float3 normal, float3 point, float3 origin){
     
+#ifdef __CUDA_ARCH__
     float3 lightDir = normalize(d_lightPosition - point);
+#else
+    float3 lightDir = normalize(make_float3(0.0f, 4.0f, 0.0f) - point);
+#endif
                 
     // Diffuse
     float ndotl = dot(lightDir, normal);
@@ -28,9 +32,16 @@ inline __device__ __host__ float4 PhongLighting(float4 color, float3 normal, flo
     float specProp = 1.0f - color.w;
     float specular = specProp * pow(stemp, 128.0f * specProp);
 
+#ifdef __CUDA_ARCH__
     float3 light = (d_lightAmbient +
                     (d_lightDiffuse * diffuse) +
                     (d_lightSpecular * specular));
+#else
+    const float3 lightColor = make_float3(1.0f, 0.92f, 0.8f);
+    float3 light = (lightColor * 0.3f +
+                    (lightColor * 0.7f * diffuse) +
+                    (lightColor * 0.3f * specular));
+#endif
                 
     float alpha = color.w < specular ? specular : color.w;
 
