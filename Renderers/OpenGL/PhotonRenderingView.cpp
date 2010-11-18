@@ -38,11 +38,9 @@ namespace OpenEngine {
                     UpdateGeometry();
 
                     /*
-                    float3 origin = make_float3(0, 0, 0);
-                    //float3 dir = normalize(make_float3(-1.0f, -1.00f, -1.0) - origin);
-                    float3 dir = normalize(make_float3(-0.454499, -0.340874, -0.822943));
-                    RayTracer* rt = new RayTracer(triangleMap);
-                    rt->HostTrace(origin, dir, triangleMap->nodes);
+                    float3 origin = make_float3(-4, 4, 4);
+                    float3 dir = normalize(make_float3(4, -12, -4));
+                    raytracer->HostTrace(origin, dir, triangleMap->nodes);
                     */
 
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
@@ -93,8 +91,9 @@ namespace OpenEngine {
                 INITIALIZE_CUDA();
 
                 triangleMap = new TriangleMap(arg.canvas.GetScene());
-                raytracer = new RayTracer(triangleMap);
                 //raytracer = new BruteTracer(triangleMap->geom);
+                raytracer = new RayTracer(triangleMap);
+                //raytracer = new ShortStack(triangleMap);
                 //raytracer->SetVisualizeRays(true);
 
                 int size = arg.canvas.GetWidth() * arg.canvas.GetHeight();

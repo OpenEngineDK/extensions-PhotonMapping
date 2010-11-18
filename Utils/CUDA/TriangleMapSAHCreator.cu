@@ -43,6 +43,7 @@ namespace OpenEngine {
                 splitSide = new CUDADataBlock<1, int>(1);
                 splitAddr = new CUDADataBlock<1, int>(1);
 
+                scanConfig.algorithm = CUDPP_SCAN;
                 scanConfig.op = CUDPP_ADD;
                 scanConfig.datatype = CUDPP_INT;
                 scanConfig.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_EXCLUSIVE;
