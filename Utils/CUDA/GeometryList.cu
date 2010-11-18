@@ -51,8 +51,6 @@ namespace OpenEngine {
 
                 aabbMin = new CUDADataBlock<1, float4>(maxSize);
                 aabbMax = new CUDADataBlock<1, float4>(maxSize);
-
-                surfaceArea = new CUDADataBlock<1, float>(maxSize);
             }
 
             void GeometryList::Resize(int i){
@@ -60,7 +58,6 @@ namespace OpenEngine {
                 n0->Resize(i); n1->Resize(i); n2->Resize(i);
                 c0->Resize(i); c1->Resize(i); c2->Resize(i);
                 aabbMin->Resize(i); aabbMax->Resize(i);
-                surfaceArea->Resize(i);
 
                 maxSize = i;
                 size = min(size, i);
@@ -107,7 +104,6 @@ namespace OpenEngine {
                                           float4 *n0, float4 *n1, float4 *n2,
                                           uchar4 *c0, uchar4 *c1, uchar4 *c2,
                                           float4* aabbMin, float4* aabbMax,
-                                          float *surfaceArea,
                                           int size){
                 
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -120,7 +116,6 @@ namespace OpenEngine {
                     const float3 v0 = verticesIn[i0];
                     const float3 v1 = verticesIn[i1];
                     const float3 v2 = verticesIn[i2];
-                    surfaceArea[id] = 0.5f * length(cross(v1-v0, v2-v0));
                     
                     float4 minV, maxV;
                     minV = maxV = p0[id] = modelMat * make_float4(v0, 1.0f);
@@ -195,7 +190,6 @@ namespace OpenEngine {
                                                        n0->GetDeviceData() + size, n1->GetDeviceData() + size, n2->GetDeviceData() + size,
                                                        c0->GetDeviceData() + size, c1->GetDeviceData() + size, c2->GetDeviceData() + size,
                                                        aabbMin->GetDeviceData() + size, aabbMax->GetDeviceData() + size, 
-                                                       surfaceArea->GetDeviceData() + size,
                                                        triangles);
                     CHECK_FOR_CUDA_ERROR();
 

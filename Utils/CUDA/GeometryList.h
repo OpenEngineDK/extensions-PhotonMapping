@@ -39,7 +39,6 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, float4> *n0, *n1, *n2;
                 Resources::CUDA::CUDADataBlock<1, uchar4> *c0, *c1, *c2;
                 Resources::CUDA::CUDADataBlock<1, float4> *aabbMin, *aabbMax;
-                Resources::CUDA::CUDADataBlock<1, float> *surfaceArea;
 
                 // Visitor variables
                 Math::Matrix<4,4, float> currentModelMat;
@@ -69,7 +68,6 @@ namespace OpenEngine {
                 uchar4* GetColor2Data() const { return c2->GetDeviceData(); }
                 float4* GetAabbMinData() const { return aabbMin->GetDeviceData(); }
                 float4* GetAabbMaxData() const { return aabbMax->GetDeviceData(); }
-                float* GetSurfaceAreaData() const { return surfaceArea->GetDeviceData(); }
                 
                 std::string ToString(unsigned int i) const;
 
