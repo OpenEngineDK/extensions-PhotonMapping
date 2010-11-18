@@ -15,10 +15,26 @@ using namespace OpenEngine::Utils::CUDA::Kernels;
 
 #define traverselCost 8.0f
 
+__global__ void CalcSurfaceArea(int *indices, 
+                                float4 *v0s, float4 *v1s, float4 *v2s,
+                                float *areas,
+                                int triangles){
+
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+    
+    if (id < triangles){
+        int index = indices[id];
+        const float3 v0 = make_float3(v0s[index]);
+        const float3 v1 = make_float3(v1s[index]);
+        const float3 v2 = make_float3(v2s[index]);
+        areas[id] = 0.5f * length(cross(v1-v0, v2-v0));
+    }
+}
+
 __global__ void PreprocesLowerNodes(int *upperLeafIDs,
                                     int2 *primitiveInfo,
                                     float* surfaceArea,
-                                    float4* primMax,
+                                    float* primAreas,
                                     int activeRange){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -31,7 +47,7 @@ __global__ void PreprocesLowerNodes(int *upperLeafIDs,
         int size = triInfo.y;
         triInfo.y = 0;
         for (int i = 0; i < size; ++i){
-            float a = primMax[triInfo.x + i].w;
+            float a = primAreas[triInfo.x + i];
             triInfo.y += a > 0.0f ? (1<<i) : 0;
             area += a;
         }
@@ -170,6 +186,7 @@ __launch_bounds__(96)
             float *splitPoss,
             int2 *primitiveInfo,
             float *nodeSurface,
+            float* primAreas,
             float4 *aabbMin, float4 *aabbMax,
             int4 *splitTriangleSet,
             float2 *childAreas,
@@ -190,7 +207,7 @@ __launch_bounds__(96)
         int bitmap = primInfo.y;
         while(bitmap){
             int index = __ffs(bitmap) - 1;
-            area[index] = aabbMax[primInfo.x + index].w;
+            area[index] = primAreas[primInfo.x + index];
             bitmap -= 1<<index;
         }            
 

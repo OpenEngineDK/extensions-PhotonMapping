@@ -26,6 +26,8 @@ namespace OpenEngine {
 
                 Resources::CUDA::CUDADataBlock<1, int4> *splitTriangleSet;
 
+                Resources::CUDA::CUDADataBlock<1, float> *primAreas;
+
                 Resources::CUDA::CUDADataBlock<1, float2> *childAreas;
                 Resources::CUDA::CUDADataBlock<1, int2>* childSets;
                 Resources::CUDA::CUDADataBlock<1, int>* splitSide;

@@ -11,6 +11,7 @@
 
 #include <Scene/TriangleNode.h>
 #include <Utils/CUDA/TriangleMap.h>
+#include <Utils/CUDA/Convert.h>
 #include <Utils/CUDA/Utils.h>
 
 #include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
@@ -38,6 +39,7 @@ namespace OpenEngine {
                 logger.info << "Create SAH Creator" << logger.end;
 
                 splitTriangleSet =  new CUDADataBlock<1, int4>(1);
+                primAreas = new CUDADataBlock<1, float>(1);
                 childAreas = new CUDADataBlock<1, float2>(1);
                 childSets = new CUDADataBlock<1, int2>(1);
                 splitSide = new CUDADataBlock<1, int>(1);
@@ -98,20 +100,33 @@ namespace OpenEngine {
             void TriangleMapSAHCreator::PreprocessLowerNodes(int activeIndex, int activeRange, 
                                       TriangleMap* map, CUDADataBlock<1, int>* upperLeafIDs) {
                 int triangles = primMin->GetSize();
-                logger.info << "=== Preprocess " << activeRange << " Lower Nodes Starting at " << activeIndex << " === with " << triangles << " triangles" << logger.end;
+                logger.info << "=== Preprocess " << activeRange << " Lower Nodes Starting at " << activeIndex << " === with " << triangles << " indices" << logger.end;
                 
+                GeometryList* geom = map->GetGeometry();
+
+                primAreas->Extend(triangles);
+
+                unsigned int blocks, threads, smemSize;
+                Calc1DKernelDimensions(triangles, blocks, threads);
+                CalcSurfaceArea<<<blocks, threads>>>(map->GetPrimitiveIndices()->GetDeviceData(),
+                                                     geom->GetP0Data(),
+                                                     geom->GetP1Data(),
+                                                     geom->GetP2Data(),
+                                                     primAreas->GetDeviceData(),
+                                                     triangles);
+                CHECK_FOR_CUDA_ERROR();
+
                 TriangleNode* nodes = map->nodes;
                 nodes->Extend(activeIndex + activeRange);
                 nodes->size = activeIndex + activeRange;
 
                 splitTriangleSet->Extend(triangles * 3);
                 
-                unsigned int blocks, threads, smemSize;
                 Calc1DKernelDimensions(activeRange, blocks, threads);
                 PreprocesLowerNodes<<<blocks, threads>>>(upperLeafIDs->GetDeviceData(),
                                                          nodes->GetPrimitiveInfoData(),
                                                          nodes->GetSurfaceAreaData(),
-                                                         primMax->GetDeviceData(),
+                                                         primAreas->GetDeviceData(),
                                                          activeRange);
                 CHECK_FOR_CUDA_ERROR();
 
@@ -160,6 +175,7 @@ namespace OpenEngine {
                                                                  nodes->GetSplitPositionData(),
                                                                  nodes->GetPrimitiveInfoData(),
                                                                  nodes->GetSurfaceAreaData(),
+                                                                 primAreas->GetDeviceData(),
                                                                  primMin->GetDeviceData(),
                                                                  primMax->GetDeviceData(),
                                                                  splitTriangleSet->GetDeviceData(),
@@ -172,6 +188,7 @@ namespace OpenEngine {
                                                                   nodes->GetSplitPositionData(),
                                                                   nodes->GetPrimitiveInfoData(),
                                                                   nodes->GetSurfaceAreaData(),
+                                                                  primAreas->GetDeviceData(),
                                                                   primMin->GetDeviceData(),
                                                                   primMax->GetDeviceData(),
                                                                   splitTriangleSet->GetDeviceData(),
