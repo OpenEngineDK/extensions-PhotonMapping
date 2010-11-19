@@ -29,8 +29,7 @@ namespace OpenEngine {
             aabbMax = new CUDADataBlock<1, point>(maxSize);
             photonInfo = new CUDADataBlock<1, int2>(maxSize);
 
-            left = new CUDADataBlock<1, int>(maxSize);
-            right = new CUDADataBlock<1, int>(maxSize);
+            children = new CUDADataBlock<1, int2>(maxSize);
 
             CHECK_FOR_CUDA_ERROR();
         }
@@ -42,8 +41,7 @@ namespace OpenEngine {
             delete aabbMin;
             delete aabbMax;
             delete photonInfo;
-            delete left;
-            delete right;
+            delete children;
         }
 
         void KDNode::Resize(int i){
@@ -52,8 +50,7 @@ namespace OpenEngine {
             aabbMin->Resize(i);
             aabbMax->Resize(i);
             photonInfo->Resize(i);
-            left->Resize(i);
-            right->Resize(i);
+            children->Resize(i);
 
             maxSize = i;
             size = min(i, size);
@@ -104,12 +101,11 @@ namespace OpenEngine {
             }
 
 
-            int h_left, h_right;
-            cudaMemcpy(&h_left, left->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&h_right, right->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
+            int2 h_children;
+            cudaMemcpy(&h_children, children->GetDeviceData() + i, sizeof(int2), cudaMemcpyDeviceToHost);
             CHECK_FOR_CUDA_ERROR();
             if (!isLeaf){
-                out << "Has children " << h_left << " and " << h_right << "\n";
+                out << "Has children " << h_children.x << " and " << h_children.y << "\n";
             }
                     
             return out.str();

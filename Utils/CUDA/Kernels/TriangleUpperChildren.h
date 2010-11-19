@@ -165,7 +165,7 @@ namespace Kernels {
     __global__ void CreateChildren(int2 *primitiveInfo,
                                    int2 *childSize,
                                    int *splitAddrs,
-                                   int *left, int *right,
+                                   int2 *children,
                                    int *parent){
 
         const int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -186,17 +186,9 @@ namespace Kernels {
             primitiveInfo[leftID] = make_int2(leftIndex, size.x);
             primitiveInfo[rightID] = make_int2(rightIndex, size.y);
 
-            left[parentID] = leftID;
-            right[parentID] = rightID;
+            children[parentID] = make_int2(leftID, rightID);
 
             parent[leftID] = parent[rightID] = parentID;
-            /*
-            char parentAxis = parentInfo[parentID];
-            float splitPos = 
-
-            float4 aabbMin = aabbMin[parentID];
-            parentMin[]
-            */
         }
     }
 
@@ -205,7 +197,7 @@ namespace Kernels {
                                    int *splitAddrs,
                                    int *leafAddrs,
                                    int *leafNodeAddrs,
-                                   int *left, int *right,
+                                   int2 *children,
                                    int *parent,
                                    int upperLeafPrimitives){
 
@@ -226,7 +218,6 @@ namespace Kernels {
             const int leftIndex = isLeaf ? leafAddrs[primInfo.x] + upperLeafPrimitives : splitAddrs[primInfo.x] - leafAddrs[primInfo.x];
             
             primitiveInfo[leftID] = make_int2(leftIndex, size.x);
-            left[parentID] = leftID;
             parent[leftID] = parentID;
 
             id += d_activeNodeRange;
@@ -238,8 +229,9 @@ namespace Kernels {
             const int rightIndex = isLeaf ? leafAddrs[primInfo.x + d_triangles] + upperLeafPrimitives : splitAddrs[primInfo.x + d_triangles] - leafAddrs[primInfo.x + d_triangles];
 
             primitiveInfo[rightID] = make_int2(rightIndex, size.y);
-            right[parentID] = rightID;
             parent[rightID] = parentID;
+
+            children[parentID] = make_int2(leftID, rightID);
         }
     }
 

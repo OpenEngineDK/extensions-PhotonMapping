@@ -55,7 +55,7 @@ namespace OpenEngine {
             __launch_bounds__(MAX_THREADS) 
                 ShortStackTrace(float4* origins, float4* directions,
                                             char* nodeInfo, float* splitPos,
-                                            int* leftChild, int* rightChild,
+                                            int2* children,
                                             int2 *primitiveInfo, 
                                             int *primIndices, 
                                             float4 *v0, float4 *v1, float4 *v2,
@@ -96,8 +96,7 @@ namespace OpenEngine {
 
                         while ((info & 3) != KDNode::LEAF){
                             float splitValue = splitPos[node];
-                            int left = leftChild[node];
-                            int right = rightChild[node];
+                            int2 childPair = children[node];
                             
                             float ori, dir;
                             switch(info & 3){
@@ -113,8 +112,8 @@ namespace OpenEngine {
                             }
                         
                             float tSplit = (splitValue - ori) / dir;
-                            int lowerChild = 0 < dir ? left : right;
-                            int upperChild = 0 < dir ? right : left;
+                            int lowerChild = 0 < dir ? childPair.x : childPair.y;
+                            int upperChild = 0 < dir ? childPair.y : childPair.x;
                         
                             if (tHit.x < tSplit){
                                 node = lowerChild;
@@ -191,7 +190,7 @@ namespace OpenEngine {
                 START_TIMER(timerID); 
                 ShortStackTrace<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                      nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                                                     nodes->GetLeftData(), nodes->GetRightData(),
+                                                     nodes->GetChildrenData(),
                                                      nodes->GetPrimitiveInfoData(),
                                                      map->GetPrimitiveIndices()->GetDeviceData(),
                                                      geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
@@ -237,9 +236,8 @@ namespace OpenEngine {
                         cudaMemcpy(&splitValue, nodes->GetSplitPositionData() + node, sizeof(float), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
                         
-                        int left, right;
-                        cudaMemcpy(&left, nodes->GetLeftData() + node, sizeof(int), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&right, nodes->GetRightData() + node, sizeof(int), cudaMemcpyDeviceToHost);
+                        int2 childPair;
+                        cudaMemcpy(&childPair, nodes->GetChildrenData() + node, sizeof(int2), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
 
                         // Trace
@@ -257,8 +255,8 @@ namespace OpenEngine {
                         }
                         
                         float tSplit = (splitValue - ori) / dir;
-                        int lowerChild = 0 < dir ? left : right;
-                        int upperChild = 0 < dir ? right : left;
+                        int lowerChild = 0 < dir ? childPair.x : childPair.y;
+                        int upperChild = 0 < dir ? childPair.y : childPair.x;
 
                         if (tHit.x < tSplit){
                             node = lowerChild;

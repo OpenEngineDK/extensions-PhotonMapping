@@ -35,7 +35,7 @@ namespace OpenEngine {
 
             // if it is a leaf node then both nodes
             // point to it's lower node.
-            CUDADataBlock<1, int> *left, *right;
+            CUDADataBlock<1, int2> *children;
             
             int maxSize;
             int size;
@@ -52,8 +52,7 @@ namespace OpenEngine {
             point* GetAabbMinData() { return aabbMin->GetDeviceData(); }
             point* GetAabbMaxData() { return aabbMax->GetDeviceData(); }
             int2* GetPrimitiveInfoData() { return photonInfo->GetDeviceData(); }
-            int* GetLeftData() { return left->GetDeviceData(); }
-            int* GetRightData() { return right->GetDeviceData(); }
+            int2* GetChildrenData() { return children->GetDeviceData(); }
 
             int GetSize() const { return size; }
 

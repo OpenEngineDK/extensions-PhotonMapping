@@ -215,8 +215,7 @@ namespace OpenEngine {
                                                                       childSets->GetDeviceData(),
                                                                       nodes->GetSurfaceAreaData(),
                                                                       nodes->GetPrimitiveInfoData(),
-                                                                      nodes->GetLeftData(),
-                                                                      nodes->GetRightData(),
+                                                                      nodes->GetChildrenData(),
                                                                       splits);
                 else
                     CreateLowerSAHChildren<false><<<blocks, threads>>>(NULL, splitSide->GetDeviceData(),
@@ -225,8 +224,7 @@ namespace OpenEngine {
                                                                        childSets->GetDeviceData(),
                                                                        nodes->GetSurfaceAreaData(),
                                                                        nodes->GetPrimitiveInfoData(),
-                                                                       nodes->GetLeftData(),
-                                                                       nodes->GetRightData(),
+                                                                       nodes->GetChildrenData(),
                                                                        splits);
                 CHECK_FOR_CUDA_ERROR();
 

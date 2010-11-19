@@ -78,7 +78,7 @@ namespace OpenEngine {
 
             __global__ void KDRestart(float4* origins, float4* directions,
                                       char* nodeInfo, float* splitPos,
-                                      int* leftChild, int* rightChild,
+                                      int2* children,
                                       int2 *primitiveInfo, 
                                       int *primIndices, 
                                       float4 *v0, float4 *v1, float4 *v2,
@@ -106,10 +106,9 @@ namespace OpenEngine {
                         while((info & 3) != KDNode::LEAF){
                             // Trace
                             float splitValue = splitPos[node];
-                            int left = leftChild[node];
-                            int right = rightChild[node];
+                            int2 childPair = children[node];
 
-                            TraceNode(origin, direction, info & 3, splitValue, left, right, tHit.x,
+                            TraceNode(origin, direction, info & 3, splitValue, childPair.x, childPair.y, tHit.x,
                                       node, tNext);
                                                         
                             info = nodeInfo[node];
@@ -183,7 +182,7 @@ namespace OpenEngine {
                 START_TIMER(timerID); 
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                                               nodes->GetLeftData(), nodes->GetRightData(),
+                                               nodes->GetChildrenData(),
                                                nodes->GetPrimitiveInfoData(),
                                                map->GetPrimitiveIndices()->GetDeviceData(),
                                                geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
@@ -219,12 +218,11 @@ namespace OpenEngine {
                         cudaMemcpy(&splitValue, nodes->GetSplitPositionData() + node, sizeof(float), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
 
-                        int left, right;
-                        cudaMemcpy(&left, nodes->GetLeftData() + node, sizeof(int), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&right, nodes->GetRightData() + node, sizeof(int), cudaMemcpyDeviceToHost);
+                        int2 children;
+                        cudaMemcpy(&children, nodes->GetChildrenData() + node, sizeof(int2), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
                         
-                        TraceNode(origin, direction, info & 3, splitValue, left, right, tHit.x,
+                        TraceNode(origin, direction, info & 3, splitValue, children.x, children.y, tHit.x,
                                   node, tNext);
 
                         //logger.info << "tNext " << tNext << logger.end;

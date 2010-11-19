@@ -277,7 +277,7 @@ __global__ void CreateLowerSAHChildren(int *upperLeafIDs,
                                        int2 *childSets,
                                        float* nodeArea,
                                        int2* primitiveInfo,
-                                       int *leftChild, int *rightChild, 
+                                       int2 *children, 
                                        int nodeSplits){
 
     // @OPT 'or' the childSets onto float4 nodeArea. That way we
@@ -300,12 +300,12 @@ __global__ void CreateLowerSAHChildren(int *upperLeafIDs,
             const int leftChildID = d_activeNodeIndex + d_activeNodeRange + childOffset;
             nodeArea[leftChildID] = childrenArea.x;
             primitiveInfo[leftChildID] = make_int2(parentPrimInfo.x, childrenSet.x);
-            leftChild[parentID] = leftChildID;
                 
             const int rightChildID = leftChildID + nodeSplits;
             nodeArea[rightChildID] = childrenArea.y;
             primitiveInfo[rightChildID] = make_int2(parentPrimInfo.x, childrenSet.y);
-            rightChild[parentID] = rightChildID;
+
+            children[parentID] = make_int2(leftChildID, rightChildID);
         }
     }        
 }

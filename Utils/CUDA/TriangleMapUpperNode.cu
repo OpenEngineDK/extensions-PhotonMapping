@@ -431,8 +431,7 @@ namespace OpenEngine {
                                             splitAddr->GetDeviceData(),
                                             leafAddr->GetDeviceData(),
                                             splitSide->GetDeviceData(),
-                                            nodes->GetLeftData(),
-                                            nodes->GetRightData(),
+                                            nodes->GetChildrenData(),
                                             nodes->GetParentData(),
                                             upperLeafPrimitives);
                     CHECK_FOR_CUDA_ERROR();
@@ -464,14 +463,9 @@ namespace OpenEngine {
                         <<<hatte, traade>>>(nodes->GetPrimitiveInfoData(),
                                             childSize->GetDeviceData(),
                                             splitAddr->GetDeviceData(),
-                                            nodes->GetLeftData(),
-                                            nodes->GetRightData(),
+                                            nodes->GetChildrenData(),
                                             nodes->GetParentData());
                     CHECK_FOR_CUDA_ERROR();
-
-                    //logger.info << "Left " << Utils::CUDA::Convert::ToString(nodes->GetLeftData() + activeIndex, activeRange) << logger.end;
-                    //logger.info << "Right " << Utils::CUDA::Convert::ToString(nodes->GetRightData() + activeIndex, activeRange) << logger.end;
-                    //logger.info << "Children primitive info: " << Utils::CUDA::Convert::ToString(nodes->GetPrimitiveInfoData() + activeIndex + activeRange, activeRange * 2) << logger.end;
 
                     SplitTriangles<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                         segments.GetOwnerData(),
@@ -547,9 +541,11 @@ namespace OpenEngine {
                 }else{
                     float splitPos;
                     cudaMemcpy(&splitPos, nodes->GetSplitPositionData() + index, sizeof(float), cudaMemcpyDeviceToHost);
+
+                    int2 childrenIndex;
+                    cudaMemcpy(&childrenIndex, nodes->GetChildrenData() + index, sizeof(int2), cudaMemcpyDeviceToHost);
                     
-                    int leftIndex;
-                    cudaMemcpy(&leftIndex, nodes->GetLeftData() + index, sizeof(int), cudaMemcpyDeviceToHost);
+                    int leftIndex = childrenIndex.x;
 
                     int leftParent;
                     cudaMemcpy(&leftParent, nodes->GetParentData() + leftIndex, sizeof(int), cudaMemcpyDeviceToHost);
@@ -570,8 +566,7 @@ namespace OpenEngine {
                     else
                         CheckUpperLeaf(leftIndex, leftAabbMin, leftAabbMax);
 
-                    int rightIndex;
-                    cudaMemcpy(&rightIndex, nodes->GetRightData() + index, sizeof(int), cudaMemcpyDeviceToHost);
+                    int rightIndex = childrenIndex.y;
                         
                     int rightParent;
                     cudaMemcpy(&rightParent, nodes->GetParentData() + rightIndex, sizeof(int), cudaMemcpyDeviceToHost);
