@@ -177,7 +177,6 @@ __device__ void CalcAreaForSets(int4 splittingSets, char splitAxis,
     }
 }
 
-// @OPT move surfacearea to a single float array?
 template <bool useIndices>
 __global__ void 
 __launch_bounds__(96) 

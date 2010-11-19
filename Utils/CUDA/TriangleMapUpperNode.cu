@@ -252,7 +252,6 @@ namespace OpenEngine {
 
 #endif
 
-                //threads = min(blocks, activeCudaDevice.maxThreadsDim[0]);
                 threads = min((segments.size / 32) * 32 + 32, activeCudaDevice.maxThreadsDim[0]);
                 //START_TIMER(timerID);
                 //logger.info << "SegmentedReduce0<<<1, " << threads << ">>>" << logger.end;

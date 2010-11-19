@@ -18,7 +18,7 @@
 #include <Utils/CUDA/Utils.h>
 
 #define MAX_THREADS 128
-#define SHORT_STACK_SIZE 4
+#define SHORT_STACK_SIZE 1
 
 namespace OpenEngine {
     using namespace Display;
@@ -69,6 +69,8 @@ namespace OpenEngine {
                     
                     //ShortStack::Stack<6> *stack = SharedMemory<ShortStack::Stack<6> >();
                     //stack += threadIdx.x;
+                    //ShortStack::Element *elms = SharedMemory<ShortStack::Element>();
+                    //ShortStack::Stack<SHORT_STACK_SIZE> stack(elms + threadIdx.x * SHORT_STACK_SIZE);
                     ShortStack::Stack<SHORT_STACK_SIZE> stack;
 
                     float3 origin = make_float3(origins[id]);
@@ -186,10 +188,6 @@ namespace OpenEngine {
                 unsigned int blocks, threads, smemSize;
                 unsigned int smemPrThread = sizeof(Stack<SHORT_STACK_SIZE>);
                 Calc1DKernelDimensionsWithSmem(rays, smemPrThread, blocks, threads, smemSize, MAX_THREADS);
-                //logger.info << "rays: " << rays << ", smemPrThread: " << smemPrThread << logger.end;
-                //logger.info << "ShortStackTrace<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
-                //Calc1DKernelDimensions(rays, blocks, threads, MAX_THREADS);
-
                 START_TIMER(timerID); 
                 ShortStackTrace<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                      nodes->GetInfoData(), nodes->GetSplitPositionData(),

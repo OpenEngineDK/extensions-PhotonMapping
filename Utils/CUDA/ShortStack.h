@@ -41,13 +41,21 @@ namespace OpenEngine {
                 };
 
                 template <int N> struct Stack {
+                    //Element* elm;
                     Element elm[N];
                     int next, count;
 
-                    __device__ __host__ Stack() {
+                    __host__ __device__ Stack() {
+                        //elm = new Element[N];
                         Erase();
                     }
 
+                    /*
+                    __device__ __host__ Stack(Element* elm) 
+                        : elm(elm) {
+                        Erase();
+                        }*/
+                    
                     __device__ __host__ void Erase() { next = count = 0; }
 
                     __device__ __host__ bool IsEmpty() const { return count == 0; }
