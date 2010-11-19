@@ -20,6 +20,7 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Utils/CUDA/Raytracer.cu
   Utils/CUDA/ShortStack.cu
   Utils/CUDA/ITriangleMapCreator.h
+  Utils/CUDA/TriangleMapUpperCreator.cu
   Utils/CUDA/TriangleMapSAHCreator.cu
   Utils/CUDA/TriangleMap.cu
   Utils/CUDA/TriangleMapUpperNode.cu
