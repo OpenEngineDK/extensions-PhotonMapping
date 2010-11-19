@@ -7,39 +7,26 @@
 // See the GNU General Public License for more details (see LICENSE). 
 //--------------------------------------------------------------------
 
-#include <Meta/CUDA.h>
-#include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
-
-namespace OpenEngine {
-namespace Utils {
-namespace CUDA {
-namespace Kernels {
-    
-    __global__ void AddIndexToAabb(float4 *aabbIn,
-                                   int size,
-                                   float4 *aabbOut){
-        const int id = blockDim.x * blockIdx.x + threadIdx.x;
+__global__ void AddIndexToAabb(float4 *aabbIn,
+                               int size,
+                               float4 *aabbOut){
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
-        if (id < size){
-            float4 aabb = aabbIn[id];
-            aabb.w = id;
-            aabbOut[id] = aabb;
-        }
-
+    if (id < size){
+        float4 aabb = aabbIn[id];
+        aabb.w = id;
+        aabbOut[id] = aabb;
     }
 
-    __global__ void ExtractIndexFromAabb(float4 *aabbIn,
-                                         int *out, int size){
-        const int id = blockDim.x * blockIdx.x + threadIdx.x;
-        
-        if (id < size){
-            float4 aabb = aabbIn[id];
-            out[id] = aabb.w;
-        }
+}
 
+__global__ void ExtractIndexFromAabb(float4 *aabbIn,
+                                     int *out, int size){
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        
+    if (id < size){
+        float4 aabb = aabbIn[id];
+        out[id] = aabb.w;
     }
-    
-}
-}
-}
+
 }

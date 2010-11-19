@@ -33,19 +33,19 @@ inline __device__ __host__ float4 PhongLighting(float4 color, float3 normal, flo
     float specular = specProp * pow(stemp, 128.0f * specProp);
 
 #ifdef __CUDA_ARCH__
-    float3 light = (d_lightAmbient +
-                    (d_lightDiffuse * diffuse) +
-                    (d_lightSpecular * specular));
+    float3 light = make_float3(color) * (d_lightAmbient +
+                                         d_lightDiffuse * diffuse) +
+                                         d_lightSpecular * specular * 10.0f;
 #else
     const float3 lightColor = make_float3(1.0f, 0.92f, 0.8f);
-    float3 light = (lightColor * 0.3f +
-                    (lightColor * 0.7f * diffuse) +
-                    (lightColor * 0.3f * specular));
+    float3 light = make_float3(color) * (lightColor * 0.3f +
+                                         lightColor * 0.7f * diffuse) +
+        lightColor * 0.3f * specular;
 #endif
                 
     float alpha = color.w < specular ? specular : color.w;
 
-    return make_float4(clamp(make_float3(color) * light, 0.0f, 1.0f), alpha);
+    return make_float4(clamp(light, 0.0f, 1.0f), alpha);
 }
 
 inline __device__ __host__ float4 Lighting(float3 hitCoords, 
@@ -63,13 +63,12 @@ inline __device__ __host__ float4 Lighting(float3 hitCoords,
     float4 color = make_float4(c0.x / 255.0f, c0.y / 255.0f, c0.z / 255.0f, c0.w / 255.0f);
 
     if (color.w < 1.0f - 0.00001f){
-        //direction -= 0.3f * 0.5f * dot(normal, normalize(origin - point)) * normal;
-        direction = 2.0f * dot(normal, -1.0f * direction) * normal + direction;
-        direction = normalize(direction);
+        direction -= 0.3f * 0.5f * dot(normal, normalize(origin - point)) * normal;
+        //direction = 2.0f * dot(normal, -1.0f * direction) * normal + direction;
     }else{
         direction = 2.0f * dot(normal, -1.0f * direction) * normal + direction;
-        direction = normalize(direction);
     }
+    direction = normalize(direction);
 
     color.w = 1.0f - abs(1.0f - color.w);
     color = PhongLighting(color, normal, point, origin);

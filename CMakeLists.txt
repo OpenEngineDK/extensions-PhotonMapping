@@ -32,8 +32,6 @@ TARGET_LINK_LIBRARIES("CUDA_KERNELS"
   ${CUDA_CUT_LIBRARIES} #cutil
 )  
 
-MESSAGE( " cut: ${CUDA_CUT_LIBRARIES} ")#cutil
-
 # Create the extension library
 ADD_LIBRARY( ${EXTENSION_NAME}
   Renderers/OpenGL/PhotonRenderingView.h
