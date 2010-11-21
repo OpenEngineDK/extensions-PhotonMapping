@@ -69,9 +69,9 @@ namespace OpenEngine {
                                     Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
 
                 void ProcessNodes(int activeIndex, int activeRange, 
-                                  int &childrenCreated) {}
+                                  int &childrenCreated);
 
-                void Segment(int activeIndex, int activeRange) {}
+                void Segment(int activeIndex, int activeRange);
                 
                 void ReduceAabb(int activeIndex, int activeRange) {}
                 

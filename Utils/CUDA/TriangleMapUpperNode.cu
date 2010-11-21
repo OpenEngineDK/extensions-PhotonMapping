@@ -55,7 +55,7 @@ namespace OpenEngine {
                 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(triangles, blocks, threads);
-                AddIndexToAabb<<<blocks, threads>>>(geom->GetAabbMinData(), geom->GetSize(), aabbMin->GetDeviceData());
+                AddIndexToAabb<<<blocks, threads>>>(geom->GetAabbMinData(), triangles, aabbMin->GetDeviceData());
                 cudaMemcpy(aabbMax->GetDeviceData(), geom->GetAabbMaxData(), 
                            triangles * sizeof(float4), cudaMemcpyDeviceToDevice);
                 CHECK_FOR_CUDA_ERROR();                
@@ -77,30 +77,8 @@ namespace OpenEngine {
                 Calc1DKernelDimensions(primMin->GetSize(), blocks, threads, 128);
                 ExtractIndexFromAabb<<<blocks, threads>>>(primMin->GetDeviceData(), 
                                                           primIndices->GetDeviceData(),
-                                                          triangles);
+                                                          primMin->GetSize());
                 CHECK_FOR_CUDA_ERROR();
-
-                /*
-                float4 min[resultMin->GetSize()];
-                cudaMemcpy(min, resultMin->GetDeviceData(), sizeof(float4) * resultMin->GetSize(), cudaMemcpyDeviceToHost);
-                float4 max[resultMax->GetSize()];
-                cudaMemcpy(max, resultMax->GetDeviceData(), sizeof(float4) * resultMax->GetSize(), cudaMemcpyDeviceToHost);
-                int cnt = 0;
-                for (int i = 0; i < resultMax->GetSize(); ++i)
-                    if (max[i].w == 0.0f) cnt++;
-
-                logger.info << "empty bb's " << cnt << logger.end;
-
-                float3 aabbMin = make_float3(3, 0, -0.00001f);
-                float3 aabbMax = make_float3(8, 1, 4);
-                bool hit = TightTriangleBB(make_float3(0, 6, 0), make_float3(8, 4, 0), make_float3(6, 0, 0),
-                                           aabbMin, aabbMax, true);
-
-                if (hit)
-                    logger.info << "min: " << Convert::ToString(aabbMin) << ", max: " << Convert::ToString(aabbMax) << logger.end;
-                else
-                    logger.info << "missed it: min: " << Convert::ToString(aabbMin) << ", max: " << Convert::ToString(aabbMax) << logger.end;
-                */
             }
 
             void TriangleMap::ProcessUpperNodes(int activeIndex, int activeRange, 
