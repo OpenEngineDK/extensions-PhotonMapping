@@ -28,7 +28,13 @@ namespace OpenEngine {
 
             public:
                 ITriangleMapCreator() : primMin(NULL), primMax(NULL), primIndices(NULL), leafIDs(NULL) {}
-                virtual ~ITriangleMapCreator() { if (leafIDs) delete leafIDs; }
+                virtual ~ITriangleMapCreator() { 
+                    if (primMin) delete primMin;
+                    if (primMax) delete primMax;
+                    if (primIndices) delete primIndices;
+
+                    if (leafIDs) delete leafIDs; 
+                }
 
                 /**
                  * Creates more nodes in the triangle map from the previous leaf nodes.

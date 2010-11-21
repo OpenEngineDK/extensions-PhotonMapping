@@ -44,6 +44,7 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
     }
 }
 
+// @OPT Does this have to be in a seperate kernel?
 __global__ void CalcNodeChildSize(int2* primitiveInfo,
                                   int *splitAddrs,
                                   int2* childSize){

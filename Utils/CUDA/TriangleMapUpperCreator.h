@@ -28,7 +28,6 @@ namespace OpenEngine {
                 unsigned int timerID;
 
                 TriangleMap* map;
-                Scene::TriangleNode* nodes;
 
                 Segments segments;
                 Resources::CUDA::CUDADataBlock<1, int> *nodeSegments;
@@ -41,11 +40,16 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, float4> *tempAabbMin;
                 Resources::CUDA::CUDADataBlock<1, float4> *tempAabbMax;
 
+                // @OPT Perhaps use an indice array ie nextList,
+                // instead of rearranging all the nodes? Should save
+                // on cudpp scan invokations
+
                 // Split variables
                 Resources::CUDA::CUDADataBlock<1, int> *splitSide;
                 Resources::CUDA::CUDADataBlock<1, int> *splitAddr;
                 Resources::CUDA::CUDADataBlock<1, int> *leafSide;
                 Resources::CUDA::CUDADataBlock<1, int> *leafAddr;
+                Resources::CUDA::CUDADataBlock<1, int2> *childSize;
 
                 int upperLeafPrimitives;
 
@@ -58,11 +62,11 @@ namespace OpenEngine {
                 int scanInclSize;
 
             public:
-                TriangleMapUpperCreator() {}
-                virtual ~TriangleMapUpperCreator() {}
+                TriangleMapUpperCreator();
+                virtual ~TriangleMapUpperCreator();
 
                 virtual void Create(TriangleMap* map, 
-                                    Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs) {}
+                                    Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
 
                 void ProcessNodes(int activeIndex, int activeRange, 
                                   int &childrenCreated) {}
