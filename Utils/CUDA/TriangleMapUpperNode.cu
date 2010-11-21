@@ -17,6 +17,7 @@
 
 namespace OpenEngine {
     using namespace Scene;
+    using namespace Resources;
     namespace Utils {
         namespace CUDA {
 
@@ -144,16 +145,44 @@ namespace OpenEngine {
                 unsigned int threads = Segments::SEGMENT_SIZE;
                 unsigned int smemSize = 2 * sizeof(float4) * segments.SEGMENT_SIZE;
 
-                //START_TIMER(timerID);
-                //logger.info << "ReduceSegments<<<" << blocks << ", " << threads << ", " << memSize << ">>>" << logger.end;
                 ReduceSegmentsShared<<<blocks, threads, smemSize>>>(segments.GetPrimitiveInfoData(),
                                                                    aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
                                                                    segments.GetAabbMinData(), segments.GetAabbMaxData());
-                //PRINT_TIMER(timerID, "ReduceSegments");
-                // @TODO has provoked an "unspecified launch failure"
                 CHECK_FOR_CUDA_ERROR();
 
 #if CPU_VERIFY
+                float4 *finalMin, *finalMax;
+                CheckSegmentReduction(activeIndex, activeRange,
+                                      segments, &finalMin, &finalMax);
+#endif
+
+                threads = min((segments.size / 32) * 32 + 32, activeCudaDevice.maxThreadsDim[0]);
+                SegmentedReduce0<<<1, threads>>>(segments.GetAabbMinData(),
+                                                 segments.GetAabbMaxData(),
+                                                 segments.GetOwnerData(),
+                                                 nodes->GetAabbMinData(),
+                                                 nodes->GetAabbMaxData());
+                CHECK_FOR_CUDA_ERROR();
+
+#if CPU_VERIFY
+                CheckFinalReduction(activeIndex, activeRange, nodes, 
+                                    finalMin, finalMax);
+#endif
+
+                // Calc splitting planes.
+                Calc1DKernelDimensions(activeRange, blocks, threads);
+                CalcUpperNodeSplitInfo<<<blocks, threads>>>(nodes->GetAabbMinData() + activeIndex,
+                                                            nodes->GetAabbMaxData() + activeIndex,
+                                                            nodes->GetSplitPositionData() + activeIndex,
+                                                            nodes->GetInfoData() + activeIndex);
+                CHECK_FOR_CUDA_ERROR();
+            }
+
+            void TriangleMap::CheckSegmentReduction(int activeIndex, int activeRange,
+                                                    Segments &segments, 
+                                                    float4 **finalMin, 
+                                                    float4 **finalMax){
+                
                 int2 info[segments.size];
                 cudaMemcpy(info, segments.GetPrimitiveInfoData(), 
                            segments.size * sizeof(int2), cudaMemcpyDeviceToHost);
@@ -190,16 +219,14 @@ namespace OpenEngine {
                         throw Core::Exception("aabbMax error at segment " + Utils::Convert::ToString(i) +
                                               ": CPU max " + Utils::CUDA::Convert::ToString(cpuMax[0])
                                               + ", GPU max " + Utils::CUDA::Convert::ToString(segMax[i]));
-                    
                 }
 
-                // Do the final reduce
                 int segOwner[segments.size];
                 cudaMemcpy(segOwner, segments.GetOwnerData(), 
                            segments.size * sizeof(int), cudaMemcpyDeviceToHost);
-                
-                float4 cpuMin[activeRange];
-                float4 cpuMax[activeRange];
+
+                (*finalMin) = new float4[activeRange];
+                (*finalMax) = new float4[activeRange];
 
                 int owner0 = segOwner[0];
                 float4 localMin = segMin[0];
@@ -207,8 +234,8 @@ namespace OpenEngine {
                 for (int i = 1; i < segments.size; ++i){
                     int owner1 = segOwner[i];
                     if (owner0 != owner1){
-                        cpuMin[owner0 - activeIndex] = localMin;
-                        cpuMax[owner0 - activeIndex] = localMax;
+                        (*finalMin)[owner0 - activeIndex] = localMin;
+                         (*finalMax)[owner0 - activeIndex] = localMax;
                         owner0 = segOwner[i];
                         localMin = segMin[i];
                         localMax = segMax[i];
@@ -217,51 +244,36 @@ namespace OpenEngine {
                         localMax = max(localMax, segMax[i]);
                     }
                 }
-                cpuMin[owner0 - activeIndex] = localMin;
-                cpuMax[owner0 - activeIndex] = localMax;
+                (*finalMin)[owner0 - activeIndex] = localMin;
+                (*finalMax)[owner0 - activeIndex] = localMax;
+            }
 
-#endif
-
-                threads = min((segments.size / 32) * 32 + 32, activeCudaDevice.maxThreadsDim[0]);
-                //START_TIMER(timerID);
-                //logger.info << "SegmentedReduce0<<<1, " << threads << ">>>" << logger.end;
-                SegmentedReduce0<<<1, threads>>>(segments.GetAabbMinData(),
-                                                 segments.GetAabbMaxData(),
-                                                 segments.GetOwnerData(),
-                                                 nodes->GetAabbMinData(),
-                                                 nodes->GetAabbMaxData());
-                //PRINT_TIMER(timerID, "Segmented reduce");
-                CHECK_FOR_CUDA_ERROR();
-
-#if CPU_VERIFY
+            void TriangleMap::CheckFinalReduction(int activeIndex, int activeRange,
+                                                  TriangleNode* nodes, 
+                                                  float4 *finalMin, 
+                                                  float4 *finalMax){
+                
                 float4 gpuMin[activeRange];
                 cudaMemcpy(gpuMin, nodes->GetAabbMinData() + activeIndex,
                            activeRange * sizeof(float4), cudaMemcpyDeviceToHost);
                 float4 gpuMax[activeRange];
                 cudaMemcpy(gpuMax, nodes->GetAabbMaxData() + activeIndex,
                            activeRange * sizeof(float4), cudaMemcpyDeviceToHost);
+
                 for (int i = 0; i < activeRange; ++i){
-                    if (cpuMin[i].x != gpuMin[i].x || cpuMin[i].y != gpuMin[i].y || cpuMin[i].z != gpuMin[i].z)
+                    if (finalMin[i].x != gpuMin[i].x || finalMin[i].y != gpuMin[i].y || finalMin[i].z != gpuMin[i].z)
                         throw Core::Exception("aabbMin error at node " + Utils::Convert::ToString(i + activeIndex) +
-                                              ": CPU min " + Utils::CUDA::Convert::ToString(cpuMin[i])
+                                              ": CPU min " + Utils::CUDA::Convert::ToString(finalMin[i])
                                               + ", GPU min " + Utils::CUDA::Convert::ToString(gpuMin[i]));
 
-                    if (cpuMax[i].x != gpuMax[i].x || cpuMax[i].y != gpuMax[i].y || cpuMax[i].z != gpuMax[i].z)
+                    if (finalMax[i].x != gpuMax[i].x || finalMax[i].y != gpuMax[i].y || finalMax[i].z != gpuMax[i].z)
                         throw Core::Exception("aabbMax error at node " + Utils::Convert::ToString(i + activeIndex) +
-                                              ": CPU max " + Utils::CUDA::Convert::ToString(cpuMax[i])
+                                              ": CPU max " + Utils::CUDA::Convert::ToString(finalMax[i])
                                               + ", GPU max " + Utils::CUDA::Convert::ToString(gpuMax[i]));
                 }
-#endif
-
-                // Calc splitting planes.
-                Calc1DKernelDimensions(activeRange, blocks, threads);
-                CalcUpperNodeSplitInfo<<<blocks, threads>>>(nodes->GetAabbMinData() + activeIndex,
-                                                            nodes->GetAabbMaxData() + activeIndex,
-                                                            nodes->GetSplitPositionData() + activeIndex,
-                                                            nodes->GetInfoData() + activeIndex);
-                CHECK_FOR_CUDA_ERROR();
+                
             }
-
+            
             void TriangleMap::CreateChildren(int activeIndex, int activeRange,
                                              int &childrenCreated){
                 unsigned int blocks = NextPow2(segments.size), threads = Segments::SEGMENT_SIZE;
@@ -482,13 +494,14 @@ namespace OpenEngine {
                     
                     int leftIndex = childrenIndex.x;
 
+                    /*
                     int leftParent;
                     cudaMemcpy(&leftParent, nodes->GetParentData() + leftIndex, sizeof(int), cudaMemcpyDeviceToHost);
-                        
                     if (leftParent != index)
                         throw Exception("Node " + Utils::Convert::ToString(leftIndex) +
                                         "'s parent " + Utils::Convert::ToString(leftParent) +
                                         " does not match actual parent " + Utils::Convert::ToString(index));
+                    */
 
                     float4 leftAabbMin = calcedAabbMin;
                     float4 leftAabbMax = make_float4(axis == KDNode::X ? splitPos : calcedAabbMax.x,
@@ -502,14 +515,15 @@ namespace OpenEngine {
                         CheckUpperLeaf(leftIndex, leftAabbMin, leftAabbMax);
 
                     int rightIndex = childrenIndex.y;
-                        
+
+                    /*                        
                     int rightParent;
                     cudaMemcpy(&rightParent, nodes->GetParentData() + rightIndex, sizeof(int), cudaMemcpyDeviceToHost);
-
                     if (rightParent != index)
                         throw Exception("Node " + Utils::Convert::ToString(rightIndex) +
                                         "'s parent " + Utils::Convert::ToString(rightParent) +
                                         " does not match actual parent " + Utils::Convert::ToString(index));
+                    */
                         
                     float4 rightAabbMin = make_float4(axis == KDNode::X ? splitPos : calcedAabbMin.x,
                                                       axis == KDNode::Y ? splitPos : calcedAabbMin.y,
