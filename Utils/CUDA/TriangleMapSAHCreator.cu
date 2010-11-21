@@ -70,7 +70,7 @@ namespace OpenEngine {
                 primMin = map->primMin;
                 primMax = map->primMax;
 
-                int activeIndex = map->nodes->size; int activeRange = upperLeafIDs->GetSize();
+                int activeIndex = map->nodes->GetSize(); int activeRange = upperLeafIDs->GetSize();
                 int childrenCreated;
 
                 int triangles = map->primMin->GetSize();
@@ -84,14 +84,14 @@ namespace OpenEngine {
                 ProcessLowerNodes(activeIndex, activeRange,
                                   map, upperLeafIDs, childrenCreated);
                 
-                activeIndex = map->nodes->size - childrenCreated;
+                activeIndex = map->nodes->GetSize() - childrenCreated;
                 activeRange = childrenCreated;
 
                 while (activeRange > 0){
                     ProcessLowerNodes(activeIndex, activeRange,
                                       map, NULL, childrenCreated);
 
-                    activeIndex = map->nodes->size - childrenCreated;
+                    activeIndex = map->nodes->GetSize() - childrenCreated;
                     activeRange = childrenCreated;
                 }
                 PRINT_TIMER(timerID, "Process lower nodes using SAH");
@@ -117,8 +117,6 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 TriangleNode* nodes = map->nodes;
-                nodes->Extend(activeIndex + activeRange);
-                nodes->size = activeIndex + activeRange;
 
                 splitTriangleSet->Extend(triangles * 3);
                 
@@ -204,7 +202,6 @@ namespace OpenEngine {
                 cudaMemcpy(&splits, splitAddr->GetDeviceData() + activeRange, sizeof(int), cudaMemcpyDeviceToHost);
 
                 nodes->Extend(activeIndex + activeRange + 2 * splits);
-                nodes->size = activeIndex + activeRange + 2 * splits;
 
                 Calc1DKernelDimensions(activeRange, blocks, threads);
                 if (upperLeafIDs)

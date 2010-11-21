@@ -70,7 +70,6 @@ namespace OpenEngine {
                 CUDADataBlock<1, int> *emptySpaceSplits;
                 CUDADataBlock<1, int> *emptySpaceAddrs;
                 CUDADataBlock<1, int2> *childSize;
-                int upperLeafPrimitives;
 
                 CUDADataBlock<1, int> *leafIDs;
                 

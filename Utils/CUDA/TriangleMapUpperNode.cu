@@ -33,17 +33,19 @@ namespace OpenEngine {
                 int activeIndex = 0, activeRange = 1;
                 int childrenCreated;
                 
-                upperLeafPrimitives = 0;
                 leafIDs->Extend(0);
                 
                 cudaMemcpyToSymbol(d_emptySpaceThreshold, &emptySpaceThreshold, sizeof(float));
+
+                primMin->Extend(0);
+                primMax->Extend(0);
 
                 // Setup root node!
                 int2 i = make_int2(0, triangles);
                 cudaMemcpy(nodes->GetPrimitiveInfoData(), &i, sizeof(int2), cudaMemcpyHostToDevice);
                 int parent = 0;
                 cudaMemcpy(nodes->GetParentData(), &parent, sizeof(int), cudaMemcpyHostToDevice);
-                nodes->size = 1;
+                nodes->Resize(1);
 
                 // Setup bounding box info
                 aabbMin->Extend(triangles);
@@ -63,7 +65,7 @@ namespace OpenEngine {
                     ProcessUpperNodes(activeIndex, activeRange, 
                                       childrenCreated);
 
-                    activeIndex = nodes->size - childrenCreated;
+                    activeIndex = nodes->GetSize() - childrenCreated;
                     activeRange = childrenCreated;
                 }
                 PRINT_TIMER(timerID, "triangle upper map");
@@ -291,7 +293,7 @@ namespace OpenEngine {
                 leafSide->Extend(triangles * 2, false);
                 leafAddr->Extend(triangles * 2 + 1, false);
                 childSize->Extend(activeRange, false);
-                nodes->Extend(nodes->size + activeRange * 2);
+                nodes->Extend(nodes->GetSize() + activeRange * 2);
 
                 SetSplitSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                   segments.GetOwnerData(),
@@ -346,6 +348,7 @@ namespace OpenEngine {
 
                     tempAabbMin->Extend(newTriangles);
                     tempAabbMax->Extend(newTriangles);
+                    int upperLeafPrimitives = primMax->GetSize();
                     primMax->Extend(upperLeafPrimitives + leafTriangles);
                     primMin->Extend(upperLeafPrimitives + leafTriangles);
 
@@ -396,15 +399,13 @@ namespace OpenEngine {
                                             upperLeafPrimitives);
                     CHECK_FOR_CUDA_ERROR();
 
-                    upperLeafPrimitives += leafTriangles;
                     triangles = newTriangles;
-                    nodes->size += activeRange * 2;
                     childrenCreated = activeRange * 2 - leafNodes;
 
                     int upperNodeLeafs = leafIDs->GetSize();
                     leafIDs->Extend(leafIDs->GetSize() + leafNodes);
                     Calc1DKernelDimensions(leafNodes, blocks, threads);
-                    int leafIndex = nodes->size - activeRange * 2;
+                    int leafIndex = nodes->GetSize() - activeRange * 2;
                     MarkLeafNodes
                         <<<blocks, threads>>>(leafIDs->GetDeviceData() + upperNodeLeafs, 
                                               nodes->GetInfoData() + leafIndex,
@@ -439,7 +440,6 @@ namespace OpenEngine {
                     std::swap(aabbMin, tempAabbMin);
                     std::swap(aabbMax, tempAabbMax);
                     
-                    nodes->size += activeRange * 2;
                     childrenCreated = activeRange * 2;
                     triangles = newTriangles;
                 }
@@ -518,7 +518,7 @@ namespace OpenEngine {
                                                      axis == KDNode::Z ? splitPos : calcedAabbMax.z,
                                                      calcedAabbMax.w);
 
-                    if (leftIndex < nodes->size - 2 * activeRange)
+                    if (leftIndex < nodes->GetSize() - 2 * activeRange)
                         CheckUpperNode(leftIndex, leftAabbMin, leftAabbMax, activeRange);
                     else
                         CheckUpperLeaf(leftIndex, leftAabbMin, leftAabbMax);
@@ -539,7 +539,7 @@ namespace OpenEngine {
                                                       calcedAabbMin.w);
                     float4 rightAabbMax = calcedAabbMax;
 
-                    if (rightIndex < nodes->size - 2 * activeRange)
+                    if (rightIndex < nodes->GetSize() - 2 * activeRange)
                         CheckUpperNode(rightIndex, rightAabbMin, rightAabbMax, activeRange);
                     else
                         CheckUpperLeaf(rightIndex, rightAabbMin, rightAabbMax);

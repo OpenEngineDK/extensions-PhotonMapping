@@ -53,7 +53,7 @@ namespace OpenEngine {
             children->Resize(i);
 
             maxSize = i;
-            size = min(i, size);
+            size = i;
         }
         
         std::string KDNode::ToString(unsigned int i){
