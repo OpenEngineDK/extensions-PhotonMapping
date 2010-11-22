@@ -76,7 +76,7 @@ namespace OpenEngine {
                 void ReduceAabb(int activeIndex, int activeRange);
                 
                 void CreateChildren(int activeIndex, int activeRange,
-                                    int &childrenCreated) {}
+                                    int &childrenCreated);
 
                 void CheckSegmentReduction(int activeIndex, int activeRange,
                                            Segments &segments, 

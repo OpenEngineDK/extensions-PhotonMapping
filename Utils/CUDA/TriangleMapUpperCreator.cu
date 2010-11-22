@@ -24,7 +24,8 @@ namespace OpenEngine {
 
             using namespace Kernels;
 
-            TriangleMapUpperCreator::TriangleMapUpperCreator(){
+            TriangleMapUpperCreator::TriangleMapUpperCreator()
+                : ITriangleMapCreator() {                
                 
                 cutCreateTimer(&timerID);
 
@@ -153,8 +154,8 @@ namespace OpenEngine {
             
             void TriangleMapUpperCreator::ProcessNodes(int activeIndex, int activeRange, 
                                                        int &childrenCreated){
-                int triangles = primMin->GetSize();
-                //logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << triangles << " primitives" << logger.end;
+                int triangles = aabbMin->GetSize();
+                logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << triangles << " primitives" << logger.end;
 
                 // Copy bookkeeping to symbols
                 cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
@@ -342,6 +343,183 @@ namespace OpenEngine {
                 delete finalMax;
             }
 
+            void TriangleMapUpperCreator::CreateChildren(int activeIndex, int activeRange,
+                                                         int &childrenCreated){
+
+                TriangleNode* nodes = map->GetNodes();
+                int triangles = aabbMin->GetSize();
+
+                unsigned int blocks = NextPow2(segments.GetSize()), threads = Segments::SEGMENT_SIZE;
+
+                splitSide->Extend(triangles * 2, false);
+                splitAddr->Extend(triangles * 2 + 1, false);
+                leafSide->Extend(triangles * 2, false);
+                leafAddr->Extend(triangles * 2 + 1, false);
+                childSize->Extend(activeRange, false);
+                nodes->Extend(nodes->GetSize() + activeRange * 2);
+
+                SetSplitSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                  segments.GetOwnerData(),
+                                                  nodes->GetInfoData(),
+                                                  nodes->GetSplitPositionData(),
+                                                  aabbMin->GetDeviceData(),
+                                                  aabbMax->GetDeviceData(),
+                                                  splitSide->GetDeviceData());
+                CHECK_FOR_CUDA_ERROR();
+
+                cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), triangles * 2 + 1);
+
+#ifdef CPU_VERIFY
+                CheckSplits();
+#endif
+
+                int newTriangles;
+                cudaMemcpy(&newTriangles, splitAddr->GetDeviceData() + triangles * 2, sizeof(int), cudaMemcpyDeviceToHost);
+                //logger.info << "new triangles " << newTriangles << logger.end;
+                CHECK_FOR_CUDA_ERROR();
+                
+                if (newTriangles < triangles)
+                    throw Exception("New triangles amount " + Utils::Convert::ToString(newTriangles) + " was below old. WTF");
+                
+                bool createdLeafs = false;
+                cudaMemcpyToSymbol(d_createdLeafs, &createdLeafs, sizeof(bool));
+
+                unsigned int hatte, traade;
+                Calc1DKernelDimensions(activeRange, hatte, traade);
+                CalcNodeChildSize<<<hatte, traade>>>(nodes->GetPrimitiveInfoData() + activeIndex,
+                                                     splitAddr->GetDeviceData(),
+                                                     childSize->GetDeviceData());
+                CHECK_FOR_CUDA_ERROR();
+                cudaMemcpyFromSymbol(&createdLeafs, d_createdLeafs, sizeof(bool));
+
+                if (createdLeafs){
+                    //logger.info << "Created leafs" << logger.end;
+
+                    SetPrimitiveLeafSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                              segments.GetOwnerData(),
+                                                              childSize->GetDeviceData(),
+                                                              splitSide->GetDeviceData(),
+                                                              leafSide->GetDeviceData());
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    cudppScan(scanHandle, leafAddr->GetDeviceData(), leafSide->GetDeviceData(), triangles * 2 + 1);
+
+                    int leafTriangles;
+                    cudaMemcpy(&leafTriangles, leafAddr->GetDeviceData() + triangles * 2, sizeof(int), cudaMemcpyDeviceToHost);
+                    
+                    newTriangles -= leafTriangles;
+
+                    tempAabbMin->Extend(newTriangles);
+                    tempAabbMax->Extend(newTriangles);
+                    int upperLeafPrimitives = primMax->GetSize();
+                    primMax->Extend(upperLeafPrimitives + leafTriangles);
+                    primMin->Extend(upperLeafPrimitives + leafTriangles);
+
+                    SplitTriangles<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                        segments.GetOwnerData(),
+                                                        nodes->GetInfoData(),
+                                                        nodes->GetSplitPositionData(),
+                                                        splitSide->GetDeviceData(),
+                                                        splitAddr->GetDeviceData(),
+                                                        leafSide->GetDeviceData(),
+                                                        leafAddr->GetDeviceData(),
+                                                        aabbMin->GetDeviceData(),
+                                                        aabbMax->GetDeviceData(),
+                                                        tempAabbMin->GetDeviceData(),
+                                                        tempAabbMax->GetDeviceData(),
+                                                        primMin->GetDeviceData() + upperLeafPrimitives,
+                                                        primMax->GetDeviceData() + upperLeafPrimitives);
+                    CHECK_FOR_CUDA_ERROR();
+                    std::swap(aabbMin, tempAabbMin);
+                    std::swap(aabbMax, tempAabbMax);
+                    
+                    MarkNodeLeafs<<<hatte, traade>>>(childSize->GetDeviceData(),
+                                                     leafSide->GetDeviceData());
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    cudppScan(scanHandle, splitSide->GetDeviceData(), leafSide->GetDeviceData(), activeRange * 2 + 1);
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    int leafNodes;
+                    cudaMemcpy(&leafNodes, splitSide->GetDeviceData() + activeRange * 2, sizeof(int), cudaMemcpyDeviceToHost);
+                    cudaMemcpyToSymbol(d_leafNodes, splitSide->GetDeviceData() + activeRange * 2, sizeof(int), 0, cudaMemcpyDeviceToDevice);
+
+                    /*                                        
+                    logger.info << "CreateChildren<<<" << hatte << ", " << traade << ">>>" << logger.end;
+                    logger.info << "primitive info " << Convert::ToString(nodes->GetPrimitiveInfoData() + activeIndex, activeRange) << logger.end;
+                    logger.info << "child size " << Convert::ToString(childSize->GetDeviceData(), activeRange) << logger.end;
+                    logger.info << "Node leaf addrs " << Convert::ToString(splitSide->GetDeviceData(), activeRange * 2 + 1) << logger.end;
+                    */
+
+                    CreateUpperChildren
+                        <<<hatte, traade>>>(nodes->GetPrimitiveInfoData(),
+                                            childSize->GetDeviceData(),
+                                            splitAddr->GetDeviceData(),
+                                            leafAddr->GetDeviceData(),
+                                            splitSide->GetDeviceData(),
+                                            nodes->GetChildrenData(),
+                                            nodes->GetParentData(),
+                                            upperLeafPrimitives);
+                    CHECK_FOR_CUDA_ERROR();
+
+                    childrenCreated = activeRange * 2 - leafNodes;
+
+                    int upperNodeLeafs = leafIDs->GetSize();
+                    leafIDs->Extend(leafIDs->GetSize() + leafNodes);
+                    Calc1DKernelDimensions(leafNodes, blocks, threads);
+                    int leafIndex = nodes->GetSize() - activeRange * 2;
+                    MarkLeafNodes
+                        <<<blocks, threads>>>(leafIDs->GetDeviceData() + upperNodeLeafs, 
+                                              nodes->GetInfoData() + leafIndex,
+                                              leafIndex, leafNodes);
+
+                }else{
+                    //logger.info << "No leafs created. Split resulted in " << newTriangles << " triangles."  << logger.end;
+
+                    tempAabbMin->Extend(newTriangles);
+                    tempAabbMax->Extend(newTriangles);
+
+                    CreateUpperChildren
+                        <<<hatte, traade>>>(nodes->GetPrimitiveInfoData(),
+                                            childSize->GetDeviceData(),
+                                            splitAddr->GetDeviceData(),
+                                            nodes->GetChildrenData(),
+                                            nodes->GetParentData());
+                    CHECK_FOR_CUDA_ERROR();
+
+                    SplitTriangles<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                        segments.GetOwnerData(),
+                                                        nodes->GetInfoData(),
+                                                        nodes->GetSplitPositionData(),
+                                                        splitSide->GetDeviceData(),
+                                                        splitAddr->GetDeviceData(),
+                                                        aabbMin->GetDeviceData(),
+                                                        aabbMax->GetDeviceData(),
+                                                        tempAabbMin->GetDeviceData(),
+                                                        tempAabbMax->GetDeviceData());
+                    CHECK_FOR_CUDA_ERROR();
+
+                    std::swap(aabbMin, tempAabbMin);
+                    std::swap(aabbMax, tempAabbMax);
+                    
+                    childrenCreated = activeRange * 2;
+                }
+
+#if CPU_VERIFY
+                // Check that all primitive bounding boxes are tight or inside the primitive
+                CheckPrimAabb(aabbMin, aabbMax);
+                
+                // Check that the nodes aabb cover all their respective primitives.
+                for (int i = activeIndex; i < activeIndex + activeRange; ++i){
+                    float4 parentAabbMin, parentAabbMax;
+                    cudaMemcpy(&parentAabbMin, nodes->GetAabbMinData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&parentAabbMax, nodes->GetAabbMaxData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+
+                    CheckUpperNode(i, parentAabbMin, parentAabbMax, activeRange);
+                }
+#endif
+            }
+            
             void TriangleMapUpperCreator::CheckPrimAabb(CUDADataBlock<1, float4> *aabbMin, 
                                                         CUDADataBlock<1, float4> *aabbMax){
                 int triangles = aabbMax->GetSize();

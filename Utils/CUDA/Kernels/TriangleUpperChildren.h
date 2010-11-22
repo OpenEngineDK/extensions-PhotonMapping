@@ -103,7 +103,7 @@ __global__ void MarkNodeLeafs(int2 *childSize,
     }
 }
 
-__global__ void CreateChildren(int2 *primitiveInfo,
+__global__ void CreateUpperChildren(int2 *primitiveInfo,
                                int2 *childSize,
                                int *splitAddrs,
                                int2 *children,
@@ -133,7 +133,7 @@ __global__ void CreateChildren(int2 *primitiveInfo,
     }
 }
 
-__global__ void CreateChildren(int2 *primitiveInfo,
+__global__ void CreateUpperChildren(int2 *primitiveInfo,
                                int2 *childSize,
                                int *splitAddrs,
                                int *leafAddrs,

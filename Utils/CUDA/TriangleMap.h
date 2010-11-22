@@ -39,6 +39,7 @@ namespace OpenEngine {
 
                 int triangles;
 
+                ITriangleMapCreator* upperCreator;
                 ITriangleMapCreator* lowerCreator;
                 
                 float emptySpaceThreshold;

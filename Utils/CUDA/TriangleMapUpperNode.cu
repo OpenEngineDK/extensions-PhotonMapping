@@ -85,7 +85,7 @@ namespace OpenEngine {
             void TriangleMap::ProcessUpperNodes(int activeIndex, int activeRange, 
                                                 int &childrenCreated){
 
-                //logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << triangles << " triangles" << logger.end;
+                logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << triangles << " triangles" << logger.end;
 
                 // Copy bookkeeping to symbols
                 cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
@@ -277,6 +277,9 @@ namespace OpenEngine {
             
             void TriangleMap::CreateChildren(int activeIndex, int activeRange,
                                              int &childrenCreated){
+
+                //triangles = aabbMin->GetSize();
+
                 unsigned int blocks = NextPow2(segments.size), threads = Segments::SEGMENT_SIZE;
 
                 splitSide->Extend(triangles * 2, false);
@@ -379,7 +382,7 @@ namespace OpenEngine {
                     logger.info << "Node leaf addrs " << Convert::ToString(splitSide->GetDeviceData(), activeRange * 2 + 1) << logger.end;
                     */
 
-                    Kernels::CreateChildren
+                    CreateUpperChildren
                         <<<hatte, traade>>>(nodes->GetPrimitiveInfoData(),
                                             childSize->GetDeviceData(),
                                             splitAddr->GetDeviceData(),
@@ -408,7 +411,7 @@ namespace OpenEngine {
                     tempAabbMin->Extend(newTriangles);
                     tempAabbMax->Extend(newTriangles);
 
-                    Kernels::CreateChildren
+                    CreateUpperChildren
                         <<<hatte, traade>>>(nodes->GetPrimitiveInfoData(),
                                             childSize->GetDeviceData(),
                                             splitAddr->GetDeviceData(),

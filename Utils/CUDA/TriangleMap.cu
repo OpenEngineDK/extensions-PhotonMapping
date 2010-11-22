@@ -10,6 +10,7 @@
 #include <Utils/CUDA/TriangleMap.h>
 #include <Scene/ISceneNode.h>
 #include <Scene/TriangleNode.h>
+#include <Utils/CUDA/TriangleMapUpperCreator.h>
 #include <Utils/CUDA/TriangleMapSAHCreator.h>
 #include <Utils/CUDA/Convert.h>
 
@@ -69,6 +70,7 @@ namespace OpenEngine {
 
                 leafIDs = new CUDADataBlock<1, int>(1);
 
+                upperCreator = new TriangleMapUpperCreator();
                 lowerCreator = new TriangleMapSAHCreator();
             }
 
@@ -77,6 +79,7 @@ namespace OpenEngine {
                 Setup();
                 
                 CreateUpperNodes();
+                //upperCreator->Create(this, NULL);
 
                 lowerCreator->Create(this, leafIDs);
 
