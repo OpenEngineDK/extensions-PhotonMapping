@@ -45,12 +45,12 @@ namespace OpenEngine {
         }
 
         void KDNode::Resize(int i){
-            info->Resize(i);
-            splitPos->Resize(i);
-            aabbMin->Resize(i);
-            aabbMax->Resize(i);
-            photonInfo->Resize(i);
-            children->Resize(i);
+            info->Extend(i);
+            splitPos->Extend(i);
+            aabbMin->Extend(i);
+            aabbMax->Extend(i);
+            photonInfo->Extend(i);
+            children->Extend(i);
 
             maxSize = i;
             size = i;
