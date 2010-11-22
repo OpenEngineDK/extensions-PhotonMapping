@@ -38,7 +38,6 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, float4> *p0, *p1, *p2;
                 Resources::CUDA::CUDADataBlock<1, float4> *n0, *n1, *n2;
                 Resources::CUDA::CUDADataBlock<1, uchar4> *c0, *c1, *c2;
-                Resources::CUDA::CUDADataBlock<1, float4> *aabbMin, *aabbMax;
 
                 // Visitor variables
                 Math::Matrix<4,4, float> currentModelMat;
@@ -52,9 +51,6 @@ namespace OpenEngine {
                 void Resize(int i);
                 void Extend(int i);
 
-                Resources::CUDA::CUDADataBlock<1, float4>* GetAabbMin() const { return aabbMin; }
-                Resources::CUDA::CUDADataBlock<1, float4>* GetAabbMax() const { return aabbMax; }
-
                 float4* GetP0Data() const { return p0->GetDeviceData(); }
                 float4* GetP1Data() const { return p1->GetDeviceData(); }
                 float4* GetP2Data() const { return p2->GetDeviceData(); }
@@ -66,8 +62,6 @@ namespace OpenEngine {
                 uchar4* GetColor0Data() const { return c0->GetDeviceData(); }
                 uchar4* GetColor1Data() const { return c1->GetDeviceData(); }
                 uchar4* GetColor2Data() const { return c2->GetDeviceData(); }
-                float4* GetAabbMinData() const { return aabbMin->GetDeviceData(); }
-                float4* GetAabbMaxData() const { return aabbMax->GetDeviceData(); }
                 
                 std::string ToString(unsigned int i) const;
 

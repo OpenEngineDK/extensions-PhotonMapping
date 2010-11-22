@@ -7,6 +7,26 @@
 // See the GNU General Public License for more details (see LICENSE). 
 //--------------------------------------------------------------------
 
+__global__ void CalcPrimitiveAabb(float4* v0s, float4* v1s, float4* v2s, 
+                                  float4 *primAabbMin, float4 *primAabbMax,
+                                  int size){
+
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        
+    if (id < size){
+        float3 minCorner, maxCorner;
+        minCorner = maxCorner = make_float3(v0s[id]);
+        
+        float3 vertex = make_float3(v1s[id]);
+        minCorner = min(minCorner, vertex);
+        maxCorner = max(maxCorner, vertex);
+        
+        vertex = make_float3(v2s[id]);
+        primAabbMin[id] = make_float4(min(minCorner, vertex), id);
+        primAabbMax[id] = make_float4(max(maxCorner, vertex), 0.0f);
+    }
+}
+
 __global__ void AddIndexToAabb(float4 *aabbIn,
                                int size,
                                float4 *aabbOut){

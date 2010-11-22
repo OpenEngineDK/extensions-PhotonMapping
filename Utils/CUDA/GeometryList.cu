@@ -48,16 +48,12 @@ namespace OpenEngine {
                 c0 = new CUDADataBlock<1, uchar4>(maxSize);
                 c1 = new CUDADataBlock<1, uchar4>(maxSize);
                 c2 = new CUDADataBlock<1, uchar4>(maxSize);
-
-                aabbMin = new CUDADataBlock<1, float4>(maxSize);
-                aabbMax = new CUDADataBlock<1, float4>(maxSize);
             }
 
             void GeometryList::Resize(int i){
                 p0->Resize(i); p1->Resize(i); p2->Resize(i);
                 n0->Resize(i); n1->Resize(i); n2->Resize(i);
                 c0->Resize(i); c1->Resize(i); c2->Resize(i);
-                aabbMin->Resize(i); aabbMax->Resize(i);
 
                 maxSize = i;
                 size = min(size, i);
@@ -103,7 +99,6 @@ namespace OpenEngine {
                                           float4 *p0, float4 *p1, float4 *p2,
                                           float4 *n0, float4 *n1, float4 *n2,
                                           uchar4 *c0, uchar4 *c1, uchar4 *c2,
-                                          float4* aabbMin, float4* aabbMax,
                                           int size){
                 
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -117,13 +112,9 @@ namespace OpenEngine {
                     const float3 v1 = verticesIn[i1];
                     const float3 v2 = verticesIn[i2];
                     
-                    float4 minV, maxV;
-                    minV = maxV = p0[id] = modelMat * make_float4(v0, 1.0f);
-                    float4 p = p1[id] = modelMat * make_float4(v1, 1.0f);
-                    minV = min(minV, p); maxV = max(maxV, p);
-                    p = p2[id] = modelMat * make_float4(v2, 1.0f);
-                    aabbMin[id] = min(minV, p); 
-                    aabbMax[id] = max(maxV, p);
+                    p0[id] = modelMat * make_float4(v0, 1.0f);
+                    p1[id] = modelMat * make_float4(v1, 1.0f);
+                    p2[id] = modelMat * make_float4(v2, 1.0f);
                     
                     n0[id] = make_float4(normalMat * normalsIn[i0], 0);
                     n1[id] = make_float4(normalMat * normalsIn[i1], 0);
@@ -189,7 +180,6 @@ namespace OpenEngine {
                                                        p0->GetDeviceData() + size, p1->GetDeviceData() + size, p2->GetDeviceData() + size,
                                                        n0->GetDeviceData() + size, n1->GetDeviceData() + size, n2->GetDeviceData() + size,
                                                        c0->GetDeviceData() + size, c1->GetDeviceData() + size, c2->GetDeviceData() + size,
-                                                       aabbMin->GetDeviceData() + size, aabbMax->GetDeviceData() + size, 
                                                        triangles);
                     CHECK_FOR_CUDA_ERROR();
 

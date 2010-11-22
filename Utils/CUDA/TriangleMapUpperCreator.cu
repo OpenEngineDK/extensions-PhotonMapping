@@ -29,14 +29,6 @@ namespace OpenEngine {
                 
                 cutCreateTimer(&timerID);
 
-                /*
-                primMin = new CUDADataBlock<1, float4>(1);
-                primMax = new CUDADataBlock<1, float4>(1);
-                primIndices = new CUDADataBlock<1, int>(1);
-
-                leafIDs = new CUDADataBlock<1, int>(1);
-                */
-
                 aabbMin = new CUDADataBlock<1, float4>(1);
                 aabbMax = new CUDADataBlock<1, float4>(1);
                 tempAabbMin = new CUDADataBlock<1, float4>(1);
@@ -129,14 +121,15 @@ namespace OpenEngine {
                 // Setup bounding box info
                 aabbMin->Extend(triangles);
                 aabbMax->Extend(triangles);
-
-                // @TODO calc max and min here
                 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(triangles, blocks, threads);
-                AddIndexToAabb<<<blocks, threads>>>(map->GetGeometry()->GetAabbMinData(), triangles, aabbMin->GetDeviceData());
-                cudaMemcpy(aabbMax->GetDeviceData(), map->GetGeometry()->GetAabbMaxData(), 
-                           triangles * sizeof(float4), cudaMemcpyDeviceToDevice);
+                CalcPrimitiveAabb<<<blocks, threads>>>(map->GetGeometry()->GetP0Data(),
+                                                       map->GetGeometry()->GetP1Data(),
+                                                       map->GetGeometry()->GetP2Data(),
+                                                       aabbMin->GetDeviceData(),
+                                                       aabbMax->GetDeviceData(),
+                                                       triangles);
                 CHECK_FOR_CUDA_ERROR();                
 
                 START_TIMER(timerID);
