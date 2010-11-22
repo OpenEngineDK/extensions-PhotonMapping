@@ -58,6 +58,7 @@ namespace OpenEngine {
             
             TriangleMapSAHCreator::~TriangleMapSAHCreator() {
                 if (splitTriangleSet) delete splitTriangleSet;
+                if (primAreas) delete primAreas;
                 if (childAreas) delete childAreas;
                 if (childSets) delete childSets;
                 if (splitSide) delete splitSide;
@@ -201,7 +202,6 @@ namespace OpenEngine {
 
                 int splits;
                 cudaMemcpy(&splits, splitAddr->GetDeviceData() + activeRange, sizeof(int), cudaMemcpyDeviceToHost);
-
                 nodes->Extend(activeIndex + activeRange + 2 * splits);
 
                 Calc1DKernelDimensions(activeRange, blocks, threads);
@@ -227,7 +227,6 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 childrenCreated = splits * 2;
-
             }
 
             void TriangleMapSAHCreator::CheckPreprocess(int activeIndex, int activeRange, 

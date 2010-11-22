@@ -13,7 +13,8 @@ using namespace OpenEngine::Scene;
 using namespace OpenEngine::Utils::CUDA::Kernels;
 */
 
-#define traverselCost 8.0f
+#define traverselCost 32.0f
+#define minLeafTriangles 16
 
 __global__ void CalcSurfaceArea(int *indices, 
                                 float4 *v0s, float4 *v1s, float4 *v2s,
@@ -28,6 +29,22 @@ __global__ void CalcSurfaceArea(int *indices,
         const float3 v1 = make_float3(v1s[index]);
         const float3 v2 = make_float3(v2s[index]);
         areas[id] = 0.5f * length(cross(v1-v0, v2-v0));
+    }
+}
+
+__global__ void PreprocessLeafNodes(int *upperLeafIDs,
+                                   int2 *primitiveInfo,
+                                   int activeRange){
+
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+                
+    if (id < activeRange){
+        int leafID = upperLeafIDs[id];
+        
+        int2 triInfo = primitiveInfo[leafID];
+        triInfo.y = (1<<triInfo.y)-1;
+        
+        primitiveInfo[leafID] = triInfo;
     }
 }
 
@@ -123,6 +140,115 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
             splitTriangleSet[2 * d_triangles + primIndex] = splitZ;
         }
             
+    }
+}
+
+__device__ __host__ void CalcRelationForSets(int4 splittingSet, int nodeSet,
+                                             char splitAxis, int setIndex, 
+                                             float &optimalRelation,
+                                             int &largestSize,
+                                             int &leftSet, int &rightSet,
+                                             char &optimalAxis,
+                                             int &splitIndex){
+    
+    splittingSet.x &= nodeSet;
+    splittingSet.y &= nodeSet;
+    splittingSet.z &= nodeSet;
+    splittingSet.w &= nodeSet;
+
+    int small = min(bitcount(splittingSet.x), bitcount(splittingSet.y));
+    int large = max(bitcount(splittingSet.x), bitcount(splittingSet.y));
+    float rel = small / float(large);
+    
+    if (large < largestSize || (large == largestSize && rel < optimalRelation)){
+        optimalRelation = rel;
+        largestSize = large;
+        leftSet = splittingSet.x; rightSet = splittingSet.y;
+        optimalAxis = splitAxis;
+        splitIndex = setIndex;
+    }
+
+    small = min(bitcount(splittingSet.z), bitcount(splittingSet.w));
+    large = max(bitcount(splittingSet.z), bitcount(splittingSet.w));
+    rel = small / float(large);
+    
+    if (large < largestSize || (large == largestSize && rel < optimalRelation)){
+        optimalRelation = rel;
+        largestSize = large;
+        leftSet = splittingSet.z; rightSet = splittingSet.w;
+        optimalAxis = splitAxis;
+        splitIndex = setIndex | (1<<31);
+    }
+}
+
+// @OPT. Splitting the axis and splitting sets into float and int2
+// arrays in a preprocess, might make the kernels faster, since we can
+// use index lookups to avoid branching and store fewer values
+
+template <bool useIndices>
+__global__ void CalcSplit(int *upperLeafIDs,
+            char *info,
+            float *splitPoss,
+            int2 *primitiveInfo,
+            float4 *aabbMin, float4 *aabbMax,
+            int4 *splitTriangleSet,
+            int2 *childSets,
+            int *splitSides){
+    
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        
+    if (id < d_activeNodeRange){
+        const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
+
+        const int2 primInfo = primitiveInfo[parentID];
+
+        float relation = 0.0f;
+        int largestSetSize = TriangleNode::MAX_LOWER_SIZE;
+        int leftSet, rightSet;
+        char axis;
+        int splitIndex;
+        
+        int triangles = primInfo.y;
+        while(triangles){
+            int i = __ffs(triangles) - 1;
+            
+            CalcRelationForSets(splitTriangleSet[primInfo.x + i], primInfo.y,
+                                KDNode::X, primInfo.x + i,
+                                relation, largestSetSize,
+                                leftSet, rightSet,
+                                axis, splitIndex);
+            
+            CalcRelationForSets(splitTriangleSet[d_triangles + primInfo.x + i], primInfo.y,
+                                KDNode::Y, primInfo.x + i,
+                                relation, largestSetSize,
+                                leftSet, rightSet,
+                                axis, splitIndex);
+            
+            CalcRelationForSets(splitTriangleSet[2 * d_triangles + primInfo.x + i], primInfo.y,
+                                KDNode::Z, primInfo.x + i,
+                                relation, largestSetSize,
+                                leftSet, rightSet,
+                                axis, splitIndex);
+            
+            triangles -= 1<<i;
+        }
+
+        bool split = minLeafTriangles < largestSetSize * relation;
+        if (split){
+            // Dump stuff and move on
+            childSets[id] = make_int2(leftSet, rightSet);
+            float3 splitPositions;
+            if (splitIndex & 1<<31){
+                // A high splitplane was used
+                splitPositions = make_float3(aabbMax[splitIndex ^ 1<<31]);
+            }else{
+                // A low splitplane was used
+                splitPositions = make_float3(aabbMin[splitIndex]);
+            }
+            splitPoss[parentID] = axis == KDNode::X ? splitPositions.x : (axis == KDNode::Y ? splitPositions.y : splitPositions.z);
+        }
+        info[parentID] = split ? axis : KDNode::LEAF;
+        splitSides[id] = split;
     }
 }
 
@@ -267,6 +393,39 @@ __launch_bounds__(96)
         info[parentID] = split ? axis : KDNode::LEAF;
         splitSides[id] = split;
     }
+}
+
+template <bool useIndices>
+__global__ void CreateChildren(int *upperLeafIDs,
+                               int *childSplit,
+                               int *childAddrs,
+                               int2 *childSets,
+                               int2* primitiveInfo,
+                               int2 *children, 
+                               int nodeSplits){
+
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        
+    if (id < d_activeNodeRange){
+        int split = childSplit[id];
+
+        if (split){
+            int2 childrenSet = childSets[id];
+                
+            const int childOffset = childAddrs[id];
+
+            const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
+            int2 parentPrimInfo = primitiveInfo[parentID];
+                
+            const int leftChildID = d_activeNodeIndex + d_activeNodeRange + childOffset;
+            primitiveInfo[leftChildID] = make_int2(parentPrimInfo.x, childrenSet.x);
+                
+            const int rightChildID = leftChildID + nodeSplits;
+            primitiveInfo[rightChildID] = make_int2(parentPrimInfo.x, childrenSet.y);
+
+            children[parentID] = make_int2(leftChildID, rightChildID);
+        }
+    }        
 }
 
 template <bool useIndices>

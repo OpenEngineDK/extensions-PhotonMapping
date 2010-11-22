@@ -22,6 +22,7 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Utils/CUDA/ITriangleMapCreator.h
   Utils/CUDA/TriangleMapUpperCreator.cu
   Utils/CUDA/TriangleMapSAHCreator.cu
+  Utils/CUDA/TriangleMapBalancedCreator.cu
   Utils/CUDA/TriangleMap.cu
 #  Utils/CUDA/PhotonMap.cu
 #  Utils/CUDA/PhotonMapCheck.cu
