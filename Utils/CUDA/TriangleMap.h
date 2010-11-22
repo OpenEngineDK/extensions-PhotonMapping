@@ -10,11 +10,8 @@
 #ifndef _TRIANGLE_MAP_H_
 #define _TRIANGLE_MAP_H_
 
+#include <Resources/CUDA/CUDADataBlock.h>
 #include <Utils/CUDA/GeometryList.h>
-#include <Utils/CUDA/GeometryList.h>
-#include <Utils/CUDA/Segments.h>
-
-#include <Meta/CUDPP.h>
 
 //#define CPU_VERIFY true
 
@@ -40,11 +37,11 @@ namespace OpenEngine {
                 ITriangleMapCreator* upperCreator;
                 ITriangleMapCreator* lowerCreator;
                 
-                CUDADataBlock<1, float4> *primMin;
-                CUDADataBlock<1, float4> *primMax;
-                CUDADataBlock<1, int> *primIndices;
+                Resources::CUDA::CUDADataBlock<1, float4> *primMin;
+                Resources::CUDA::CUDADataBlock<1, float4> *primMax;
+                Resources::CUDA::CUDADataBlock<1, int> *primIndices;
 
-                CUDADataBlock<1, int> *leafIDs;
+                Resources::CUDA::CUDADataBlock<1, int> *leafIDs;
                 
             public:
                 TriangleMap(Scene::ISceneNode* scene);
@@ -54,35 +51,7 @@ namespace OpenEngine {
 
                 GeometryList* GetGeometry() const { return geom; }
                 Scene::TriangleNode* GetNodes() const { return nodes; }
-                CUDADataBlock<1, int>* GetPrimitiveIndices() const { return primIndices; }
-                
-                void CreateUpperNodes();
-
-                void ProcessUpperNodes(int activeIndex, int activeRange, 
-                                       int &childrenCreated);
-
-                void Segment(int activeIndex, int activeRange);
-
-                void ReduceAabb(int activeIndex, int activeRange);
-
-                void CreateChildren(int activeIndex, int activeRange,
-                                    int &childrenCreated);
-
-                void CheckSegmentReduction(int activeIndex, int activeRange,
-                                           Segments &segments, 
-                                           float4 **finalMin, 
-                                           float4 **finalMax);
-
-                void CheckFinalReduction(int activeIndex, int activeRange,
-                                         Scene::TriangleNode* nodes, 
-                                         float4 *finalMin, 
-                                         float4 *finalMax);
-                
-                void CheckPrimAabb(CUDADataBlock<1, float4> *aabbMin, CUDADataBlock<1, float4> *aabbMax);
-                void CheckUpperNode(int index, float4 aabbMin, float4 aabbMax, int activeRange = 0);
-                void CheckUpperLeaf(int index, float4 aabbMin, float4 aabbMax);
-                void CheckSplits();
-
+                Resources::CUDA::CUDADataBlock<1, int>* GetPrimitiveIndices() const { return primIndices; }
             };
 
         }

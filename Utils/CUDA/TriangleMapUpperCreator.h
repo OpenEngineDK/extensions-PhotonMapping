@@ -14,7 +14,7 @@
 
 #include <Utils/CUDA/Segments.h>
 
-#include <Meta/CUDPP.h>
+#include <cudpp/cudpp.h>
 
 namespace OpenEngine {    
     namespace Scene {

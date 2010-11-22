@@ -12,7 +12,7 @@
 
 #include <Utils/CUDA/ITriangleMapCreator.h>
 
-#include <Meta/CUDPP.h>
+#include <cudpp/cudpp.h>
 
 namespace OpenEngine {    
     namespace Utils {
