@@ -121,6 +121,7 @@ namespace OpenEngine {
                 splitTriangleSet->Extend(triangles * 3);
                 
                 Calc1DKernelDimensions(activeRange, blocks, threads);
+                
                 PreprocesLowerNodes<<<blocks, threads>>>(upperLeafIDs->GetDeviceData(),
                                                          nodes->GetPrimitiveInfoData(),
                                                          nodes->GetSurfaceAreaData(),

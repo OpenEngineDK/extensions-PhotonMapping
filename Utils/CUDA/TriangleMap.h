@@ -37,40 +37,12 @@ namespace OpenEngine {
 
                 Scene::TriangleNode* nodes;
 
-                int triangles;
-
                 ITriangleMapCreator* upperCreator;
                 ITriangleMapCreator* lowerCreator;
                 
-                float emptySpaceThreshold;
-
-                CUDPPConfiguration scanConfig;
-                CUDPPHandle scanHandle;
-                int scanSize;
-
-                CUDPPConfiguration scanInclConfig;
-                CUDPPHandle scanInclHandle;
-                int scanInclSize;
-
-                CUDADataBlock<1, float4> *aabbMin;
-                CUDADataBlock<1, float4> *aabbMax;
-                CUDADataBlock<1, float4> *tempAabbMin;
-                CUDADataBlock<1, float4> *tempAabbMax;
                 CUDADataBlock<1, float4> *primMin;
                 CUDADataBlock<1, float4> *primMax;
                 CUDADataBlock<1, int> *primIndices;
-
-                Segments segments;
-                CUDADataBlock<1, int> *nodeSegments;
-
-                // Split vars
-                CUDADataBlock<1, int> *splitSide;
-                CUDADataBlock<1, int> *splitAddr;
-                CUDADataBlock<1, int> *leafSide;
-                CUDADataBlock<1, int> *leafAddr;
-                CUDADataBlock<1, int> *emptySpaceSplits;
-                CUDADataBlock<1, int> *emptySpaceAddrs;
-                CUDADataBlock<1, int2> *childSize;
 
                 CUDADataBlock<1, int> *leafIDs;
                 

@@ -29,11 +29,13 @@ namespace OpenEngine {
                 
                 cutCreateTimer(&timerID);
 
+                /*
                 primMin = new CUDADataBlock<1, float4>(1);
                 primMax = new CUDADataBlock<1, float4>(1);
                 primIndices = new CUDADataBlock<1, int>(1);
 
                 leafIDs = new CUDADataBlock<1, int>(1);
+                */
 
                 aabbMin = new CUDADataBlock<1, float4>(1);
                 aabbMax = new CUDADataBlock<1, float4>(1);
@@ -76,8 +78,6 @@ namespace OpenEngine {
 
             TriangleMapUpperCreator::~TriangleMapUpperCreator(){
                 
-                if (leafIDs) delete leafIDs;
-
                 if (aabbMin) delete aabbMin;
                 if (aabbMax) delete aabbMax;
                 if (tempAabbMin) delete tempAabbMin;
@@ -106,12 +106,18 @@ namespace OpenEngine {
 
                 this->map = map;
 
+                primMin = map->primMin;
+                primMax = map->primMax;
+                primIndices = map->primIndices;
+                leafIDs = map->leafIDs;
+                
                 int activeIndex = 0, activeRange = 1;
                 int childrenCreated;
                 int triangles = map->GetGeometry()->GetSize();
 
                 primMin->Extend(0);
                 primMax->Extend(0);
+                leafIDs->Extend(0);
 
                 // Setup root node!
                 int2 i = make_int2(0, triangles);
@@ -155,7 +161,7 @@ namespace OpenEngine {
             void TriangleMapUpperCreator::ProcessNodes(int activeIndex, int activeRange, 
                                                        int &childrenCreated){
                 int triangles = aabbMin->GetSize();
-                logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << triangles << " primitives" << logger.end;
+                //logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << triangles << " primitives" << logger.end;
 
                 // Copy bookkeeping to symbols
                 cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));

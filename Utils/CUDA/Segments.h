@@ -40,7 +40,10 @@ namespace OpenEngine {
                 int GetSize() const { return size; }
 
                 void Resize(int i);
-                void Extend(int i) {if (maxSize < i) Resize(i); }
+                void Extend(int i) {
+                    if (maxSize < i) Resize(i); 
+                    else size = i ;
+                }
 
                 int* GetOwnerData() const { return nodeIDs->GetDeviceData(); }
                 int2* GetPrimitiveInfoData() const {return primitiveInfo->GetDeviceData(); }
