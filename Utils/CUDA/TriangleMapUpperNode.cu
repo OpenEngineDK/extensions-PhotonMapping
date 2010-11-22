@@ -121,7 +121,6 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 segments.Extend(amountOfSegments);
-                segments.size = amountOfSegments;
 
                 cudaMemset(segments.GetOwnerData(), 0, amountOfSegments * sizeof(int));
                 MarkOwnerStart<<<blocks, threads>>>(segments.GetOwnerData(),
@@ -272,6 +271,8 @@ namespace OpenEngine {
                                               + ", GPU max " + Utils::CUDA::Convert::ToString(gpuMax[i]));
                 }
                 
+                delete finalMin;
+                delete finalMax;
             }
             
             void TriangleMap::CreateChildren(int activeIndex, int activeRange,
@@ -436,7 +437,26 @@ namespace OpenEngine {
 
 #if CPU_VERIFY
                 // Check that all primitive bounding boxes are tight or inside the primitive
+                CheckPrimAabb(aabbMin, aabbMax);
                 
+                // Check that the nodes aabb cover all their respective primitives.
+                for (int i = activeIndex; i < activeIndex + activeRange; ++i){
+                    float4 parentAabbMin, parentAabbMax;
+                    cudaMemcpy(&parentAabbMin, nodes->GetAabbMinData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&parentAabbMax, nodes->GetAabbMaxData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
+
+                    CheckUpperNode(i, parentAabbMin, parentAabbMax, activeRange);
+                }
+#endif
+
+            }
+
+            void TriangleMap::CheckPrimAabb(CUDADataBlock<1, float4> *aabbMin, 
+                                            CUDADataBlock<1, float4> *aabbMax){
+
+                int triangles = aabbMax->GetSize();
+                GeometryList* geom = this->GetGeometry();
+
                 float4 primAabbMin[triangles];
                 cudaMemcpy(primAabbMin, aabbMin->GetDeviceData(), triangles * sizeof(float4), cudaMemcpyDeviceToHost);
                 float4 primAabbMax[triangles];
@@ -465,17 +485,6 @@ namespace OpenEngine {
                                         " -> " + Convert::ToString(primAabbMax[i]));
                 }
                 CHECK_FOR_CUDA_ERROR();
-
-                // Check that the nodes aabb cover all their respective primitives.
-                for (int i = activeIndex; i < activeIndex + activeRange; ++i){
-                    float4 parentAabbMin, parentAabbMax;
-                    cudaMemcpy(&parentAabbMin, nodes->GetAabbMinData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(&parentAabbMax, nodes->GetAabbMaxData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-
-                    CheckUpperNode(i, parentAabbMin, parentAabbMax, activeRange);
-                }
-#endif
-
             }
 
             void TriangleMap::CheckUpperNode(int index, float4 calcedAabbMin, float4 calcedAabbMax, int activeRange){

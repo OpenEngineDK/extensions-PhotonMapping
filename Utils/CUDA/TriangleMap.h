@@ -105,6 +105,7 @@ namespace OpenEngine {
                                          float4 *finalMin, 
                                          float4 *finalMax);
                 
+                void CheckPrimAabb(CUDADataBlock<1, float4> *aabbMin, CUDADataBlock<1, float4> *aabbMax);
                 void CheckUpperNode(int index, float4 aabbMin, float4 aabbMax, int activeRange = 0);
                 void CheckUpperLeaf(int index, float4 aabbMin, float4 aabbMax);
                 void CheckSplits();

@@ -190,7 +190,6 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 segments.Extend(amountOfSegments);
-                segments.size = amountOfSegments;
 
                 cudaMemset(segments.GetOwnerData(), 0, amountOfSegments * sizeof(int));
                 MarkOwnerStart<<<blocks, threads>>>(segments.GetOwnerData(),
@@ -207,6 +206,300 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
             }
                 
+            void TriangleMapUpperCreator::ReduceAabb(int activeIndex, int activeRange){
+                // Reduce aabb pr segment
+                unsigned int blocks = segments.size;
+                unsigned int threads = Segments::SEGMENT_SIZE;
+                unsigned int smemSize = 2 * sizeof(float4) * segments.SEGMENT_SIZE;
+
+                ReduceSegmentsShared<<<blocks, threads, smemSize>>>(segments.GetPrimitiveInfoData(),
+                                                                   aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
+                                                                   segments.GetAabbMinData(), segments.GetAabbMaxData());
+                CHECK_FOR_CUDA_ERROR();
+
+#if CPU_VERIFY
+                float4 *finalMin, *finalMax;
+                CheckSegmentReduction(activeIndex, activeRange,
+                                      segments, &finalMin, &finalMax);
+#endif
+
+                threads = min((segments.size / 32) * 32 + 32, activeCudaDevice.maxThreadsDim[0]);
+                SegmentedReduce0<<<1, threads>>>(segments.GetAabbMinData(),
+                                                 segments.GetAabbMaxData(),
+                                                 segments.GetOwnerData(),
+                                                 map->nodes->GetAabbMinData(),
+                                                 map->nodes->GetAabbMaxData());
+                CHECK_FOR_CUDA_ERROR();
+
+#if CPU_VERIFY
+                CheckFinalReduction(activeIndex, activeRange, map->nodes, 
+                                    finalMin, finalMax);
+#endif
+
+                // Calc splitting planes.
+                Calc1DKernelDimensions(activeRange, blocks, threads);
+                CalcUpperNodeSplitInfo<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
+                                                            map->nodes->GetAabbMaxData() + activeIndex,
+                                                            map->nodes->GetSplitPositionData() + activeIndex,
+                                                            map->nodes->GetInfoData() + activeIndex);
+                CHECK_FOR_CUDA_ERROR();
+            }
+
+            void TriangleMapUpperCreator::CheckSegmentReduction(int activeIndex, int activeRange,
+                                                                Segments &segments, 
+                                                                float4 **finalMin, 
+                                                                float4 **finalMax){
+                int2 info[segments.GetSize()];
+                cudaMemcpy(info, segments.GetPrimitiveInfoData(), 
+                           segments.GetSize() * sizeof(int2), cudaMemcpyDeviceToHost);
+
+                float4 segMin[segments.GetSize()];
+                cudaMemcpy(segMin, segments.GetAabbMinData(), 
+                           segments.GetSize() * sizeof(float4), cudaMemcpyDeviceToHost);
+                float4 segMax[segments.GetSize()];
+                cudaMemcpy(segMax, segments.GetAabbMaxData(), 
+                           segments.GetSize() * sizeof(float4), cudaMemcpyDeviceToHost);
+
+                for (int i = 0; i < segments.GetSize(); ++i){
+                    int index = info[i].x;
+                    int range = info[i].y;
+
+                    float4 cpuMin[range];
+                    cudaMemcpy(cpuMin, aabbMin->GetDeviceData() + index, 
+                               range * sizeof(float4), cudaMemcpyDeviceToHost);
+                    float4 cpuMax[range];
+                    cudaMemcpy(cpuMax, aabbMax->GetDeviceData() + index, 
+                               range * sizeof(float4), cudaMemcpyDeviceToHost);
+
+                    for (int j = 1; j < range; ++j){
+                        cpuMin[0] = min(cpuMin[0], cpuMin[j]);
+                        cpuMax[0] = max(cpuMax[0], cpuMax[j]);
+                    }
+                    
+                    if (cpuMin[0].x != segMin[i].x || cpuMin[0].y != segMin[i].y || cpuMin[0].z != segMin[i].z)
+                        throw Core::Exception("aabbMin error at segment " + Utils::Convert::ToString(i) +
+                                              ": CPU min " + Utils::CUDA::Convert::ToString(cpuMin[0])
+                                              + ", GPU min " + Utils::CUDA::Convert::ToString(segMin[i]));
+
+                    if (cpuMax[0].x != segMax[i].x || cpuMax[0].y != segMax[i].y || cpuMax[0].z != segMax[i].z)
+                        throw Core::Exception("aabbMax error at segment " + Utils::Convert::ToString(i) +
+                                              ": CPU max " + Utils::CUDA::Convert::ToString(cpuMax[0])
+                                              + ", GPU max " + Utils::CUDA::Convert::ToString(segMax[i]));
+                }
+
+                int segOwner[segments.GetSize()];
+                cudaMemcpy(segOwner, segments.GetOwnerData(), 
+                           segments.GetSize() * sizeof(int), cudaMemcpyDeviceToHost);
+
+                (*finalMin) = new float4[activeRange];
+                (*finalMax) = new float4[activeRange];
+
+                int owner0 = segOwner[0];
+                float4 localMin = segMin[0];
+                float4 localMax = segMax[0];
+                for (int i = 1; i < segments.GetSize(); ++i){
+                    int owner1 = segOwner[i];
+                    if (owner0 != owner1){
+                        (*finalMin)[owner0 - activeIndex] = localMin;
+                         (*finalMax)[owner0 - activeIndex] = localMax;
+                        owner0 = segOwner[i];
+                        localMin = segMin[i];
+                        localMax = segMax[i];
+                    }else{
+                        localMin = min(localMin, segMin[i]);
+                        localMax = max(localMax, segMax[i]);
+                    }
+                }
+                (*finalMin)[owner0 - activeIndex] = localMin;
+                (*finalMax)[owner0 - activeIndex] = localMax;
+            }
+
+            void TriangleMapUpperCreator::CheckFinalReduction(int activeIndex, int activeRange,
+                                                              TriangleNode* nodes, 
+                                                              float4 *finalMin, 
+                                                              float4 *finalMax){
+                
+                float4 gpuMin[activeRange];
+                cudaMemcpy(gpuMin, nodes->GetAabbMinData() + activeIndex,
+                           activeRange * sizeof(float4), cudaMemcpyDeviceToHost);
+                float4 gpuMax[activeRange];
+                cudaMemcpy(gpuMax, nodes->GetAabbMaxData() + activeIndex,
+                           activeRange * sizeof(float4), cudaMemcpyDeviceToHost);
+
+                for (int i = 0; i < activeRange; ++i){
+                    if (finalMin[i].x != gpuMin[i].x || finalMin[i].y != gpuMin[i].y || finalMin[i].z != gpuMin[i].z)
+                        throw Core::Exception("aabbMin error at node " + Utils::Convert::ToString(i + activeIndex) +
+                                              ": CPU min " + Utils::CUDA::Convert::ToString(finalMin[i])
+                                              + ", GPU min " + Utils::CUDA::Convert::ToString(gpuMin[i]));
+
+                    if (finalMax[i].x != gpuMax[i].x || finalMax[i].y != gpuMax[i].y || finalMax[i].z != gpuMax[i].z)
+                        throw Core::Exception("aabbMax error at node " + Utils::Convert::ToString(i + activeIndex) +
+                                              ": CPU max " + Utils::CUDA::Convert::ToString(finalMax[i])
+                                              + ", GPU max " + Utils::CUDA::Convert::ToString(gpuMax[i]));
+                }
+
+                delete finalMin;
+                delete finalMax;
+            }
+
+            void TriangleMapUpperCreator::CheckPrimAabb(CUDADataBlock<1, float4> *aabbMin, 
+                                                        CUDADataBlock<1, float4> *aabbMax){
+                int triangles = aabbMax->GetSize();
+                GeometryList* geom = map->GetGeometry();
+
+                float4 primAabbMin[triangles];
+                cudaMemcpy(primAabbMin, aabbMin->GetDeviceData(), triangles * sizeof(float4), cudaMemcpyDeviceToHost);
+                float4 primAabbMax[triangles];
+                cudaMemcpy(primAabbMax, aabbMax->GetDeviceData(), triangles * sizeof(float4), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+                for (int i = 0; i < triangles; ++i){
+                    int index = primAabbMin[i].w;
+                    float4 p0, p1, p2;
+                    cudaMemcpy(&p0, geom->p0->GetDeviceData() + index, sizeof(float4), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&p1, geom->p1->GetDeviceData() + index, sizeof(float4), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&p2, geom->p2->GetDeviceData() + index, sizeof(float4), cudaMemcpyDeviceToHost);
+
+                    float4 aabbMin = min(p0, min(p1, p2));
+                    float4 aabbMax = max(p0, max(p1, p2));
+
+                    if (primAabbMin[i].x < aabbMin.x || 
+                        primAabbMin[i].y < aabbMin.y || 
+                        primAabbMin[i].z < aabbMin.z ||
+                        aabbMax.x < primAabbMax[i].x ||
+                        aabbMax.y < primAabbMax[i].y ||
+                        aabbMax.z < primAabbMax[i].z)
+                        throw Exception("Element " + Utils::Convert::ToString(i) + 
+                                        " with cornors " + Convert::ToString(p0) +
+                                        ", " + Convert::ToString(p1) + " and " + Convert::ToString(p2) +
+                                        " is not strictly contained in aabb " + Convert::ToString(primAabbMin[i]) +
+                                        " -> " + Convert::ToString(primAabbMax[i]));
+                }
+                CHECK_FOR_CUDA_ERROR();
+            }
+            
+            void TriangleMapUpperCreator::CheckUpperNode(int index, float4 calcedAabbMin, 
+                                                         float4 calcedAabbMax, int activeRange){
+                //logger.info << "Checking node " << index << logger.end;
+                char axis;
+                cudaMemcpy(&axis, map->nodes->GetInfoData() + index, sizeof(char), cudaMemcpyDeviceToHost);
+                
+                if (axis == KDNode::LEAF){
+                    CheckUpperLeaf(index, calcedAabbMin, calcedAabbMax);                    
+                }else{
+                    float splitPos;
+                    cudaMemcpy(&splitPos, map->nodes->GetSplitPositionData() + index, sizeof(float), cudaMemcpyDeviceToHost);
+
+                    int2 childrenIndex;
+                    cudaMemcpy(&childrenIndex, map->nodes->GetChildrenData() + index, sizeof(int2), cudaMemcpyDeviceToHost);
+                    
+                    int leftIndex = childrenIndex.x;
+
+                    /*
+                    int leftParent;
+                    cudaMemcpy(&leftParent, nodes->GetParentData() + leftIndex, sizeof(int), cudaMemcpyDeviceToHost);
+                    if (leftParent != index)
+                        throw Exception("Node " + Utils::Convert::ToString(leftIndex) +
+                                        "'s parent " + Utils::Convert::ToString(leftParent) +
+                                        " does not match actual parent " + Utils::Convert::ToString(index));
+                    */
+
+                    float4 leftAabbMin = calcedAabbMin;
+                    float4 leftAabbMax = make_float4(axis == KDNode::X ? splitPos : calcedAabbMax.x,
+                                                     axis == KDNode::Y ? splitPos : calcedAabbMax.y,
+                                                     axis == KDNode::Z ? splitPos : calcedAabbMax.z,
+                                                     calcedAabbMax.w);
+
+                    if (leftIndex < map->nodes->GetSize() - 2 * activeRange)
+                        CheckUpperNode(leftIndex, leftAabbMin, leftAabbMax, activeRange);
+                    else
+                        CheckUpperLeaf(leftIndex, leftAabbMin, leftAabbMax);
+
+                    int rightIndex = childrenIndex.y;
+
+                    /*                        
+                    int rightParent;
+                    cudaMemcpy(&rightParent, nodes->GetParentData() + rightIndex, sizeof(int), cudaMemcpyDeviceToHost);
+                    if (rightParent != index)
+                        throw Exception("Node " + Utils::Convert::ToString(rightIndex) +
+                                        "'s parent " + Utils::Convert::ToString(rightParent) +
+                                        " does not match actual parent " + Utils::Convert::ToString(index));
+                    */
+                        
+                    float4 rightAabbMin = make_float4(axis == KDNode::X ? splitPos : calcedAabbMin.x,
+                                                      axis == KDNode::Y ? splitPos : calcedAabbMin.y,
+                                                      axis == KDNode::Z ? splitPos : calcedAabbMin.z,
+                                                      calcedAabbMin.w);
+                    float4 rightAabbMax = calcedAabbMax;
+
+                    if (rightIndex < map->nodes->GetSize() - 2 * activeRange)
+                        CheckUpperNode(rightIndex, rightAabbMin, rightAabbMax, activeRange);
+                    else
+                        CheckUpperLeaf(rightIndex, rightAabbMin, rightAabbMax);
+                }                
+            }
+
+            void TriangleMapUpperCreator::CheckUpperLeaf(int index, float4 calcedAabbMin, float4 calcedAabbMax){
+                //logger.info << "Node " << index << " is a leaf" << logger.end;
+                int2 primInfo;
+                cudaMemcpy(&primInfo, map->nodes->GetPrimitiveInfoData() + index, sizeof(int2), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+                
+                bool isLeaf = primInfo.y < TriangleNode::MAX_LOWER_SIZE;
+                for (int j = primInfo.x; j < primInfo.x + primInfo.y; ++j){
+                    float4 h_primMin, h_primMax;
+                    if (isLeaf){
+                        cudaMemcpy(&h_primMin, primMin->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                        cudaMemcpy(&h_primMax, primMax->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                    }else{
+                        cudaMemcpy(&h_primMin, aabbMin->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                        cudaMemcpy(&h_primMax, aabbMax->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);
+                    }
+                    CHECK_FOR_CUDA_ERROR();
+                            
+                    if (!aabbContains(calcedAabbMin, calcedAabbMax, h_primMin))
+                        throw Core::Exception("primitive  " + Utils::Convert::ToString(j) + 
+                                              "'s min " + Convert::ToString(h_primMin) +
+                                              " not included in node " + Utils::Convert::ToString(index) +
+                                              "'s aabb " + Convert::ToString(calcedAabbMin) +
+                                              " -> " + Convert::ToString(calcedAabbMax));
+
+                    if (!aabbContains(calcedAabbMin, calcedAabbMax, h_primMax))
+                        throw Core::Exception("primitive  " + Utils::Convert::ToString(j) + 
+                                              "'s max " + Convert::ToString(h_primMax) +
+                                              " not included in node " + Utils::Convert::ToString(index) +
+                                              "'s aabb " + Convert::ToString(calcedAabbMin) +
+                                              " -> " + Convert::ToString(calcedAabbMax));
+                }
+            }
+
+            void TriangleMapUpperCreator::CheckSplits() {
+                int triangles = splitSide->GetSize() / 2;
+
+                int sides[triangles * 2];
+                cudaMemcpy(sides, splitSide->GetDeviceData(), triangles * 2 * sizeof(int), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+
+                int addrs[triangles * 2];
+                cudaMemcpy(addrs, splitAddr->GetDeviceData(), (triangles * 2 + 1) * sizeof(int), cudaMemcpyDeviceToHost);
+                CHECK_FOR_CUDA_ERROR();
+
+                for (int i = 0; i < triangles; ++i){
+                    // Check that a bounding box is at least assigned to one side.
+                    if (sides[i] + sides[triangles + i] == 0)
+                        throw Exception("Bounding box " + Utils::Convert::ToString(i) +
+                                        "was neither left nor right.");
+                }
+
+                int prims = 0;
+                for (int i = 1; i < triangles * 2 + 1; ++i){
+                    prims += sides[i-1];
+                    if (prims != addrs[i])
+                        throw Exception("Stuff went wrong at bounding box " + Utils::Convert::ToString(i));
+                }
+
+                //logger.info << "New prims " << prims << logger.end;
+            }
+
         }
     }
 }

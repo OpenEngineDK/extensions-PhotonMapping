@@ -73,14 +73,26 @@ namespace OpenEngine {
 
                 void Segment(int activeIndex, int activeRange);
                 
-                void ReduceAabb(int activeIndex, int activeRange) {}
+                void ReduceAabb(int activeIndex, int activeRange);
                 
                 void CreateChildren(int activeIndex, int activeRange,
                                     int &childrenCreated) {}
 
-                void CheckUpperNode(int index, float4 aabbMin, float4 aabbMax, int activeRange = 0) {}
-                void CheckUpperLeaf(int index, float4 aabbMin, float4 aabbMax) {}
-                void CheckSplits() {}
+                void CheckSegmentReduction(int activeIndex, int activeRange,
+                                           Segments &segments, 
+                                           float4 **finalMin, 
+                                           float4 **finalMax);
+
+                void CheckFinalReduction(int activeIndex, int activeRange,
+                                         Scene::TriangleNode* nodes, 
+                                         float4 *finalMin, 
+                                         float4 *finalMax);
+
+                void CheckPrimAabb(Resources::CUDA::CUDADataBlock<1, float4> *aabbMin, 
+                                   Resources::CUDA::CUDADataBlock<1, float4> *aabbMax);
+                void CheckUpperNode(int index, float4 aabbMin, float4 aabbMax, int activeRange = 0);
+                void CheckUpperLeaf(int index, float4 aabbMin, float4 aabbMax);
+                void CheckSplits();
 
             };
 

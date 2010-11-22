@@ -22,10 +22,9 @@ namespace OpenEngine {
         namespace CUDA {
 
             class Segments {
-            public:
-                
+            public:                
                 static const int SEGMENT_SIZE = 256;
-                
+
                 CUDADataBlock<1, int> *nodeIDs;
                 CUDADataBlock<1, int2> *primitiveInfo;
                 // Variables for holding the intermediate min/max values
@@ -37,6 +36,8 @@ namespace OpenEngine {
             public:
                 Segments();
                 Segments(int i);
+
+                int GetSize() const { return size; }
 
                 void Resize(int i);
                 void Extend(int i) {if (maxSize < i) Resize(i); }

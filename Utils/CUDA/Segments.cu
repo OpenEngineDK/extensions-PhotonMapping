@@ -38,6 +38,7 @@ namespace OpenEngine {
                 prefixSum->Resize(i);
                 
                 maxSize = i;
+                size = i;
             }
 
             std::string Segments::ToString(int i){
