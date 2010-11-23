@@ -70,36 +70,36 @@ namespace OpenEngine {
                 }
 
                 void Resize(unsigned int i, bool dataPersistent = true){
-                    if (hostData)
-                        delete [] hostData;
-
-                    if (dataPersistent){
-                        T *temp;
+                    if (maxSize < i){
+                        if (hostData)
+                            delete [] hostData;
                         
-                        unsigned int copySize = min(i, this->size);
-                        
-                        cudaMalloc(&temp, i * N *sizeof(T));
+                        if (dataPersistent){
+                            T *temp;
+                            
+                            unsigned int copySize = min(i, this->size);
+                            
+                            cudaMalloc(&temp, i * N *sizeof(T));
 #if OE_SAFE
-                        cudaMemset(temp, 127, i * N * sizeof(T));
+                            cudaMemset(temp, 127, i * N * sizeof(T));
 #endif
-                        cudaMemcpy(temp, this->data, copySize * N * sizeof(T), cudaMemcpyDeviceToDevice);
-                        cudaFree(this->data);
-                        this->data = temp;
-                        CHECK_FOR_CUDA_ERROR();
-                        
-                    }else{
-                        cudaFree(this->data);
-                        cudaMalloc(&this->data, i * N *sizeof(T));
-                        CHECK_FOR_CUDA_ERROR();
+                            cudaMemcpy(temp, this->data, copySize * N * sizeof(T), cudaMemcpyDeviceToDevice);
+                            cudaFree(this->data);
+                            this->data = temp;
+                            CHECK_FOR_CUDA_ERROR();
+                            
+                        }else{
+                            cudaFree(this->data);
+                            cudaMalloc(&this->data, i * N *sizeof(T));
+                            CHECK_FOR_CUDA_ERROR();
+                        }
+                        maxSize = i;
                     }
-                    maxSize = this->size = i;
+                    this->size = i;
                 }
 
                 void Extend(unsigned int i, bool dataPersistent = true){
-                    if (maxSize < i)
-                        Resize(i, dataPersistent);
-                    else
-                        size = i;
+                    Resize(i, dataPersistent);
                 }
 
                 void GetElement(unsigned int i, Math::Vector<4, unsigned char> &element) {throw Exception("Not implemented");}
