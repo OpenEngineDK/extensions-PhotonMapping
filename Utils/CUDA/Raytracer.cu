@@ -50,11 +50,11 @@ namespace OpenEngine {
             //__constant__ float3 d_aabbMax;
 
             __device__ __host__ void TraceNode(float3 origin, float3 direction, 
-                                               char axes, float splitPos,
+                                               char axis, float splitPos,
                                                int left, int right, float tMin,
                                                int &node, float &tNext){
                 float ori, dir;
-                switch(axes){
+                switch(axis){
                 case KDNode::X:
                     ori = origin.x; dir = direction.x;
                     break;
@@ -65,7 +65,7 @@ namespace OpenEngine {
                     ori = origin.z; dir = direction.z;
                     break;
                 }
-
+                
                 float tSplit = (splitPos - ori) / dir;
                 int lowerChild = 0 < dir ? left : right;
                 int upperChild = 0 < dir ? right : left;

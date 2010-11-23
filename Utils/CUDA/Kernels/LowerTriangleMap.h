@@ -14,7 +14,7 @@ using namespace OpenEngine::Utils::CUDA::Kernels;
 */
 
 #define traverselCost 32.0f
-#define minLeafTriangles 16
+#define minLeafTriangles 32
 
 __global__ void CalcSurfaceArea(int *indices, 
                                 float4 *v0s, float4 *v1s, float4 *v2s,

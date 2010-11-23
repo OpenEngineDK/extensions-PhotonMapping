@@ -450,8 +450,8 @@ namespace OpenEngine {
                     logger.info << "Node leaf addrs " << Convert::ToString(splitSide->GetDeviceData(), activeRange * 2 + 1) << logger.end;
                     */
 
-                    CreateUpperChildren
-                        <<<hatte, traade>>>(nodes->GetPrimitiveInfoData(),
+                    CreateUpperChildren<false>
+                        <<<hatte, traade>>>(NULL, nodes->GetPrimitiveInfoData(),
                                             childSize->GetDeviceData(),
                                             splitAddr->GetDeviceData(),
                                             leafAddr->GetDeviceData(),
@@ -478,8 +478,8 @@ namespace OpenEngine {
                     tempAabbMin->Extend(newTriangles);
                     tempAabbMax->Extend(newTriangles);
 
-                    CreateUpperChildren
-                        <<<hatte, traade>>>(nodes->GetPrimitiveInfoData(),
+                    CreateUpperChildren<false>
+                        <<<hatte, traade>>>(NULL, nodes->GetPrimitiveInfoData(),
                                             childSize->GetDeviceData(),
                                             splitAddr->GetDeviceData(),
                                             nodes->GetChildrenData(),
@@ -504,6 +504,14 @@ namespace OpenEngine {
                     childrenCreated = activeRange * 2;
                 }
 
+                Calc1DKernelDimensions(activeRange, blocks, threads);
+                PropagateChildAabb<false><<<blocks, threads>>>(NULL, nodes->GetInfoData(),
+                                                               nodes->GetSplitPositionData(),
+                                                               nodes->GetAabbMinData(),
+                                                               nodes->GetAabbMaxData(),
+                                                               nodes->GetChildrenData());
+                CHECK_FOR_CUDA_ERROR();
+                
 #if CPU_VERIFY
                 // Check that all primitive bounding boxes are tight or inside the primitive
                 CheckPrimAabb(aabbMin, aabbMax);

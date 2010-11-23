@@ -44,7 +44,6 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
     }
 }
 
-// @OPT Does this have to be in a seperate kernel?
 __global__ void CalcNodeChildSize(int2* primitiveInfo,
                                   int *splitAddrs,
                                   int2* childSize){
@@ -103,18 +102,24 @@ __global__ void MarkNodeLeafs(int2 *childSize,
     }
 }
 
-__global__ void CreateUpperChildren(int2 *primitiveInfo,
-                               int2 *childSize,
-                               int *splitAddrs,
-                               int2 *children,
-                               int *parent){
+__global__ void CreateEmptyLeaves(){
+
+}
+
+template <bool useIndices>
+__global__ void CreateUpperChildren(int *indices,
+                                    int2 *primitiveInfo,
+                                    int2 *childSize,
+                                    int *splitAddrs,
+                                    int2 *children,
+                                    int *parent){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
     if (id < d_activeNodeRange){
         const int2 size = childSize[id];
 
-        int parentID = id + d_activeNodeIndex;
+        const int parentID = useIndices ? indices[id] : d_activeNodeIndex + id;
 
         const int leftID = parentID + d_activeNodeRange;
         const int rightID = leftID + d_activeNodeRange;
@@ -133,14 +138,16 @@ __global__ void CreateUpperChildren(int2 *primitiveInfo,
     }
 }
 
-__global__ void CreateUpperChildren(int2 *primitiveInfo,
-                               int2 *childSize,
-                               int *splitAddrs,
-                               int *leafAddrs,
-                               int *leafNodeAddrs,
-                               int2 *children,
-                               int *parent,
-                               int upperLeafPrimitives){
+template <bool useIndices>
+__global__ void CreateUpperChildren(int* indices,
+                                    int2 *primitiveInfo,
+                                    int2 *childSize,
+                                    int *splitAddrs,
+                                    int *leafAddrs,
+                                    int *leafNodeAddrs,
+                                    int2 *children,
+                                    int *parent,
+                                    int upperLeafPrimitives){
 
     int id = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -148,7 +155,7 @@ __global__ void CreateUpperChildren(int2 *primitiveInfo,
             
         const int2 size = childSize[id];
 
-        int parentID = id + d_activeNodeIndex;
+        const int parentID = useIndices ? indices[id] : d_activeNodeIndex + id;
 
         const int2 primInfo = primitiveInfo[parentID];
             
@@ -174,6 +181,43 @@ __global__ void CreateUpperChildren(int2 *primitiveInfo,
 
         children[parentID] = make_int2(leftID, rightID);
     }
+}
+
+template <bool useIndices>
+__global__ void PropagateChildAabb(int *indices,
+                                   char *nodeInfo,
+                                   float *splitPoss,
+                                   float4 *aabbMins,
+                                   float4 *aabbMaxs,
+                                   int2 *children){
+
+    int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (id < d_activeNodeRange){
+        const int parentID = useIndices ? indices[id] : d_activeNodeIndex + id;
+
+        char axis = nodeInfo[parentID] & 3;
+        float splitPos = splitPoss[parentID];
+
+        int2 childIDs = children[parentID];
+
+        float4 aabbMin = aabbMins[parentID];
+
+        aabbMins[childIDs.x] = aabbMin;
+        aabbMins[childIDs.y] = make_float4(axis == KDNode::X ? splitPos : aabbMin.x,
+                                           axis == KDNode::Y ? splitPos : aabbMin.y,
+                                           axis == KDNode::Z ? splitPos : aabbMin.z,
+                                           0.0f);
+
+        float4 aabbMax = aabbMaxs[parentID];
+
+        aabbMaxs[childIDs.x] = make_float4(axis == KDNode::X ? splitPos : aabbMax.x,
+                                           axis == KDNode::Y ? splitPos : aabbMax.y,
+                                           axis == KDNode::Z ? splitPos : aabbMax.z,
+                                           0.0f);
+        aabbMaxs[childIDs.y] = aabbMax;
+        
+    }    
 }
 
 __global__ void 
