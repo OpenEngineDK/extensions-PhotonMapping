@@ -25,7 +25,7 @@ namespace OpenEngine {
             using namespace Kernels;
 
             TriangleMapUpperCreator::TriangleMapUpperCreator()
-                : ITriangleMapCreator() {                
+                : ITriangleMapCreator(), emptySpaceThreshold(0.5f) {
                 
                 cutCreateTimer(&timerID);
 
@@ -41,6 +41,10 @@ namespace OpenEngine {
                 splitAddr = new CUDADataBlock<1, int>(1);
                 leafSide = new CUDADataBlock<1, int>(1);
                 leafAddr = new CUDADataBlock<1, int>(1);
+                emptySpacePlanes = new CUDADataBlock<1, char>(1);
+                emptySpaceNodes = new CUDADataBlock<1, int>(1);
+                emptySpaceAddrs = new CUDADataBlock<1, int>(1);
+                nodeIndices = new CUDADataBlock<1, int>(1);
                 childSize = new CUDADataBlock<1, int2>(1);
 
                 // CUDPP doesn't handle removing handles well, so we
@@ -81,6 +85,10 @@ namespace OpenEngine {
                 if (splitAddr) delete splitAddr;
                 if (leafSide) delete leafSide;
                 if (leafAddr) delete leafAddr;
+                if (emptySpacePlanes) delete emptySpacePlanes;
+                if (emptySpaceNodes) delete emptySpaceNodes;
+                if (emptySpaceAddrs) delete emptySpaceAddrs;
+                if (nodeIndices) delete nodeIndices;
                 if (childSize) delete childSize;
             }
 
@@ -108,6 +116,8 @@ namespace OpenEngine {
                 int childrenCreated;
                 int triangles = map->GetGeometry()->GetSize();
 
+                cudaMemcpyToSymbol(d_emptySpaceThreshold, &emptySpaceThreshold, sizeof(float));
+
                 primMin->Extend(0);
                 primMax->Extend(0);
                 leafIDs->Extend(0);
@@ -117,6 +127,9 @@ namespace OpenEngine {
                 cudaMemcpy(map->nodes->GetPrimitiveInfoData(), &i, sizeof(int2), cudaMemcpyHostToDevice);
                 int parent = 0;
                 cudaMemcpy(map->nodes->GetParentData(), &parent, sizeof(int), cudaMemcpyHostToDevice);
+                float4 zero = make_float4(0.0f);
+                cudaMemcpy(map->nodes->GetAabbMinData(), &zero, sizeof(float4), cudaMemcpyHostToDevice);
+                cudaMemcpy(map->nodes->GetAabbMaxData(), &zero, sizeof(float4), cudaMemcpyHostToDevice);
                 map->nodes->Resize(1);
 
                 // Setup bounding box info
@@ -224,9 +237,12 @@ namespace OpenEngine {
                                       segments, &finalMin, &finalMax);
 #endif
 
+                tempAabbMin->Resize(activeRange, false);
+                tempAabbMax->Resize(activeRange, false);
+                
                 Calc1DKernelDimensions(activeRange, blocks, threads);
-                AabbMemset<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex, 
-                                                map->nodes->GetAabbMaxData() + activeIndex);
+                AabbMemset<<<blocks, threads>>>(tempAabbMin->GetDeviceData(),
+                                                tempAabbMax->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
                 
                 Calc1DKernelDimensions(segments.GetSize(), blocks, threads);
@@ -236,24 +252,43 @@ namespace OpenEngine {
                     FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData() + i * threads,
                                                          segments.GetAabbMaxData() + i * threads,
                                                          segments.GetOwnerData() + i * threads,
-                                                         map->nodes->GetAabbMinData(),
-                                                         map->nodes->GetAabbMaxData());
-                                                     //tempAabbMin->GetDeviceData(),
-                                                     //tempAabbMax->GetDeviceData());
+                                                         tempAabbMin->GetDeviceData(),
+                                                         tempAabbMax->GetDeviceData());
                 }
                 int segs = segments.GetSize();
                 cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
                 CHECK_FOR_CUDA_ERROR();
 
-                /*
-                threads = min((segments.size / 32) * 32 + 32, activeCudaDevice.maxThreadsDim[0]);
-                FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData(),
-                                                     segments.GetAabbMaxData(),
-                                                     segments.GetOwnerData(),
-                                                     map->nodes->GetAabbMinData(),
-                                                     map->nodes->GetAabbMaxData());
+                // Calculate empty space splitting planes before copying aabbs to nodes.
+                bool createdEmptySplits = false;
+                cudaMemcpyToSymbol(d_createdEmptySplits, &createdEmptySplits, sizeof(bool));
+                emptySpacePlanes->Resize(activeRange, false);
+                emptySpaceNodes->Resize(activeRange+1, false);
+                Calc1DKernelDimensions(activeRange, blocks, threads);
+                CalcEmptySpaceSplits<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
+                                                          map->nodes->GetAabbMaxData() + activeIndex,
+                                                          tempAabbMin->GetDeviceData(), 
+                                                          tempAabbMax->GetDeviceData(), 
+                                                          emptySpacePlanes->GetDeviceData(),
+                                                          emptySpaceNodes->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
-                */
+
+                cudaMemcpyFromSymbol(&createdEmptySplits, d_createdEmptySplits, sizeof(bool));
+
+                if (createdEmptySplits){
+                    emptySpaceAddrs->Resize(activeRange+1, false);
+                    cudppScan(scanHandle, emptySpaceAddrs->GetDeviceData(), emptySpaceNodes->GetDeviceData(), activeRange+1);
+                    logger.info << "Empty space " << Convert::ToString(emptySpaceAddrs->GetDeviceData() + activeRange, 1) << logger.end;
+                }else
+                    emptySpaceAddrs->Resize(0, false);
+
+                cudaMemcpy(map->nodes->GetAabbMinData() + activeIndex, 
+                           tempAabbMin->GetDeviceData(), 
+                           activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
+                cudaMemcpy(map->nodes->GetAabbMaxData() + activeIndex, 
+                           tempAabbMax->GetDeviceData(), 
+                           activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
+
 
 #if CPU_VERIFY
                 CheckFinalReduction(activeIndex, activeRange, map->nodes, 

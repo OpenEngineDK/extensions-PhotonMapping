@@ -247,6 +247,7 @@ __global__ void FinalSegmentedReduce(float4 *segmentAabbMin,
         int owner1 = segmentOwner[index1];
         
         if (owner0 != owner1){
+            owner1 -= d_activeNodeIndex;
             nodeAabbMin[owner1] = min(nodeAabbMin[owner1], segmentAabbMin[index1]);
             nodeAabbMax[owner1] = max(nodeAabbMax[owner1], segmentAabbMax[index1]);
         }else{
@@ -260,8 +261,9 @@ __global__ void FinalSegmentedReduce(float4 *segmentAabbMin,
     }
 
     if (threadIdx.x == 0){
-        nodeAabbMin[segmentOwner[0]] = min(nodeAabbMin[segmentOwner[0]], segmentAabbMin[0]);
-        nodeAabbMax[segmentOwner[0]] = max(nodeAabbMax[segmentOwner[0]], segmentAabbMax[0]);
+        int owner = segmentOwner[0] - d_activeNodeIndex;
+        nodeAabbMin[owner] = min(nodeAabbMin[owner], segmentAabbMin[0]);
+        nodeAabbMax[owner] = max(nodeAabbMax[owner], segmentAabbMax[0]);
     }
 }
 

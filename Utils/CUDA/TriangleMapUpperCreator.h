@@ -16,7 +16,7 @@
 
 #include <cudpp/cudpp.h>
 
-//#define CPU_VERIFY true
+#define CPU_VERIFY true
 
 namespace OpenEngine {    
     namespace Scene {
@@ -33,6 +33,8 @@ namespace OpenEngine {
 
                 Segments segments;
                 Resources::CUDA::CUDADataBlock<1, int> *nodeSegments;
+
+                float emptySpaceThreshold;
 
                 // Primitive aabb values
                 Resources::CUDA::CUDADataBlock<1, float4> *aabbMin;
@@ -51,6 +53,10 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, int> *splitAddr;
                 Resources::CUDA::CUDADataBlock<1, int> *leafSide;
                 Resources::CUDA::CUDADataBlock<1, int> *leafAddr;
+                Resources::CUDA::CUDADataBlock<1, char> *emptySpacePlanes;
+                Resources::CUDA::CUDADataBlock<1, int> *emptySpaceNodes; // Can be replaced by splitSide? Probably
+                Resources::CUDA::CUDADataBlock<1, int> *emptySpaceAddrs;
+                Resources::CUDA::CUDADataBlock<1, int> *nodeIndices;
                 Resources::CUDA::CUDADataBlock<1, int2> *childSize;
 
                 int upperLeafPrimitives;
