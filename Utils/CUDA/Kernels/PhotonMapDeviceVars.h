@@ -33,6 +33,8 @@ namespace Kernels {
     __device__ bool d_createdLeafs;
     __device__ int d_leafsCreated;
 
+    __device__ bool d_createdEmptySplits;
+
     __constant__ float d_emptySpaceThreshold;
 
     // Upper node info

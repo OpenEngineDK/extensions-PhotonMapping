@@ -16,6 +16,8 @@
 
 #include <cudpp/cudpp.h>
 
+//#define CPU_VERIFY true
+
 namespace OpenEngine {    
     namespace Scene {
         class TriangleNode;

@@ -90,6 +90,7 @@ namespace OpenEngine {
                 #include <Utils/CUDA/Kernels/ReduceSegments.h>
                 #include <Utils/CUDA/Kernels/TriangleUpperChildren.h>
                 #include <Utils/CUDA/Kernels/TriangleKernels.h>
+                #include <Utils/CUDA/Kernels/EmptySpaceSplitting.h>
             }
             using namespace KernelsHat;
 
@@ -154,7 +155,7 @@ namespace OpenEngine {
             void TriangleMapUpperCreator::ProcessNodes(int activeIndex, int activeRange, 
                                                        int &childrenCreated){
                 int triangles = aabbMin->GetSize();
-                //logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << triangles << " primitives" << logger.end;
+                logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << triangles << " primitives" << logger.end;
 
                 // Copy bookkeeping to symbols
                 cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
