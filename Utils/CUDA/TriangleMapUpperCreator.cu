@@ -224,13 +224,36 @@ namespace OpenEngine {
                                       segments, &finalMin, &finalMax);
 #endif
 
-                threads = min((segments.size / 32) * 32 + 32, activeCudaDevice.maxThreadsDim[0]);
-                SegmentedReduce0<<<1, threads>>>(segments.GetAabbMinData(),
-                                                 segments.GetAabbMaxData(),
-                                                 segments.GetOwnerData(),
-                                                 map->nodes->GetAabbMinData(),
-                                                 map->nodes->GetAabbMaxData());
+                Calc1DKernelDimensions(activeRange, blocks, threads);
+                AabbMemset<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex, 
+                                                map->nodes->GetAabbMaxData() + activeIndex);
                 CHECK_FOR_CUDA_ERROR();
+                
+                Calc1DKernelDimensions(segments.GetSize(), blocks, threads);
+                for (int i = 0; i < blocks; ++i){
+                    int segs = segments.GetSize() - i * threads;
+                    cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
+                    FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData() + i * threads,
+                                                         segments.GetAabbMaxData() + i * threads,
+                                                         segments.GetOwnerData() + i * threads,
+                                                         map->nodes->GetAabbMinData(),
+                                                         map->nodes->GetAabbMaxData());
+                                                     //tempAabbMin->GetDeviceData(),
+                                                     //tempAabbMax->GetDeviceData());
+                }
+                int segs = segments.GetSize();
+                cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
+                CHECK_FOR_CUDA_ERROR();
+
+                /*
+                threads = min((segments.size / 32) * 32 + 32, activeCudaDevice.maxThreadsDim[0]);
+                FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData(),
+                                                     segments.GetAabbMaxData(),
+                                                     segments.GetOwnerData(),
+                                                     map->nodes->GetAabbMinData(),
+                                                     map->nodes->GetAabbMaxData());
+                CHECK_FOR_CUDA_ERROR();
+                */
 
 #if CPU_VERIFY
                 CheckFinalReduction(activeIndex, activeRange, map->nodes, 

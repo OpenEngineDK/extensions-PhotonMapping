@@ -213,20 +213,31 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
     }
 }
 
-// @OPT
+// @OPT Use shared memory. For God's sake make it work.
 
-__global__ void SegmentedReduce0(float4 *segmentAabbMin,
-                                 float4 *segmentAabbMax,
-                                 int *segmentOwner,
-                                 float4 *nodeAabbMin,
-                                 float4 *nodeAabbMax){
+__global__ void AabbMemset(float4* aabbMin, float4* aabbMax){
+    int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (id < d_activeNodeRange){
+        aabbMin[id] = make_float4(fInfinity);
+        aabbMax[id] = make_float4(-1.0f * fInfinity);
+    }
+}
+
+__global__ void FinalSegmentedReduce(float4 *segmentAabbMin,
+                                     float4 *segmentAabbMax,
+                                     int *segmentOwner,
+                                     float4 *nodeAabbMin,
+                                     float4 *nodeAabbMax){
     
     const unsigned int segmentID = threadIdx.x;
+    /*
     if (threadIdx.x < d_activeNodeRange){
         nodeAabbMin[threadIdx.x + d_activeNodeIndex] = make_float4(fInfinity);
         nodeAabbMax[threadIdx.x + d_activeNodeIndex] = make_float4(-1.0 * fInfinity);
     }
     __syncthreads();
+    */
 
     int index0 = segmentID * 2;
     int index1 = index0 + 1;
@@ -249,8 +260,8 @@ __global__ void SegmentedReduce0(float4 *segmentAabbMin,
     }
 
     if (threadIdx.x == 0){
-        nodeAabbMin[segmentOwner[0]] = segmentAabbMin[0];
-        nodeAabbMax[segmentOwner[0]] = segmentAabbMax[0];
+        nodeAabbMin[segmentOwner[0]] = min(nodeAabbMin[segmentOwner[0]], segmentAabbMin[0]);
+        nodeAabbMax[segmentOwner[0]] = max(nodeAabbMax[segmentOwner[0]], segmentAabbMax[0]);
     }
 }
 
