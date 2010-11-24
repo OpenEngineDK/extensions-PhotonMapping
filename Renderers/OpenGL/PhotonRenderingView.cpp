@@ -105,7 +105,7 @@ namespace OpenEngine {
             void PhotonRenderingView::UpdateGeometry(){
                 logger.info << "Pew pew, triangles everywhere" << logger.end;
                 triangleMap->Create();
-                //triangleMap->Create();
+                triangleMap->Create();
                 CHECK_FOR_CUDA_ERROR();
             }
 
