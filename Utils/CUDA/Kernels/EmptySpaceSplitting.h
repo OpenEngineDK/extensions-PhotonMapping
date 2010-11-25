@@ -166,8 +166,6 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
             children[parentID] = make_int2(leftID, rightID);
 
             parentID = leftID;
-            leftID = parentID+1;
-            rightID = parentID+2;
         }
 
         indices[id] = parentID;
@@ -179,20 +177,116 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
     }
 }
 
-__global__ void CorrectParentPointer(int* parents, int2* children,
+__global__ void CorrectParentPointer(char* nodeInfo, float* splitPoss,
+                                     int2* primitiveInfo, 
+                                     int* parents, int2* children, 
+                                     char* emptySpacePlanes, int* emptySpaceAddrs,
+                                     float4 *minPlanes, float4 *maxPlanes,
                                      int emptyNodes){
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
     if (id < d_activeNodeRange){
-        int childID = d_activeNodeIndex + id;
-        int parentID = parents[childID];
+        const int childID = d_activeNodeIndex + id;
 
-        int2 childIDs = children[parentID];
+        // Create empty space planes
+        char planes = emptySpacePlanes[id];
+
+        int parentID = parents[childID];
+        const int2 childIDs = children[parentID];
         
+        const int emptyStartAddr = planes ? d_activeNodeIndex - emptyNodes + emptySpaceAddrs[id] : childID;
+
+        // Set the parent to point to the emptySpace node or new child
+        // address
         if (childIDs.x == childID - emptyNodes)
-            children[parentID].x = childID;
+            children[parentID].x = emptyStartAddr;
         else 
-            children[parentID].y = childID;
+            children[parentID].y = emptyStartAddr;
+
+        // Early out
+        if (planes == 0) return;
+
+        parentID = emptyStartAddr;
+
+        const float3 minPlane = make_float3(minPlanes[id]);
+
+        if (planes & 1){ // min.x splits, ie the right child holds primitives
+            planes -= 1;
+            nodeInfo[parentID] = KDNode::X;
+            splitPoss[parentID] = minPlane.x;
+            int leftID = parentID+1;
+            int rightID = planes ? leftID+1 : childID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[leftID] = KDNode::LEAF;
+            primitiveInfo[leftID] = make_int2(0,0);
+
+            parentID = rightID;
+        }
+
+        if (planes & 2){ // min.y splits, ie the right child holds primitives
+            planes -= 2;
+            nodeInfo[parentID] = KDNode::Y;
+            splitPoss[parentID] = minPlane.y;
+            int leftID = parentID+1;
+            int rightID = planes ? leftID+1 : childID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[leftID] = KDNode::LEAF;
+            primitiveInfo[leftID] = make_int2(0,0);
+
+            parentID = rightID;
+        }
+
+        if (planes & 4){ // min.z splits, ie the right child holds primitives
+            planes -= 4;
+            nodeInfo[parentID] = KDNode::Z;
+            splitPoss[parentID] = minPlane.z;
+            int leftID = parentID+1;
+            int rightID = planes ? leftID+1 : childID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[leftID] = KDNode::LEAF;
+            primitiveInfo[leftID] = make_int2(0,0);
+
+            parentID = rightID;
+        }
+
+        const float3 maxPlane = make_float3(maxPlanes[id]);
+
+        if (planes & 8){ // max.x splits, ie the right child holds primitives
+            planes -= 8;
+            nodeInfo[parentID] = KDNode::X;
+            splitPoss[parentID] = maxPlane.x;
+            int rightID = parentID+1;
+            int leftID = planes ? rightID+1 : childID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[rightID] = KDNode::LEAF;
+            primitiveInfo[rightID] = make_int2(0,0);
+
+            parentID = leftID;
+        }
+
+        if (planes & 16){ // max.y splits, ie the right child holds primitives
+            planes -= 16;
+            nodeInfo[parentID] = KDNode::Y;
+            splitPoss[parentID] = maxPlane.y;
+            int rightID = parentID+1;
+            int leftID = planes ? rightID+1 : childID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[rightID] = KDNode::LEAF;
+            primitiveInfo[rightID] = make_int2(0,0);
+
+            parentID = leftID;
+        }
+
+        if (planes & 32){ // max.y splits, ie the right child holds primitives
+            planes -= 32;
+            nodeInfo[parentID] = KDNode::X;
+            splitPoss[parentID] = maxPlane.x;
+            int rightID = parentID+1;
+            int leftID = childID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[rightID] = KDNode::LEAF;
+            primitiveInfo[rightID] = make_int2(0,0);
+        }
     }
 }
 

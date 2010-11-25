@@ -25,7 +25,7 @@ namespace OpenEngine {
             using namespace Kernels;
 
             TriangleMapUpperCreator::TriangleMapUpperCreator()
-                : ITriangleMapCreator(), emptySpaceThreshold(0.5f) {
+                : ITriangleMapCreator(), emptySpaceThreshold(0.25f) {
                 
                 cutCreateTimer(&timerID);
 
@@ -344,15 +344,22 @@ namespace OpenEngine {
                         
                     //logger.info << "children from " << minNode << ": " << Convert::ToString(map->nodes->GetChildrenData() + minNode, maxNode-minNode) << logger.end;
                     
-                    CorrectParentPointer<<<blocks, threads>>>(map->nodes->GetParentData(), 
+                    CorrectParentPointer<<<blocks, threads>>>(map->nodes->GetInfoData(), 
+                                                              map->nodes->GetSplitPositionData(),
+                                                              map->nodes->GetPrimitiveInfoData(), 
+                                                              map->nodes->GetParentData(), 
                                                               map->nodes->GetChildrenData(),
+                                                              emptySpacePlanes->GetDeviceData(),
+                                                              emptySpaceAddrs->GetDeviceData(),
+                                                              tempAabbMin->GetDeviceData(),
+                                                              tempAabbMax->GetDeviceData(),
                                                               emptyNodes);
                     CHECK_FOR_CUDA_ERROR();
 
                     //logger.info << "parents: " << Convert::ToString(map->nodes->GetParentData() + activeIndex, activeRange) << logger.end;
                     //logger.info << "children from " << minNode << ": " << Convert::ToString(map->nodes->GetChildrenData() + minNode, maxNode-minNode) << logger.end;
 
-                    CheckEmptySpaceSplitting(activeIndex, activeRange);
+                    // CheckEmptySpaceSplitting(activeIndex, activeRange);
 
                     //exit(0);
                 }
