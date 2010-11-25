@@ -99,8 +99,7 @@ namespace OpenEngine {
                                           float3 *verticesIn,
                                           float3 *normalsIn,
                                           float4 *colorsIn,
-                                          Matrix44f modelMat,
-                                          Matrix33f normalMat,
+                                          //Matrix44f modelMat, Matrix33f normalMat,
                                           float4 *p0, float4 *p1, float4 *p2,
                                           float4 *n0, float4 *n1, float4 *n2,
                                           uchar4 *c0, uchar4 *c1, uchar4 *c2,
@@ -117,13 +116,13 @@ namespace OpenEngine {
                     const float3 v1 = verticesIn[i1];
                     const float3 v2 = verticesIn[i2];
                     
-                    p0[id] = modelMat * make_float4(v0, 1.0f);
-                    p1[id] = modelMat * make_float4(v1, 1.0f);
-                    p2[id] = modelMat * make_float4(v2, 1.0f);
+                    p0[id] = d_modelMat * make_float4(v0, 1.0f);
+                    p1[id] = d_modelMat * make_float4(v1, 1.0f);
+                    p2[id] = d_modelMat * make_float4(v2, 1.0f);
                     
-                    n0[id] = make_float4(normalMat * normalsIn[i0], 0);
-                    n1[id] = make_float4(normalMat * normalsIn[i1], 0);
-                    n2[id] = make_float4(normalMat * normalsIn[i2], 0);
+                    n0[id] = make_float4(d_normalMat * normalsIn[i0], 0);
+                    n1[id] = make_float4(d_normalMat * normalsIn[i1], 0);
+                    n2[id] = make_float4(d_normalMat * normalsIn[i2], 0);
 
                     c0[id] = make_uchar4(colorsIn[i0].x * 255.0f, colorsIn[i0].y * 255.0f, colorsIn[i0].z * 255.0f, colorsIn[i0].w * 255.0f);
                     c1[id] = make_uchar4(colorsIn[i1].x * 255.0f, colorsIn[i1].y * 255.0f, colorsIn[i1].z * 255.0f, colorsIn[i1].w * 255.0f);
@@ -179,13 +178,16 @@ namespace OpenEngine {
 
                     unsigned int blocks, threads;
                     Calc1DKernelDimensions(indices->GetSize(), blocks, threads);
-                    Math::CUDA::Matrix44f mat = Math::CUDA::Matrix44f(modelMat.GetTranspose());
-                    //cudaMemcpyToSymbol(d_modelMat, &mat, sizeof(Math::CUDA::Matrix44f));
-                    Math::CUDA::Matrix33f normMat = Math::CUDA::Matrix33f(mat);
-                    //cudaMemcpyToSymbol(d_normalMat, &normMat, sizeof(Math::CUDA::Matrix33f));
-                    
+                    Math::CUDA::Matrix44f mat;
+                    mat.Init(modelMat.GetTranspose());
+                    cudaMemcpyToSymbol(d_modelMat, &mat, sizeof(Math::CUDA::Matrix44f));
+                    Math::CUDA::Matrix33f normMat;
+                    normMat.Init(mat);
+                    cudaMemcpyToSymbol(d_normalMat, &normMat, sizeof(Math::CUDA::Matrix33f));
+                    CHECK_FOR_CUDA_ERROR();
+
                     AddMeshKernel<<<blocks, threads>>>(in, pos, norms, cols,
-                                                       mat, normMat,
+                                                       //mat, normMat,
                                                        p0->GetDeviceData() + size, p1->GetDeviceData() + size, p2->GetDeviceData() + size,
                                                        n0->GetDeviceData() + size, n1->GetDeviceData() + size, n2->GetDeviceData() + size,
                                                        c0->GetDeviceData() + size, c1->GetDeviceData() + size, c2->GetDeviceData() + size,

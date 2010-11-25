@@ -23,20 +23,20 @@ namespace CUDA {
         float4 elm[4];
 
     public:
-        __host__ __device__ Matrix44f() {
+        void __host__ Init() {
             elm[0] = make_float4(1.0f,0.0f,0.0f,0.0f);
             elm[1] = make_float4(0.0f,1.0f,0.0f,0.0f);
             elm[2] = make_float4(0.0f,0.0f,1.0f,0.0f);
             elm[3] = make_float4(0.0f,0.0f,0.0f,1.0f);
         }
 
-        __host__ Matrix44f(const Matrix<4,4, float> m) {
+        void __host__ Init(const Matrix<4,4, float> m) {
             for (unsigned int i = 0; i < 4; ++i){
                 Vector<4, float> row = m.GetRow(i);
                 elm[i] = make_float4(row.Get(0), row.Get(1), row.Get(2), row.Get(3));
             }
         }
-
+        
         const float4 __host__ __device__ GetRow(const int i) const {
             return elm[i];
         }
@@ -54,18 +54,18 @@ namespace CUDA {
         float3 elm[3];
 
     public:
-        __host__ __device__ Matrix33f() {
+        void __host__ Init() {
             elm[0] = make_float3(1.0f,0.0f,0.0f);
             elm[1] = make_float3(0.0f,1.0f,0.0f);
             elm[2] = make_float3(0.0f,0.0f,1.0f);
         }
 
-        __host__ Matrix33f(const Matrix44f m){
+        void __host__ Init(const Matrix44f m){
             for (int i = 0; i < 3; ++i)
                 elm[i] = make_float3(m.GetRow(i));
         }
 
-        __host__ Matrix33f(const Matrix<3,3, float> m) {
+        void __host__ Init(const Matrix<3,3, float> m) {
             for (unsigned int i = 0; i < 3; ++i){
                 Vector<3, float> row = m.GetRow(i);
                 elm[i] = make_float3(row.Get(0), row.Get(1), row.Get(2));
