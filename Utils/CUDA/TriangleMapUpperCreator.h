@@ -34,6 +34,7 @@ namespace OpenEngine {
                 Segments segments;
                 Resources::CUDA::CUDADataBlock<1, int> *nodeSegments;
 
+                bool emptySpaceSplitting;
                 float emptySpaceThreshold;
 
                 // Primitive aabb values
@@ -76,6 +77,9 @@ namespace OpenEngine {
                 virtual void Create(TriangleMap* map, 
                                     Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
 
+                inline void SplitEmptySpace(const bool s) { emptySpaceSplitting = s; }
+                inline bool IsSplittingEmptySpace() const { return emptySpaceSplitting; }
+                
                 void ProcessNodes(int activeIndex, int activeRange, 
                                   int &childrenCreated);
 

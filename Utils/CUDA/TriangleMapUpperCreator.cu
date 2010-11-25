@@ -25,7 +25,8 @@ namespace OpenEngine {
             using namespace Kernels;
 
             TriangleMapUpperCreator::TriangleMapUpperCreator()
-                : ITriangleMapCreator(), emptySpaceThreshold(0.25f) {
+                : ITriangleMapCreator(), emptySpaceSplitting(true),
+                  emptySpaceThreshold(0.25f) {
                 
                 cutCreateTimer(&timerID);
 
@@ -167,7 +168,7 @@ namespace OpenEngine {
             void TriangleMapUpperCreator::ProcessNodes(int activeIndex, int activeRange, 
                                                        int &childrenCreated){
                 int triangles = aabbMin->GetSize();
-                logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << triangles << " primitives" << logger.end;
+                //logger.info << "=== Process " << activeRange << " Upper Nodes Starting at " << activeIndex << " === with " << triangles << " primitives" << logger.end;
 
                 // Copy bookkeeping to symbols
                 cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
@@ -236,38 +237,59 @@ namespace OpenEngine {
                                       segments, &finalMin, &finalMax);
 #endif
 
-                tempAabbMin->Resize(activeRange, false);
-                tempAabbMax->Resize(activeRange, false);
-                
-                Calc1DKernelDimensions(activeRange, blocks, threads);
-                AabbMemset<<<blocks, threads>>>(tempAabbMin->GetDeviceData(),
-                                                tempAabbMax->GetDeviceData());
-                CHECK_FOR_CUDA_ERROR();
-                
-                Calc1DKernelDimensions(segments.GetSize(), blocks, threads);
-                for (int i = 0; i < blocks; ++i){
-                    int segs = segments.GetSize() - i * threads;
+                if (emptySpaceSplitting){
+                    tempAabbMin->Resize(activeRange, false);
+                    tempAabbMax->Resize(activeRange, false);
+                    
+                    Calc1DKernelDimensions(activeRange, blocks, threads);
+                    AabbMemset<<<blocks, threads>>>(tempAabbMin->GetDeviceData(),
+                                                    tempAabbMax->GetDeviceData());
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    Calc1DKernelDimensions(segments.GetSize(), blocks, threads);
+                    for (int i = 0; i < blocks; ++i){
+                        int segs = segments.GetSize() - i * threads;
+                        cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
+                        FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData() + i * threads,
+                                                             segments.GetAabbMaxData() + i * threads,
+                                                             segments.GetOwnerData() + i * threads,
+                                                             tempAabbMin->GetDeviceData(),
+                                                             tempAabbMax->GetDeviceData());
+                    }
+                    int segs = segments.GetSize();
                     cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
-                    FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData() + i * threads,
-                                                         segments.GetAabbMaxData() + i * threads,
-                                                         segments.GetOwnerData() + i * threads,
-                                                         tempAabbMin->GetDeviceData(),
-                                                         tempAabbMax->GetDeviceData());
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    // Calculate empty space splitting planes before copying aabbs to nodes.
+                    CreateEmptySplits(activeIndex, activeRange);
+                    
+                    cudaMemcpy(map->nodes->GetAabbMinData() + activeIndex, 
+                               tempAabbMin->GetDeviceData(), 
+                               activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
+                    cudaMemcpy(map->nodes->GetAabbMaxData() + activeIndex, 
+                               tempAabbMax->GetDeviceData(), 
+                               activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
+
+                }else{
+
+                    Calc1DKernelDimensions(activeRange, blocks, threads);
+                    AabbMemset<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
+                                                    map->nodes->GetAabbMaxData() + activeIndex);
+                    CHECK_FOR_CUDA_ERROR();
+                    
+                    for (int i = 0; i < blocks; ++i){
+                        int segs = segments.GetSize() - i * threads;
+                        cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
+                        FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData() + i * threads,
+                                                             segments.GetAabbMaxData() + i * threads,
+                                                             segments.GetOwnerData() + i * threads,
+                                                             map->nodes->GetAabbMinData() + activeIndex,
+                                                             map->nodes->GetAabbMaxData() + activeIndex);
+                    }
+                    int segs = segments.GetSize();
+                    cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
+                    CHECK_FOR_CUDA_ERROR();
                 }
-                int segs = segments.GetSize();
-                cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
-                CHECK_FOR_CUDA_ERROR();
-
-                // Calculate empty space splitting planes before copying aabbs to nodes.
-                CreateEmptySplits(activeIndex, activeRange);
-
-                cudaMemcpy(map->nodes->GetAabbMinData() + activeIndex, 
-                           tempAabbMin->GetDeviceData(), 
-                           activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
-                cudaMemcpy(map->nodes->GetAabbMaxData() + activeIndex, 
-                           tempAabbMax->GetDeviceData(), 
-                           activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
-
 
 #if CPU_VERIFY
                 CheckFinalReduction(activeIndex, activeRange, map->nodes, 
@@ -308,13 +330,11 @@ namespace OpenEngine {
                     int emptyNodes;
                     cudaMemcpy(&emptyNodes, emptySpaceAddrs->GetDeviceData() + emptySpaceAddrs->GetSize()-1, sizeof(int), cudaMemcpyDeviceToHost);
                     CHECK_FOR_CUDA_ERROR();
-                    logger.info << "Empty space " << emptyNodes << logger.end;
+                    //logger.info << "Empty space " << emptyNodes << logger.end;
 
                     // Move nodes to make room for empty space nodes.
                     // That means moving primitiveInfo, using childSize as temp storage
                     // And moving parents, using splitSide as temp storage
-
-                    //logger.info << "primInfo: " << Convert::ToString(map->nodes->GetPrimitiveInfoData() + activeIndex, activeRange) << logger.end;
 
                     childSize->Resize(activeRange);
                     splitSide->Resize(activeRange);
@@ -329,21 +349,8 @@ namespace OpenEngine {
                     cudaMemcpy(map->nodes->GetPrimitiveInfoData() + activeIndex, childSize->GetDeviceData(), activeRange * sizeof(int2), cudaMemcpyDeviceToDevice);
                     cudaMemcpy(map->nodes->GetParentData() + activeIndex, splitSide->GetDeviceData(), activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
                     segments.IncreaseNodeIDs(emptyNodes);
-                    
-                    //logger.info << "primInfo: " << Convert::ToString(map->nodes->GetPrimitiveInfoData() + activeIndex, activeRange) << logger.end;
 
                     // Create the empty space nodes
-                    //logger.info << "parents: " << Convert::ToString(map->nodes->GetParentData() + activeIndex, activeRange) << logger.end;
-                    int parents[activeRange];
-                    cudaMemcpy(parents, map->nodes->GetParentData() + activeIndex, activeRange * sizeof(int), cudaMemcpyDeviceToHost);
-                    int minNode = activeRange + activeIndex, maxNode = 0;
-                    for (int i = 0; i < activeRange; ++i){
-                        minNode = min(minNode, parents[i]);
-                        maxNode = max(maxNode, parents[i]);
-                    }
-                        
-                    //logger.info << "children from " << minNode << ": " << Convert::ToString(map->nodes->GetChildrenData() + minNode, maxNode-minNode) << logger.end;
-                    
                     CorrectParentPointer<<<blocks, threads>>>(map->nodes->GetInfoData(), 
                                                               map->nodes->GetSplitPositionData(),
                                                               map->nodes->GetPrimitiveInfoData(), 
@@ -356,12 +363,7 @@ namespace OpenEngine {
                                                               emptyNodes);
                     CHECK_FOR_CUDA_ERROR();
 
-                    //logger.info << "parents: " << Convert::ToString(map->nodes->GetParentData() + activeIndex, activeRange) << logger.end;
-                    //logger.info << "children from " << minNode << ": " << Convert::ToString(map->nodes->GetChildrenData() + minNode, maxNode-minNode) << logger.end;
-
                     // CheckEmptySpaceSplitting(activeIndex, activeRange);
-
-                    //exit(0);
                 }
             }
 
@@ -553,55 +555,8 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
                 cudaMemcpyFromSymbol(&createdLeafs, d_createdLeafs, sizeof(bool));
 
-                /**
-                 * if any empty nodes should be created!
-                 * Create the empty nodes.
-                 * Advance active index by the amount of empty nodes
-                 *
-                 * @OPT would it be advantageous to only run the
-                 * kernel on the nodes actually producing empty
-                 * splits? Or does it require to much computing power
-                 * to calculate that. (Remember that warps with no
-                 * splits can terminate pretty damn fast)
-                 */
-                /*
-                bool emptySpaceSplitting = emptySpaceAddrs->GetSize() != 0;
-                if (emptySpaceSplitting){
-                    nodeIndices->Resize(activeRange, false);
-
-                    int emptyNodes;
-                    cudaMemcpy(&emptyNodes, emptySpaceAddrs->GetDeviceData() + emptySpaceAddrs->GetSize()-1, sizeof(int), cudaMemcpyDeviceToHost);
-                    CHECK_FOR_CUDA_ERROR();
-
-                    nodes->Resize(nodes->GetSize() + emptyNodes);
-
-                    logger.info << "empty nodes: " << emptyNodes << logger.end;
-                    logger.info << "nodes: " << nodes->GetSize() << logger.end;
-
-                    logger.info << "emptySpacePlanes: " << Convert::ToString(emptySpacePlanes->GetDeviceData(), activeRange) << logger.end;
-                    logger.info << "emptySpaceAddrs: " << Convert::ToString(emptySpaceAddrs->GetDeviceData(), activeRange) << logger.end;
-
-                    Calc1DKernelDimensions(activeRange, hatte, traade);
-                    CreateEmptyNodes<<<hatte, traade>>>(nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                                                        nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
-                                                        nodes->GetPrimitiveInfoData(), nodes->GetChildrenData(),
-                                                        emptySpacePlanes->GetDeviceData(), emptySpaceAddrs->GetDeviceData(),
-                                                        nodeIndices->GetDeviceData());
-                    CHECK_FOR_CUDA_ERROR();
-
-                    logger.info << "nodeIndeces: " << Convert::ToString(nodeIndices->GetDeviceData(), activeRange) << logger.end;
-
-                    for (int i = activeIndex; i < activeIndex + activeRange + emptyNodes; i++)
-                        logger.info << nodes->ToString(i) << logger.end;
-                    
-                    activeIndex += emptyNodes;
-                    cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
-                }else
-                    nodeIndices->Resize(0, false);
-                */
-
                 if (createdLeafs){
-                    logger.info << "Created leafs. Split resulted in " << newTriangles << " triangles." << logger.end;
+                    //logger.info << "Created leafs. Split resulted in " << newTriangles << " triangles." << logger.end;
 
                     SetPrimitiveLeafSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                               segments.GetOwnerData(),
@@ -675,7 +630,7 @@ namespace OpenEngine {
                                               leafIndex, leafNodes);
 
                 }else{
-                    logger.info << "No leafs created. Split resulted in " << newTriangles << " triangles."  << logger.end;
+                    //logger.info << "No leafs created. Split resulted in " << newTriangles << " triangles."  << logger.end;
 
                     tempAabbMin->Extend(newTriangles);
                     tempAabbMax->Extend(newTriangles);
@@ -706,13 +661,15 @@ namespace OpenEngine {
                     childrenCreated = activeRange * 2;
                 }
 
-                Calc1DKernelDimensions(activeRange, blocks, threads);
-                PropagateChildAabb<false><<<blocks, threads>>>(NULL, nodes->GetInfoData(),
-                                                               nodes->GetSplitPositionData(),
-                                                               nodes->GetAabbMinData(),
-                                                               nodes->GetAabbMaxData(),
-                                                               nodes->GetChildrenData());
-                CHECK_FOR_CUDA_ERROR();
+                if (emptySpaceSplitting){
+                    Calc1DKernelDimensions(activeRange, blocks, threads);
+                    PropagateChildAabb<false><<<blocks, threads>>>(NULL, nodes->GetInfoData(),
+                                                                   nodes->GetSplitPositionData(),
+                                                                   nodes->GetAabbMinData(),
+                                                                   nodes->GetAabbMaxData(),
+                                                                   nodes->GetChildrenData());
+                    CHECK_FOR_CUDA_ERROR();
+                }
                 
 #if CPU_VERIFY
                 // Check that all primitive bounding boxes are tight or inside the primitive
