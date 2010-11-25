@@ -37,6 +37,8 @@ namespace OpenEngine {
             GeometryList::GeometryList(int size)
                 : maxSize(size), size(0) {
 
+                cutCreateTimer(&timerID);
+
                 p0 = new CUDADataBlock<1, float4>(maxSize);
                 p1 = new CUDADataBlock<1, float4>(maxSize);
                 p2 = new CUDADataBlock<1, float4>(maxSize);
@@ -90,6 +92,9 @@ namespace OpenEngine {
                 return out.str();
             }
 
+            __constant__ Matrix44f d_modelMat;
+            __constant__ Matrix33f d_normalMat;
+
             __global__ void AddMeshKernel(unsigned int *indices,
                                           float3 *verticesIn,
                                           float3 *normalsIn,
@@ -136,6 +141,7 @@ namespace OpenEngine {
                     IDataBlockPtr normals = geom->GetDataBlock("normal");
                     IDataBlockPtr colors = geom->GetDataBlock("color");
 
+                    START_TIMER(timerID);
                     unsigned int triangles = indices->GetSize() / 3;
                     Extend(size + triangles);
                     
@@ -174,7 +180,10 @@ namespace OpenEngine {
                     unsigned int blocks, threads;
                     Calc1DKernelDimensions(indices->GetSize(), blocks, threads);
                     Math::CUDA::Matrix44f mat = Math::CUDA::Matrix44f(modelMat.GetTranspose());
+                    //cudaMemcpyToSymbol(d_modelMat, &mat, sizeof(Math::CUDA::Matrix44f));
                     Math::CUDA::Matrix33f normMat = Math::CUDA::Matrix33f(mat);
+                    //cudaMemcpyToSymbol(d_normalMat, &normMat, sizeof(Math::CUDA::Matrix33f));
+                    
                     AddMeshKernel<<<blocks, threads>>>(in, pos, norms, cols,
                                                        mat, normMat,
                                                        p0->GetDeviceData() + size, p1->GetDeviceData() + size, p2->GetDeviceData() + size,
@@ -196,6 +205,8 @@ namespace OpenEngine {
                     cudaGraphicsUnregisterResource(nResource);
                     cudaGraphicsUnregisterResource(cResource);
                     CHECK_FOR_CUDA_ERROR();
+
+                    PRINT_TIMER(timerID, "Geometry collection ");
                 }else{
                     // Geometry is still on the CPU
                     throw Exception("Not implemented");

@@ -33,6 +33,8 @@ namespace OpenEngine {
             
             class GeometryList : public virtual Scene::ISceneNodeVisitor {
             public:
+                unsigned int timerID;
+                
                 int maxSize, size;
 
                 Resources::CUDA::CUDADataBlock<1, float4> *p0, *p1, *p2;

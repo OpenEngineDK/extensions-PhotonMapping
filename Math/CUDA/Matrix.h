@@ -60,7 +60,7 @@ namespace CUDA {
             elm[2] = make_float3(0.0f,0.0f,1.0f);
         }
 
-        __host__ __device__ Matrix33f(const Matrix44f m){
+        __host__ Matrix33f(const Matrix44f m){
             for (int i = 0; i < 3; ++i)
                 elm[i] = make_float3(m.GetRow(i));
         }
