@@ -37,18 +37,20 @@ namespace OpenEngine {
                 Segments();
                 Segments(int i);
 
-                int GetSize() const { return size; }
+                inline int GetSize() const { return size; }
 
-                void Resize(int i);
-                void Extend(int i) {
+                void IncreaseNodeIDs(const int step);
+
+                void Resize(const int i);
+                inline void Extend(const int i) {
                     if (maxSize < i) Resize(i); 
                     else size = i ;
                 }
 
-                int* GetOwnerData() const { return nodeIDs->GetDeviceData(); }
-                int2* GetPrimitiveInfoData() const {return primitiveInfo->GetDeviceData(); }
-                float4* GetAabbMinData() const { return aabbMin->GetDeviceData(); }
-                float4* GetAabbMaxData() const { return aabbMax->GetDeviceData(); }
+                inline int* GetOwnerData() const { return nodeIDs->GetDeviceData(); }
+                inline int2* GetPrimitiveInfoData() const {return primitiveInfo->GetDeviceData(); }
+                inline float4* GetAabbMinData() const { return aabbMin->GetDeviceData(); }
+                inline float4* GetAabbMaxData() const { return aabbMax->GetDeviceData(); }
                 
                 std::string ToString(int i);
 

@@ -8,6 +8,7 @@
 //--------------------------------------------------------------------
 
 #include <Utils/CUDA/Segments.h>
+#include <Utils/CUDA/Utils.h>
 
 #include <Meta/CUDA.h>
 
@@ -30,7 +31,23 @@ namespace OpenEngine {
                 prefixSum = new CUDADataBlock<1, int>(i);
             }
 
-            void Segments::Resize(int i){
+            __global__ void IncreaseIDs(int *nodeIDs, const int step, const int range){
+                int id = blockDim.x * blockIdx.x + threadIdx.x;
+                
+                if (id < range){
+                    int nodeID = nodeIDs[id];
+                    nodeIDs[id] = nodeID + step;
+                }
+            }
+
+            void Segments::IncreaseNodeIDs(const int step){
+                unsigned int blocks, threads;
+                Calc1DKernelDimensions(size, blocks, threads);
+                IncreaseIDs<<<blocks, threads>>>(nodeIDs->GetDeviceData(), step, size);
+                CHECK_FOR_CUDA_ERROR();
+            }
+            
+            void Segments::Resize(const int i){
                 nodeIDs->Resize(i);
                 primitiveInfo->Resize(i);
                 aabbMin->Resize(i);

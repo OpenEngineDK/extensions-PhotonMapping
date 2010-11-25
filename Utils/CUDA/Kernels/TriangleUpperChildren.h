@@ -121,7 +121,7 @@ __global__ void CreateUpperChildren(int *indices,
 
         const int parentID = useIndices ? indices[id] : d_activeNodeIndex + id;
 
-        const int leftID = parentID + d_activeNodeRange;
+        const int leftID = d_activeNodeIndex + id + d_activeNodeRange;
         const int rightID = leftID + d_activeNodeRange;
 
         const int2 primInfo = primitiveInfo[parentID];
@@ -134,7 +134,7 @@ __global__ void CreateUpperChildren(int *indices,
 
         children[parentID] = make_int2(leftID, rightID);
 
-        //parent[leftID] = parent[rightID] = parentID;
+        parent[leftID] = parent[rightID] = parentID;
     }
 }
 
@@ -166,7 +166,7 @@ __global__ void CreateUpperChildren(int* indices,
         const int leftIndex = isLeaf ? leafAddrs[primInfo.x] + upperLeafPrimitives : splitAddrs[primInfo.x] - leafAddrs[primInfo.x];
             
         primitiveInfo[leftID] = make_int2(leftIndex, size.x);
-        //parent[leftID] = parentID;
+        parent[leftID] = parentID;
 
         id += d_activeNodeRange;
 
@@ -177,7 +177,7 @@ __global__ void CreateUpperChildren(int* indices,
         const int rightIndex = isLeaf ? leafAddrs[primInfo.x + d_triangles] + upperLeafPrimitives : splitAddrs[primInfo.x + d_triangles] - leafAddrs[primInfo.x + d_triangles];
 
         primitiveInfo[rightID] = make_int2(rightIndex, size.y);
-        //parent[rightID] = parentID;
+        parent[rightID] = parentID;
 
         children[parentID] = make_int2(leftID, rightID);
     }
@@ -245,7 +245,7 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
     if (segmentID < d_segments){
         int2 primInfo = segmentPrimInfo[segmentID];
         if (threadIdx.x < primInfo.y){
-                
+
             const int owner = segmentOwners[segmentID];
             const char axis = info[owner];
             const float splitPos = splitPositions[owner];

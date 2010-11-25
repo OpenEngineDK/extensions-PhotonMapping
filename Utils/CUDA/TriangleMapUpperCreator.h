@@ -81,7 +81,9 @@ namespace OpenEngine {
 
                 void Segment(int activeIndex, int activeRange);
                 
-                void ReduceAabb(int activeIndex, int activeRange);
+                void ReduceAabb(int &activeIndex, int activeRange);
+
+                void CreateEmptySplits(int &activeIndex, int activeRange);
                 
                 void CreateChildren(int activeIndex, int activeRange,
                                     int &childrenCreated);
@@ -95,6 +97,8 @@ namespace OpenEngine {
                                          Scene::TriangleNode* nodes, 
                                          float4 *finalMin, 
                                          float4 *finalMax);
+
+                void CheckEmptySpaceSplitting(int activeIndex, int activeRange);
 
                 void CheckPrimAabb(Resources::CUDA::CUDADataBlock<1, float4> *aabbMin, 
                                    Resources::CUDA::CUDADataBlock<1, float4> *aabbMax);

@@ -80,7 +80,7 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
     if (id < d_activeNodeRange){
         int parentID = d_activeNodeIndex + id;
 
-        const char planes = emptySpacePlanes[parentID];
+        const char planes = emptySpacePlanes[id];
 
         //@OPT provide early out for threads with no planes? They just
         //need to write their indice?
@@ -91,7 +91,7 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
 
         // @OPT more coalescence if the right indices start midway
         // into the array?
-        int leftID = parentID + d_activeNodeRange + emptySpaceAddrs[id];
+        int leftID = d_activeNodeIndex + d_activeNodeRange + emptySpaceAddrs[id];
         int rightID = leftID+1;
 
         const float3 aabbMin = make_float3(aabbMins[parentID]);
@@ -101,7 +101,11 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
             splitPoss[parentID] = aabbMin.x;
             nodeInfo[leftID] = KDNode::LEAF; // @OPT set empty bit in info?
             primitiveInfo[leftID] = make_int2(0, 0);
+            children[parentID] = make_int2(leftID, rightID);
+
             parentID = rightID;
+            leftID = parentID+1;
+            rightID = parentID+2;
         }
 
         if (planes & 2){ // min.y splits, ie the right child holds primitives
@@ -109,7 +113,11 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
             splitPoss[parentID] = aabbMin.y;
             nodeInfo[leftID] = KDNode::LEAF; // @OPT set empty bit in info?
             primitiveInfo[leftID] = make_int2(0, 0);
+            children[parentID] = make_int2(leftID, rightID);
+
             parentID = rightID;
+            leftID = parentID+1;
+            rightID = parentID+2;
         }
 
         if (planes & 4){ // min.z splits, ie the right child holds primitives
@@ -117,7 +125,11 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
             splitPoss[parentID] = aabbMin.z;
             nodeInfo[leftID] = KDNode::LEAF; // @OPT set empty bit in info?
             primitiveInfo[leftID] = make_int2(0, 0);
+            children[parentID] = make_int2(leftID, rightID);
+
             parentID = rightID;
+            leftID = parentID+1;
+            rightID = parentID+2;
         }
 
         const float3 aabbMax = make_float3(aabbMaxs[parentID]);
@@ -127,7 +139,11 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
             splitPoss[parentID] = aabbMax.x;
             nodeInfo[rightID] = KDNode::LEAF; // @OPT set empty bit in info?
             primitiveInfo[rightID] = make_int2(0, 0);
+            children[parentID] = make_int2(leftID, rightID);
+
             parentID = leftID;
+            leftID = parentID+1;
+            rightID = parentID+2;
         }
 
         if (planes & 16){ // max.y splits, ie the left child holds primitives
@@ -135,7 +151,11 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
             splitPoss[parentID] = aabbMax.y;
             nodeInfo[rightID] = KDNode::LEAF;
             primitiveInfo[rightID] = make_int2(0, 0);
+            children[parentID] = make_int2(leftID, rightID);
+
             parentID = leftID;
+            leftID = parentID+1;
+            rightID = parentID+2;
         }
 
         if (planes & 32){ // max.z splits, ie the left child holds primitives
@@ -143,7 +163,11 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
             splitPoss[parentID] = aabbMax.z;
             nodeInfo[rightID] = KDNode::LEAF;
             primitiveInfo[rightID] = make_int2(0, 0);
+            children[parentID] = make_int2(leftID, rightID);
+
             parentID = leftID;
+            leftID = parentID+1;
+            rightID = parentID+2;
         }
 
         indices[id] = parentID;
@@ -152,6 +176,23 @@ __global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
         primitiveInfo[parentID] = primitiveInfo[d_activeNodeIndex + id];
         aabbMins[parentID] = make_float4(aabbMin, 0.0f);
         aabbMaxs[parentID] = make_float4(aabbMax, 0.0f);
+    }
+}
+
+__global__ void CorrectParentPointer(int* parents, int2* children,
+                                     int emptyNodes){
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (id < d_activeNodeRange){
+        int childID = d_activeNodeIndex + id;
+        int parentID = parents[childID];
+
+        int2 childIDs = children[parentID];
+        
+        if (childIDs.x == childID - emptyNodes)
+            children[parentID].x = childID;
+        else 
+            children[parentID].y = childID;
     }
 }
 

@@ -69,7 +69,6 @@ namespace OpenEngine {
                 res = cudppPlan(&scanInclHandle, scanInclConfig, scanInclSize, 1, 0);
                 if (CUDPP_SUCCESS != res)
                     throw Core::Exception("Error creating CUDPP inclusive scanPlan for Triangle Map");
-
             }
 
             TriangleMapUpperCreator::~TriangleMapUpperCreator(){
@@ -220,7 +219,7 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
             }
                 
-            void TriangleMapUpperCreator::ReduceAabb(int activeIndex, int activeRange){
+            void TriangleMapUpperCreator::ReduceAabb(int &activeIndex, int activeRange){
                 // Reduce aabb pr segment
                 unsigned int blocks = segments.size;
                 unsigned int threads = Segments::SEGMENT_SIZE;
@@ -260,27 +259,7 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 // Calculate empty space splitting planes before copying aabbs to nodes.
-                bool createdEmptySplits = false;
-                cudaMemcpyToSymbol(d_createdEmptySplits, &createdEmptySplits, sizeof(bool));
-                emptySpacePlanes->Resize(activeRange, false);
-                emptySpaceNodes->Resize(activeRange+1, false);
-                Calc1DKernelDimensions(activeRange, blocks, threads);
-                CalcEmptySpaceSplits<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
-                                                          map->nodes->GetAabbMaxData() + activeIndex,
-                                                          tempAabbMin->GetDeviceData(), 
-                                                          tempAabbMax->GetDeviceData(), 
-                                                          emptySpacePlanes->GetDeviceData(),
-                                                          emptySpaceNodes->GetDeviceData());
-                CHECK_FOR_CUDA_ERROR();
-
-                cudaMemcpyFromSymbol(&createdEmptySplits, d_createdEmptySplits, sizeof(bool));
-
-                if (createdEmptySplits){
-                    emptySpaceAddrs->Resize(activeRange+1, false);
-                    cudppScan(scanHandle, emptySpaceAddrs->GetDeviceData(), emptySpaceNodes->GetDeviceData(), activeRange+1);
-                    logger.info << "Empty space " << Convert::ToString(emptySpaceAddrs->GetDeviceData() + activeRange, 1) << logger.end;
-                }else
-                    emptySpaceAddrs->Resize(0, false);
+                CreateEmptySplits(activeIndex, activeRange);
 
                 cudaMemcpy(map->nodes->GetAabbMinData() + activeIndex, 
                            tempAabbMin->GetDeviceData(), 
@@ -302,6 +281,123 @@ namespace OpenEngine {
                                                             map->nodes->GetSplitPositionData() + activeIndex,
                                                             map->nodes->GetInfoData() + activeIndex);
                 CHECK_FOR_CUDA_ERROR();
+            }
+
+            void TriangleMapUpperCreator::CreateEmptySplits(int &activeIndex, int activeRange){
+                bool createdEmptySplits = false;
+                cudaMemcpyToSymbol(d_createdEmptySplits, &createdEmptySplits, sizeof(bool));
+                emptySpacePlanes->Resize(activeRange, false);
+                emptySpaceNodes->Resize(activeRange+1, false);
+                
+                unsigned int blocks, threads;
+                Calc1DKernelDimensions(activeRange, blocks, threads);
+                CalcEmptySpaceSplits<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
+                                                          map->nodes->GetAabbMaxData() + activeIndex,
+                                                          tempAabbMin->GetDeviceData(), 
+                                                          tempAabbMax->GetDeviceData(), 
+                                                          emptySpacePlanes->GetDeviceData(),
+                                                          emptySpaceNodes->GetDeviceData());
+                CHECK_FOR_CUDA_ERROR();
+
+                cudaMemcpyFromSymbol(&createdEmptySplits, d_createdEmptySplits, sizeof(bool));
+
+                if (createdEmptySplits){
+                    emptySpaceAddrs->Resize(activeRange+1, false);
+                    cudppScan(scanHandle, emptySpaceAddrs->GetDeviceData(), emptySpaceNodes->GetDeviceData(), activeRange+1);
+
+                    int emptyNodes;
+                    cudaMemcpy(&emptyNodes, emptySpaceAddrs->GetDeviceData() + emptySpaceAddrs->GetSize()-1, sizeof(int), cudaMemcpyDeviceToHost);
+                    CHECK_FOR_CUDA_ERROR();
+                    logger.info << "Empty space " << emptyNodes << logger.end;
+
+                    // Move nodes to make room for empty space nodes.
+                    // That means moving primitiveInfo, using childSize as temp storage
+                    // And moving parents, using splitSide as temp storage
+
+                    //logger.info << "primInfo: " << Convert::ToString(map->nodes->GetPrimitiveInfoData() + activeIndex, activeRange) << logger.end;
+
+                    childSize->Resize(activeRange);
+                    splitSide->Resize(activeRange);
+                    
+                    cudaMemcpy(childSize->GetDeviceData(), map->nodes->GetPrimitiveInfoData() + activeIndex, activeRange * sizeof(int2), cudaMemcpyDeviceToDevice);
+                    cudaMemcpy(splitSide->GetDeviceData(), map->nodes->GetParentData() + activeIndex, activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
+
+                    activeIndex += emptyNodes;
+                    cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
+                    map->nodes->Resize(map->nodes->GetSize() + emptyNodes);
+
+                    cudaMemcpy(map->nodes->GetPrimitiveInfoData() + activeIndex, childSize->GetDeviceData(), activeRange * sizeof(int2), cudaMemcpyDeviceToDevice);
+                    cudaMemcpy(map->nodes->GetParentData() + activeIndex, splitSide->GetDeviceData(), activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
+                    segments.IncreaseNodeIDs(emptyNodes);
+                    
+                    //logger.info << "primInfo: " << Convert::ToString(map->nodes->GetPrimitiveInfoData() + activeIndex, activeRange) << logger.end;
+
+                    // Create the empty space nodes
+                    //logger.info << "parents: " << Convert::ToString(map->nodes->GetParentData() + activeIndex, activeRange) << logger.end;
+                    int parents[activeRange];
+                    cudaMemcpy(parents, map->nodes->GetParentData() + activeIndex, activeRange * sizeof(int), cudaMemcpyDeviceToHost);
+                    int minNode = activeRange + activeIndex, maxNode = 0;
+                    for (int i = 0; i < activeRange; ++i){
+                        minNode = min(minNode, parents[i]);
+                        maxNode = max(maxNode, parents[i]);
+                    }
+                        
+                    //logger.info << "children from " << minNode << ": " << Convert::ToString(map->nodes->GetChildrenData() + minNode, maxNode-minNode) << logger.end;
+                    
+                    CorrectParentPointer<<<blocks, threads>>>(map->nodes->GetParentData(), 
+                                                              map->nodes->GetChildrenData(),
+                                                              emptyNodes);
+                    CHECK_FOR_CUDA_ERROR();
+
+                    //logger.info << "parents: " << Convert::ToString(map->nodes->GetParentData() + activeIndex, activeRange) << logger.end;
+                    //logger.info << "children from " << minNode << ": " << Convert::ToString(map->nodes->GetChildrenData() + minNode, maxNode-minNode) << logger.end;
+
+                    CheckEmptySpaceSplitting(activeIndex, activeRange);
+
+                    //exit(0);
+                }
+            }
+
+            void TriangleMapUpperCreator::CheckEmptySpaceSplitting(int activeIndex, int activeRange){
+                
+                int parents[activeRange];
+                cudaMemcpy(parents, map->nodes->GetParentData() + activeIndex, activeRange * sizeof(int), cudaMemcpyDeviceToHost);
+                int minNode = activeRange + activeIndex, maxNode = 0;
+                for (int i = 0; i < activeRange; ++i){
+                    minNode = min(minNode, parents[i]);
+                    maxNode = max(maxNode, parents[i]);
+                }
+                
+                int childrenRange = maxNode - minNode + 1;
+                int2 children[childrenRange];
+                cudaMemcpy(children, map->nodes->GetChildrenData() + minNode, childrenRange * sizeof(int2), cudaMemcpyDeviceToHost);
+                
+                /*
+                logger.info << minNode << ", maxNode " << maxNode << logger.end;
+
+                logger.info << "Parents: " << parents[0];
+                for (int i = 1; i < activeRange; i++){
+                    logger.info << ", " << parents[i];
+                }
+                logger.info << logger.end;
+
+                logger.info << "Children: " << Convert::ToString(children[0]);
+                for (int i = 1; i < childrenRange; i++){
+                    logger.info << ", " << Convert::ToString(children[i]);
+                }
+                logger.info << logger.end;
+                */
+
+                for (int i = 0; i < activeRange; i++){
+                    int parent = parents[i] - minNode;
+                    int2 childIDs = children[parent];
+                    
+                    if (!(childIDs.x == i + activeIndex || childIDs.y == i + activeIndex)){
+                        logger.info << "parent: " << parent << ", childIDs: " << Convert::ToString(childIDs) << ", activeIndex " << activeIndex << logger.end;
+                        throw Exception("Not moved correctly");
+                    }
+                }
+
             }
 
             void TriangleMapUpperCreator::CheckSegmentReduction(int activeIndex, int activeRange,
@@ -450,8 +546,55 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
                 cudaMemcpyFromSymbol(&createdLeafs, d_createdLeafs, sizeof(bool));
 
+                /**
+                 * if any empty nodes should be created!
+                 * Create the empty nodes.
+                 * Advance active index by the amount of empty nodes
+                 *
+                 * @OPT would it be advantageous to only run the
+                 * kernel on the nodes actually producing empty
+                 * splits? Or does it require to much computing power
+                 * to calculate that. (Remember that warps with no
+                 * splits can terminate pretty damn fast)
+                 */
+                /*
+                bool emptySpaceSplitting = emptySpaceAddrs->GetSize() != 0;
+                if (emptySpaceSplitting){
+                    nodeIndices->Resize(activeRange, false);
+
+                    int emptyNodes;
+                    cudaMemcpy(&emptyNodes, emptySpaceAddrs->GetDeviceData() + emptySpaceAddrs->GetSize()-1, sizeof(int), cudaMemcpyDeviceToHost);
+                    CHECK_FOR_CUDA_ERROR();
+
+                    nodes->Resize(nodes->GetSize() + emptyNodes);
+
+                    logger.info << "empty nodes: " << emptyNodes << logger.end;
+                    logger.info << "nodes: " << nodes->GetSize() << logger.end;
+
+                    logger.info << "emptySpacePlanes: " << Convert::ToString(emptySpacePlanes->GetDeviceData(), activeRange) << logger.end;
+                    logger.info << "emptySpaceAddrs: " << Convert::ToString(emptySpaceAddrs->GetDeviceData(), activeRange) << logger.end;
+
+                    Calc1DKernelDimensions(activeRange, hatte, traade);
+                    CreateEmptyNodes<<<hatte, traade>>>(nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                                                        nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                                                        nodes->GetPrimitiveInfoData(), nodes->GetChildrenData(),
+                                                        emptySpacePlanes->GetDeviceData(), emptySpaceAddrs->GetDeviceData(),
+                                                        nodeIndices->GetDeviceData());
+                    CHECK_FOR_CUDA_ERROR();
+
+                    logger.info << "nodeIndeces: " << Convert::ToString(nodeIndices->GetDeviceData(), activeRange) << logger.end;
+
+                    for (int i = activeIndex; i < activeIndex + activeRange + emptyNodes; i++)
+                        logger.info << nodes->ToString(i) << logger.end;
+                    
+                    activeIndex += emptyNodes;
+                    cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
+                }else
+                    nodeIndices->Resize(0, false);
+                */
+
                 if (createdLeafs){
-                    //logger.info << "Created leafs" << logger.end;
+                    logger.info << "Created leafs. Split resulted in " << newTriangles << " triangles." << logger.end;
 
                     SetPrimitiveLeafSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                               segments.GetOwnerData(),
@@ -502,13 +645,6 @@ namespace OpenEngine {
                     cudaMemcpy(&leafNodes, splitSide->GetDeviceData() + activeRange * 2, sizeof(int), cudaMemcpyDeviceToHost);
                     cudaMemcpyToSymbol(d_leafNodes, splitSide->GetDeviceData() + activeRange * 2, sizeof(int), 0, cudaMemcpyDeviceToDevice);
 
-                    /*                                        
-                    logger.info << "CreateChildren<<<" << hatte << ", " << traade << ">>>" << logger.end;
-                    logger.info << "primitive info " << Convert::ToString(nodes->GetPrimitiveInfoData() + activeIndex, activeRange) << logger.end;
-                    logger.info << "child size " << Convert::ToString(childSize->GetDeviceData(), activeRange) << logger.end;
-                    logger.info << "Node leaf addrs " << Convert::ToString(splitSide->GetDeviceData(), activeRange * 2 + 1) << logger.end;
-                    */
-
                     CreateUpperChildren<false>
                         <<<hatte, traade>>>(NULL, nodes->GetPrimitiveInfoData(),
                                             childSize->GetDeviceData(),
@@ -532,7 +668,7 @@ namespace OpenEngine {
                                               leafIndex, leafNodes);
 
                 }else{
-                    //logger.info << "No leafs created. Split resulted in " << newTriangles << " triangles."  << logger.end;
+                    logger.info << "No leafs created. Split resulted in " << newTriangles << " triangles."  << logger.end;
 
                     tempAabbMin->Extend(newTriangles);
                     tempAabbMax->Extend(newTriangles);
