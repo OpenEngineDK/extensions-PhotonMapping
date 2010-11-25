@@ -1,5 +1,7 @@
 # Photon mapping dependencies
 
 darcs /extensions/PhotonMapping			http://openengine.dk/code/extensions/PhotonMapping
-
 darcs-dev /extensions/PhotonMapping		fh.daimi.au.dk:/users/cgd/code/extensions/PhotonMapping
+
+darcs /extensions/CUDA				http://openengine.dk/code/extensions/CUDA
+darcs-dev /extensions/CUDA			fh.daimi.au.dk:/users/cgd/code/extensions/CUDA
