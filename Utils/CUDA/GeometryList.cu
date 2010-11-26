@@ -97,7 +97,7 @@ namespace OpenEngine {
                                           float3 *verticesIn,
                                           float3 *normalsIn,
                                           float4 *colorsIn,
-                                          Matrix44f modelMat, Matrix33f normalMat,
+                                          const Matrix44f modelMat, const Matrix33f normalMat,
                                           float4 *p0, float4 *p1, float4 *p2,
                                           float4 *n0, float4 *n1, float4 *n2,
                                           uchar4 *c0, uchar4 *c1, uchar4 *c2,
@@ -132,7 +132,7 @@ namespace OpenEngine {
                                           float4 *verticesIn,
                                           float4 *normalsIn,
                                           uchar4 *colorsIn,
-                                          Matrix44f modelMat, Matrix33f normalMat,
+                                          const Matrix44f modelMat, const Matrix33f normalMat,
                                           float4 *p0, float4 *p1, float4 *p2,
                                           float4 *n0, float4 *n1, float4 *n2,
                                           uchar4 *c0, uchar4 *c1, uchar4 *c2,
@@ -250,7 +250,7 @@ namespace OpenEngine {
             void GeometryList::AddMesh(CUDAMeshNode* mesh, 
                                        Matrix<4, 4, float> modelMat){
                 
-                START_TIMER(timerID);
+                //START_TIMER(timerID);
 
                 unsigned int triangles = mesh->GetSize() / 3;
                 Extend(size + triangles);                
@@ -262,10 +262,6 @@ namespace OpenEngine {
                 Math::CUDA::Matrix33f normMat; // should be transposed and inverted, jada jada bla bla just don't do weird scaling
                 normMat.Init(mat);
                 CHECK_FOR_CUDA_ERROR();
-
-                
-                //logger.info << Convert::ToString((int*)mesh->GetIndexData(), mesh->GetSize()) << logger.end;
-                //logger.info << Convert::ToString(mesh->GetVertexData(), 16) << logger.end;
                 
                 AddMeshKernel<<<blocks, threads>>>(mesh->GetIndexData(), mesh->GetVertexData(), mesh->GetNormalData(), mesh->GetColorData(),
                                                    mat, normMat,
@@ -279,7 +275,7 @@ namespace OpenEngine {
 
                 size += triangles;
                 
-                PRINT_TIMER(timerID, "Geometry collection ");
+                //PRINT_TIMER(timerID, "Geometry collection ");
             }
             
             void GeometryList::CollectGeometry(ISceneNode* node){
@@ -306,15 +302,11 @@ namespace OpenEngine {
             }
             
             void GeometryList::VisitMeshNode(MeshNode* node){
-                logger.info << "Visiting MeshNode" << logger.end;
-
                 if (node->GetMesh()->GetGeometrySet()->GetVertices()->GetID() != 0){
                     AddMesh(node->GetMesh(), currentModelMat);
                     
                     node->VisitSubNodes(*this);
                 }else{
-                    logger.info << "Converting to CUDAMeshNode" << logger.end;
-
                     CUDAMeshNode* mesh = new CUDAMeshNode(node);
 
                     node->GetParent()->ReplaceNode(node, mesh);
@@ -331,11 +323,7 @@ namespace OpenEngine {
             }
 
             void GeometryList::VisitCUDAMeshNode(CUDAMeshNode* node){
-                logger.info << "Visiting CUDAMeshNode" << logger.end;
-
                 AddMesh(node, currentModelMat);
-                
-                logger.info << "Visit Subnodes" << logger.end;
 
                 node->VisitSubNodes(*this);
             }
