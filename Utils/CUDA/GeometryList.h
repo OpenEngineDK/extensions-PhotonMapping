@@ -26,6 +26,7 @@ namespace OpenEngine {
     namespace Scene {
         class ISceneNode;
         class MeshNode;
+        class CUDAMeshNode;
         class TransformationNode;
     }
     namespace Utils {
@@ -70,11 +71,15 @@ namespace OpenEngine {
                 void AddMesh(Geometry::MeshPtr mesh, 
                              Math::Matrix<4, 4, float> ModelView);
 
+                void AddMesh(Scene::CUDAMeshNode* mesh, 
+                             Math::Matrix<4, 4, float> ModelView);
+
                 void CollectGeometry(Scene::ISceneNode* node);
 
                 void VisitRenderStateNode(Scene::RenderStateNode* node);
                 void VisitTransformationNode(Scene::TransformationNode* node);
                 void VisitMeshNode(Scene::MeshNode* node);
+                void VisitCUDAMeshNode(Scene::CUDAMeshNode* node);
                 
             };
             

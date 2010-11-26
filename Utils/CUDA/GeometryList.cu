@@ -14,6 +14,7 @@
 #include <Math/CUDA/Matrix.h>
 #include <Scene/ISceneNode.h>
 #include <Scene/MeshNode.h>
+#include <Scene/CUDAMeshNode.h>
 #include <Scene/RenderStateNode.h>
 #include <Scene/TransformationNode.h>
 #include <Utils/CUDA/Utils.h>
@@ -127,7 +128,43 @@ namespace OpenEngine {
                 }
             }
 
+            __global__ void AddMeshKernel(unsigned int *indices,
+                                          float4 *verticesIn,
+                                          float4 *normalsIn,
+                                          uchar4 *colorsIn,
+                                          Matrix44f modelMat, Matrix33f normalMat,
+                                          float4 *p0, float4 *p1, float4 *p2,
+                                          float4 *n0, float4 *n1, float4 *n2,
+                                          uchar4 *c0, uchar4 *c1, uchar4 *c2,
+                                          int size){
+                
+                const int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+                if (id < size){
+                    const int i = __mul24(id, 3);
+                    const unsigned int i0 = indices[i];
+                    const unsigned int i1 = indices[i+1];
+                    const unsigned int i2 = indices[i+2];
+                    const float4 v0 = verticesIn[i0];
+                    const float4 v1 = verticesIn[i1];
+                    const float4 v2 = verticesIn[i2];
+                    
+                    p0[id] = modelMat * v0;
+                    p1[id] = modelMat * v1;
+                    p2[id] = modelMat * v2;
+                    
+                    n0[id] = make_float4(normalMat * make_float3(normalsIn[i0]), 0);
+                    n1[id] = make_float4(normalMat * make_float3(normalsIn[i1]), 0);
+                    n2[id] = make_float4(normalMat * make_float3(normalsIn[i2]), 0);
+
+                    c0[id] = colorsIn[i0];
+                    c1[id] = colorsIn[i1];
+                    c2[id] = colorsIn[i2];
+                }
+            }
+
             void GeometryList::AddMesh(MeshPtr mesh, Matrix<4,4,float> modelMat){
+
                 GeometrySetPtr geom = mesh->GetGeometrySet();
                 if (geom->GetDataBlock("vertex") && geom->GetDataBlock("vertex")->GetID() != 0){
                     // Geometry has been loaded to the graphics card
@@ -209,6 +246,41 @@ namespace OpenEngine {
                     throw Exception("Not implemented");
                 }
             }
+
+            void GeometryList::AddMesh(CUDAMeshNode* mesh, 
+                                       Matrix<4, 4, float> modelMat){
+                
+                START_TIMER(timerID);
+
+                unsigned int triangles = mesh->GetSize() / 3;
+                Extend(size + triangles);                
+
+                unsigned int blocks, threads;
+                Calc1DKernelDimensions(mesh->GetSize(), blocks, threads);
+                Math::CUDA::Matrix44f mat;
+                mat.Init(modelMat.GetTranspose());
+                Math::CUDA::Matrix33f normMat; // should be transposed and inverted, jada jada bla bla just don't do weird scaling
+                normMat.Init(mat);
+                CHECK_FOR_CUDA_ERROR();
+
+                
+                //logger.info << Convert::ToString((int*)mesh->GetIndexData(), mesh->GetSize()) << logger.end;
+                //logger.info << Convert::ToString(mesh->GetVertexData(), 16) << logger.end;
+                
+                AddMeshKernel<<<blocks, threads>>>(mesh->GetIndexData(), mesh->GetVertexData(), mesh->GetNormalData(), mesh->GetColorData(),
+                                                   mat, normMat,
+                                                   p0->GetDeviceData() + size, p1->GetDeviceData() + size, p2->GetDeviceData() + size,
+                                                   n0->GetDeviceData() + size, n1->GetDeviceData() + size, n2->GetDeviceData() + size,
+                                                   c0->GetDeviceData() + size, c1->GetDeviceData() + size, c2->GetDeviceData() + size,
+                                                   triangles);
+                CHECK_FOR_CUDA_ERROR();
+
+                
+
+                size += triangles;
+                
+                PRINT_TIMER(timerID, "Geometry collection ");
+            }
             
             void GeometryList::CollectGeometry(ISceneNode* node){
                 currentModelMat = Matrix<4,4, float>();
@@ -234,7 +306,36 @@ namespace OpenEngine {
             }
             
             void GeometryList::VisitMeshNode(MeshNode* node){
-                AddMesh(node->GetMesh(), currentModelMat);
+                logger.info << "Visiting MeshNode" << logger.end;
+
+                if (node->GetMesh()->GetGeometrySet()->GetVertices()->GetID() != 0){
+                    AddMesh(node->GetMesh(), currentModelMat);
+                    
+                    node->VisitSubNodes(*this);
+                }else{
+                    logger.info << "Converting to CUDAMeshNode" << logger.end;
+
+                    CUDAMeshNode* mesh = new CUDAMeshNode(node);
+
+                    node->GetParent()->ReplaceNode(node, mesh);
+
+                    std::list<ISceneNode*> subNodes = node->subNodes;
+                    for (std::list<ISceneNode*>::iterator itr = subNodes.begin();
+                         itr != subNodes.end(); ++itr){
+                        node->RemoveNode(*itr);
+                        mesh->AddNode(*itr);
+                    }
+
+                    mesh->Accept(*this);
+                }
+            }
+
+            void GeometryList::VisitCUDAMeshNode(CUDAMeshNode* node){
+                logger.info << "Visiting CUDAMeshNode" << logger.end;
+
+                AddMesh(node, currentModelMat);
+                
+                logger.info << "Visit Subnodes" << logger.end;
 
                 node->VisitSubNodes(*this);
             }
