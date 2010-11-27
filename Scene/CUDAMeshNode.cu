@@ -130,9 +130,8 @@ namespace OpenEngine {
                     cudaFree(hat);
                 }
                 CHECK_FOR_CUDA_ERROR();
-            }else{
+            }else
                 SetColor<<<blocks, threads>>>(make_uchar4(180, 180, 180, 255), colors->GetDeviceData(), size);
-            }
             
             indices = new CUDADataBlock<1, unsigned int>(i->GetSize());
             cudaMemcpy(indices->GetDeviceData(), i->GetData(), i->GetSize() * sizeof(unsigned int), cudaMemcpyHostToDevice);

@@ -69,120 +69,12 @@ __global__ void CalcEmptySpaceSplits(float4 *propagatedAabbMin,
     }
 }
 
-__global__ void CreateEmptyNodes(char* nodeInfo, float* splitPoss,
-                                 float4 *aabbMins, float4 *aabbMaxs,
-                                 int2* primitiveInfo, int2* children, 
-                                 char* emptySpacePlanes, int* emptySpaceAddrs,
-                                 int* indices){
-
-    const int id = blockDim.x * blockIdx.x + threadIdx.x;
-
-    if (id < d_activeNodeRange){
-        int parentID = d_activeNodeIndex + id;
-
-        const char planes = emptySpacePlanes[id];
-
-        //@OPT provide early out for threads with no planes? They just
-        //need to write their indice?
-
-        // Values to be propagated to the final child
-        const char info = nodeInfo[parentID];
-        const float splitPos = splitPoss[parentID];
-
-        // @OPT more coalescence if the right indices start midway
-        // into the array?
-        int leftID = d_activeNodeIndex + d_activeNodeRange + emptySpaceAddrs[id];
-        int rightID = leftID+1;
-
-        const float3 aabbMin = make_float3(aabbMins[parentID]);
-
-        if (planes & 1){ // min.x splits, ie the right child holds primitives
-            nodeInfo[parentID] = KDNode::X;
-            splitPoss[parentID] = aabbMin.x;
-            nodeInfo[leftID] = KDNode::LEAF; // @OPT set empty bit in info?
-            primitiveInfo[leftID] = make_int2(0, 0);
-            children[parentID] = make_int2(leftID, rightID);
-
-            parentID = rightID;
-            leftID = parentID+1;
-            rightID = parentID+2;
-        }
-
-        if (planes & 2){ // min.y splits, ie the right child holds primitives
-            nodeInfo[parentID] = KDNode::Y;
-            splitPoss[parentID] = aabbMin.y;
-            nodeInfo[leftID] = KDNode::LEAF; // @OPT set empty bit in info?
-            primitiveInfo[leftID] = make_int2(0, 0);
-            children[parentID] = make_int2(leftID, rightID);
-
-            parentID = rightID;
-            leftID = parentID+1;
-            rightID = parentID+2;
-        }
-
-        if (planes & 4){ // min.z splits, ie the right child holds primitives
-            nodeInfo[parentID] = KDNode::Z;
-            splitPoss[parentID] = aabbMin.z;
-            nodeInfo[leftID] = KDNode::LEAF; // @OPT set empty bit in info?
-            primitiveInfo[leftID] = make_int2(0, 0);
-            children[parentID] = make_int2(leftID, rightID);
-
-            parentID = rightID;
-            leftID = parentID+1;
-            rightID = parentID+2;
-        }
-
-        const float3 aabbMax = make_float3(aabbMaxs[parentID]);
-
-        if (planes & 8){ // max.x splits, ie the left child holds primitives
-            nodeInfo[parentID] = KDNode::X;
-            splitPoss[parentID] = aabbMax.x;
-            nodeInfo[rightID] = KDNode::LEAF; // @OPT set empty bit in info?
-            primitiveInfo[rightID] = make_int2(0, 0);
-            children[parentID] = make_int2(leftID, rightID);
-
-            parentID = leftID;
-            leftID = parentID+1;
-            rightID = parentID+2;
-        }
-
-        if (planes & 16){ // max.y splits, ie the left child holds primitives
-            nodeInfo[parentID] = KDNode::Y;
-            splitPoss[parentID] = aabbMax.y;
-            nodeInfo[rightID] = KDNode::LEAF;
-            primitiveInfo[rightID] = make_int2(0, 0);
-            children[parentID] = make_int2(leftID, rightID);
-
-            parentID = leftID;
-            leftID = parentID+1;
-            rightID = parentID+2;
-        }
-
-        if (planes & 32){ // max.z splits, ie the left child holds primitives
-            nodeInfo[parentID] = KDNode::Z;
-            splitPoss[parentID] = aabbMax.z;
-            nodeInfo[rightID] = KDNode::LEAF;
-            primitiveInfo[rightID] = make_int2(0, 0);
-            children[parentID] = make_int2(leftID, rightID);
-
-            parentID = leftID;
-        }
-
-        indices[id] = parentID;
-        nodeInfo[parentID] = info;
-        splitPoss[parentID] = splitPos;
-        primitiveInfo[parentID] = primitiveInfo[d_activeNodeIndex + id];
-        aabbMins[parentID] = make_float4(aabbMin, 0.0f);
-        aabbMaxs[parentID] = make_float4(aabbMax, 0.0f);
-    }
-}
-
-__global__ void CorrectParentPointer(char* nodeInfo, float* splitPoss,
-                                     int2* primitiveInfo, 
-                                     int* parents, int2* children, 
-                                     char* emptySpacePlanes, int* emptySpaceAddrs,
-                                     float4 *minPlanes, float4 *maxPlanes,
-                                     int emptyNodes){
+__global__ void EmptySpaceSplitting(char* nodeInfo, float* splitPoss,
+                                    int2* primitiveInfo, 
+                                    int* parents, int2* children, 
+                                    char* emptySpacePlanes, int* emptySpaceAddrs,
+                                    float4 *minPlanes, float4 *maxPlanes,
+                                    int emptyNodes){
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
     if (id < d_activeNodeRange){
@@ -191,7 +83,7 @@ __global__ void CorrectParentPointer(char* nodeInfo, float* splitPoss,
         // Create empty space planes
         char planes = emptySpacePlanes[id];
 
-        int parentID = parents[childID];
+        int parentID = parents[id];
         const int2 childIDs = children[parentID];
         
         const int emptyStartAddr = planes ? d_activeNodeIndex - emptyNodes + emptySpaceAddrs[id] : childID;

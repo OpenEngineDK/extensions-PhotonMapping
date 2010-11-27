@@ -14,7 +14,7 @@ using namespace OpenEngine::Utils::CUDA::Kernels;
 */
 
 #define traverselCost 32.0f
-#define minLeafTriangles 32
+#define minLeafTriangles 8
 
 __global__ void CalcSurfaceArea(int *indices, 
                                 float4 *v0s, float4 *v1s, float4 *v2s,
@@ -279,8 +279,8 @@ __device__ void CalcAreaForSets(int4 splittingSets, char splitAxis,
         areaIndices -= 1<<i;
     }
         
-    float lowArea = __popc(splittingSets.x) * setAreas.x + bitcount(splittingSets.y) * setAreas.y;
-    float highArea = __popc(splittingSets.z) * setAreas.z + bitcount(splittingSets.w) * setAreas.w;
+    float lowArea = bitcount(splittingSets.x) * setAreas.x + bitcount(splittingSets.y) * setAreas.y;
+    float highArea = bitcount(splittingSets.z) * setAreas.z + bitcount(splittingSets.w) * setAreas.w;
 
     if (lowArea < optimalArea){
         leftSet = splittingSets.x;
@@ -375,7 +375,7 @@ __launch_bounds__(96)
         }
             
         float nodeArea = nodeSurface[parentID];
-        bool split = optimalArea < (__popc(primInfo.y) - traverselCost) * nodeArea;
+        bool split = optimalArea < (bitcount(primInfo.y) - traverselCost) * nodeArea;
         if (split){
             // Dump stuff and move on.
             childAreas[id] = make_float2(leftArea, rightArea);

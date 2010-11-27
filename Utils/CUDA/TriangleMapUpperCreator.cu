@@ -340,27 +340,27 @@ namespace OpenEngine {
                     splitSide->Resize(activeRange);
                     
                     cudaMemcpy(childSize->GetDeviceData(), map->nodes->GetPrimitiveInfoData() + activeIndex, activeRange * sizeof(int2), cudaMemcpyDeviceToDevice);
-                    cudaMemcpy(splitSide->GetDeviceData(), map->nodes->GetParentData() + activeIndex, activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
+                    //cudaMemcpy(splitSide->GetDeviceData(), map->nodes->GetParentData() + activeIndex, activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
 
                     activeIndex += emptyNodes;
                     cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
                     map->nodes->Resize(map->nodes->GetSize() + emptyNodes);
 
                     cudaMemcpy(map->nodes->GetPrimitiveInfoData() + activeIndex, childSize->GetDeviceData(), activeRange * sizeof(int2), cudaMemcpyDeviceToDevice);
-                    cudaMemcpy(map->nodes->GetParentData() + activeIndex, splitSide->GetDeviceData(), activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
+                    //cudaMemcpy(map->nodes->GetParentData() + activeIndex, splitSide->GetDeviceData(), activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
                     segments.IncreaseNodeIDs(emptyNodes);
 
                     // Create the empty space nodes
-                    CorrectParentPointer<<<blocks, threads>>>(map->nodes->GetInfoData(), 
-                                                              map->nodes->GetSplitPositionData(),
-                                                              map->nodes->GetPrimitiveInfoData(), 
-                                                              map->nodes->GetParentData(), 
-                                                              map->nodes->GetChildrenData(),
-                                                              emptySpacePlanes->GetDeviceData(),
-                                                              emptySpaceAddrs->GetDeviceData(),
-                                                              tempAabbMin->GetDeviceData(),
-                                                              tempAabbMax->GetDeviceData(),
-                                                              emptyNodes);
+                    EmptySpaceSplitting<<<blocks, threads>>>(map->nodes->GetInfoData(), 
+                                                             map->nodes->GetSplitPositionData(),
+                                                             map->nodes->GetPrimitiveInfoData(), 
+                                                             map->nodes->GetParentData() + activeIndex - emptyNodes, 
+                                                             map->nodes->GetChildrenData(),
+                                                             emptySpacePlanes->GetDeviceData(),
+                                                             emptySpaceAddrs->GetDeviceData(),
+                                                             tempAabbMin->GetDeviceData(),
+                                                             tempAabbMax->GetDeviceData(),
+                                                             emptyNodes);
                     CHECK_FOR_CUDA_ERROR();
 
                     // CheckEmptySpaceSplitting(activeIndex, activeRange);
