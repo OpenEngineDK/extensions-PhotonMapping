@@ -13,6 +13,7 @@
 #include <Meta/CUDA.h>
 
 #include <algorithm>
+#include <stdint.h>
 
 #define fInfinity 0x7f800000
 
@@ -97,12 +98,20 @@ inline __host__ __device__ bool TriangleRayIntersection(float3 v0, float3 v1, fl
     return hit.x >= 0.0f && hit.y >= 0.0f && hit.z >= 0.0f && hit.y + hit.z <= 1.0f;
 }
 
-inline __host__ __device__ int firstBitSet(int n){
+inline __host__ __device__ int firstBitSet(const int n){
 #ifdef __CUDA_ARCH__ // device code
     return __ffs(n);
 #else
     return ffs(n);
 #endif    
+}
+
+inline __host__ __device__ int firstBitSet(const int64_t n){
+    int ffs = firstBitSet(int(n));
+    if (ffs) return ffs;
+    ffs = firstBitSet(int(n>>32));
+    if (ffs) return 32 + ffs;
+    return 0;
 }
 
 /**
@@ -111,7 +120,7 @@ inline __host__ __device__ int firstBitSet(int n){
  *
  * How and why it works? Magic! Now go code something.
  */
-inline __host__ __device__ int bitcount(int n){
+inline __host__ __device__ int bitcount(const int n){
 #ifdef __CUDA_ARCH__ // device code
     return __popc(n);
 #else
@@ -119,6 +128,10 @@ inline __host__ __device__ int bitcount(int n){
         - ((n >> 2) & 011111111111);
     return ((tmp + (tmp >> 3)) & 030707070707) % 63;
 #endif
+}
+
+inline __host__ __device__ int bitcount(const int64_t n){
+    return bitcount(int(n)) + bitcount(int(n>>32));
 }
 
 inline std::string BitmapToString(unsigned int n){
@@ -137,6 +150,28 @@ inline std::string BitmapToString(unsigned int n){
     
     return out.str();
 }
+inline std::string BitmapToString(int n){
+    return BitmapToString((unsigned int)n);
+}
+
+
+inline std::string BitmapToString(int64_t n){
+    std::ostringstream out;
+    out << "[";
+    for (unsigned int i = 0; i < 63; ++i){
+        if (n & int64_t(1)<<i)
+            out << 1 << ", ";
+        else
+            out << 0 << ", ";
+    }
+    if (n & int64_t(1)<<63)
+        out << 1 << "]";
+    else
+        out << 0 << "]";
+    
+    return out.str();
+}
+
 
 inline __host__ __device__ void maxCorner(float4 v, float3 u, float3 &ret){
     ret = make_float3(max(v.x, u.x),

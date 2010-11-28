@@ -22,7 +22,7 @@ namespace OpenEngine {
     namespace Utils {
         namespace CUDA {
 
-            TriangleMap::TriangleMap(ISceneNode* scene) 
+            TriangleMap::TriangleMap(ISceneNode* scene)
                 : scene(scene) {
 
                 // Initialized timer
