@@ -106,12 +106,16 @@ inline __host__ __device__ int firstBitSet(const int n){
 #endif    
 }
 
-inline __host__ __device__ int firstBitSet(const int64_t n){
+inline __host__ __device__ int firstBitSet(const long long n){
+#ifdef __CUDA_ARCH__ // device code
+    return __ffsll(n);
+#else
     int ffs = firstBitSet(int(n));
     if (ffs) return ffs;
     ffs = firstBitSet(int(n>>32));
     if (ffs) return 32 + ffs;
     return 0;
+#endif
 }
 
 /**
@@ -130,8 +134,12 @@ inline __host__ __device__ int bitcount(const int n){
 #endif
 }
 
-inline __host__ __device__ int bitcount(const int64_t n){
+inline __host__ __device__ int bitcount(const long long int n){
+#ifdef __CUDA_ARCH__ // device code
+    return __popcll(n);
+#else
     return bitcount(int(n)) + bitcount(int(n>>32));
+#endif
 }
 
 inline std::string BitmapToString(unsigned int n){
@@ -155,16 +163,16 @@ inline std::string BitmapToString(int n){
 }
 
 
-inline std::string BitmapToString(int64_t n){
+inline std::string BitmapToString(long long int n){
     std::ostringstream out;
     out << "[";
     for (unsigned int i = 0; i < 63; ++i){
-        if (n & int64_t(1)<<i)
+        if (n & (long long int)1<<i)
             out << 1 << ", ";
         else
             out << 0 << ", ";
     }
-    if (n & int64_t(1)<<63)
+    if (n & (unsigned long long int)1<<63)
         out << 1 << "]";
     else
         out << 0 << "]";
