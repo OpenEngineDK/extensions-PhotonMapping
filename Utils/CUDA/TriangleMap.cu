@@ -13,6 +13,7 @@
 #include <Utils/CUDA/TriangleMapUpperCreator.h>
 #include <Utils/CUDA/TriangleMapSAHCreator.h>
 #include <Utils/CUDA/TriangleMapBalancedCreator.h>
+#include <Utils/CUDA/TriangleMapBalancedFast.h>
 #include <Utils/CUDA/Convert.h>
 
 using namespace OpenEngine::Scene;
@@ -37,6 +38,7 @@ namespace OpenEngine {
                 leafIDs = new CUDADataBlock<1, int>(1);
 
                 upperCreator = new TriangleMapUpperCreator();
+                //lowerCreator = new TriangleMapBalancedFast();
                 lowerCreator = new TriangleMapBalancedCreator();
                 //lowerCreator = new TriangleMapSAHCreator();
             }
@@ -44,10 +46,15 @@ namespace OpenEngine {
             void TriangleMap::Create(){
 
                 Setup();
+
+                logger.info << "Start primitives: " << geom->GetSize() << logger.end;
                 
                 upperCreator->Create(this, NULL);
 
                 lowerCreator->Create(this, leafIDs);
+
+                logger.info << "End primitives: " << primIndices->GetSize() << logger.end;
+                logger.info << "Tree nodes: " << nodes->GetSize() << logger.end;
 
                 /*
                 for (int i = 0; i < nodes->GetSize(); ++i)
