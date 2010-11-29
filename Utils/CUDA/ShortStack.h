@@ -58,35 +58,51 @@ namespace OpenEngine {
                     
                     __device__ __host__ void Erase() { next = count = 0; }
 
+                    static __device__ __host__ void Erase(int& next, int &count) { next = count = 0; }
+
                     __device__ __host__ bool IsEmpty() const { return count == 0; }
                     
-                    __device__ __host__ void Push(const Element e) {
-                        elm[next] = e;
+                    static __device__ __host__ void Push(const Element e, 
+                                                         Element* elms, int& next, int &count){
+                        elms[next] = e;
                         next = next == N-1 ? 0 : next+1;
                         count = count == N ? N : count+1;
                     }
                     
-                    __device__ __host__ Element Pop() { 
-                        next = (next == 0 ? N : next) - 1;
-                        count--;
-                        return elm[next];
+                    __device__ __host__ void Push(const Element e) {
+                        Push(e, elm, next, count);
                     }
 
-                    __host__ std::string ToString() const{
+                    static __device__ __host__ Element Pop(Element* elms, int& next, int &count) { 
+                        next = (next == 0 ? N : next) - 1;
+                        count--;
+                        return elms[next];
+                    }
+
+                    __device__ __host__ Element Pop() { 
+                        return Pop(elm, next, count);
+                    }
+
+                    static __host__ std::string ToString(Element* elms, int& next, int &count){
                         std::ostringstream out;
                         int e = next -1;
                         if (e == -1) e = N-1;
                         int cnt = count;
                         out << "Stack: [";
                         if (0 < cnt)
-                            out << elm[e].ToString();
+                            out << elms[e].ToString();
                         for (int i = 1; i < cnt; ++i){
                             e--; if (e == -1) e = N-1;
-                            out << ",\n " << elm[e].ToString();
+                            out << ",\n " << elms[e].ToString();
                         }
                         out << "]\n";
                         return out.str();
                     }
+
+                    inline __host__ std::string ToString() const{
+                        return ToString(elm, next, count);
+                    }
+
                 };
                 
                 unsigned int timerID;
