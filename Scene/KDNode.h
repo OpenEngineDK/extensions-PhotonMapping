@@ -20,9 +20,24 @@ using namespace OpenEngine::Resources::CUDA;
 
 namespace OpenEngine {
     namespace Scene {
-        
+
         class KDNode {
-        public:
+        public: 
+            typedef int bitmap;
+            typedef bitmap amount;
+
+            struct bitmap2 {
+                bitmap x;
+                bitmap y;
+            };
+
+            static __host__ __device__ bitmap2 make_bitmap2(bitmap x, bitmap y){
+                bitmap2 bmp2;
+                bmp2.x = x;
+                bmp2.y = y;
+                return bmp2;
+            }
+
             static const char LEAF = 0;
             static const char X = 1;
             static const char Y = 2;
@@ -32,7 +47,8 @@ namespace OpenEngine {
             CUDADataBlock<1, char>* info; // 0 = LEAF,1 = X, 2 = Y, 3 = Z. 6 bits left for stuff
             CUDADataBlock<1, float>* splitPos;
             CUDADataBlock<1, point> *aabbMin, *aabbMax;
-            CUDADataBlock<1, int2> *photonInfo; // [photonIndex, range/bitmap]
+            CUDADataBlock<1, int> *primitiveIndex;
+            CUDADataBlock<1, bitmap> *primitiveBitmap;
 
             // if it is a leaf node then both nodes
             // point to it's lower node.
@@ -52,7 +68,9 @@ namespace OpenEngine {
             float* GetSplitPositionData() { return splitPos->GetDeviceData(); }
             point* GetAabbMinData() { return aabbMin->GetDeviceData(); }
             point* GetAabbMaxData() { return aabbMax->GetDeviceData(); }
-            int2* GetPrimitiveInfoData() { return photonInfo->GetDeviceData(); }
+            int* GetPrimitiveIndexData() { return primitiveIndex->GetDeviceData(); }
+            amount* GetPrimitiveAmountData() { return primitiveBitmap->GetDeviceData(); }
+            bitmap* GetPrimitiveBitmapData() { return primitiveBitmap->GetDeviceData(); }
             int2* GetChildrenData() { return children->GetDeviceData(); }
 
             int GetSize() const { return size; }

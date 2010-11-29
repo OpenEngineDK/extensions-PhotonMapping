@@ -79,7 +79,7 @@ namespace OpenEngine {
             __global__ void KDRestart(float4* origins, float4* directions,
                                       char* nodeInfo, float* splitPos,
                                       int2* children,
-                                      int2 *primitiveInfo, 
+                                      int* nodePrimIndex, KDNode::bitmap* primBitmap,
                                       int *primIndices, 
                                       float4 *v0, float4 *v1, float4 *v2,
                                       float4 *n0s, float4 *n1s, float4 *n2s,
@@ -116,13 +116,13 @@ namespace OpenEngine {
 
                         tHit.x = tNext;
 
-                        int2 primInfo = primitiveInfo[node];
+                        int primIndex = nodePrimIndex[node];
+                        KDNode::bitmap triangles = primBitmap[node];
                         int primHit = -1;
-                        int triangles = primInfo.y;
                         while (triangles){
                             int i = __ffs(triangles) - 1;
                             
-                            int prim = primIndices[primInfo.x + i];
+                            int prim = primIndices[primIndex + i];
 
                             float3 hitCoords;
                             bool hit = TriangleRayIntersection(make_float3(v0[prim]), make_float3(v1[prim]), make_float3(v2[prim]), 
@@ -183,7 +183,8 @@ namespace OpenEngine {
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                nodes->GetChildrenData(),
-                                               nodes->GetPrimitiveInfoData(),
+                                               nodes->GetPrimitiveIndexData(),
+                                               nodes->GetPrimitiveBitmapData(),
                                                map->GetPrimitiveIndices()->GetDeviceData(),
                                                geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
                                                geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
@@ -234,18 +235,19 @@ namespace OpenEngine {
                     
                     tHit.x = tNext;
                     
-                    int2 primInfo;
-                    cudaMemcpy(&primInfo, nodes->GetPrimitiveInfoData() + node, sizeof(int2), cudaMemcpyDeviceToHost);
+                    int primIndex;
+                    cudaMemcpy(&primIndex, nodes->GetPrimitiveIndexData() + node, sizeof(int), cudaMemcpyDeviceToHost);
                     CHECK_FOR_CUDA_ERROR();
                     int primHit = -1;
-                    int triangles = primInfo.y;
+                    KDNode::bitmap triangles;
+                    cudaMemcpy(&triangles, nodes->GetPrimitiveBitmapData() + node, sizeof(KDNode::bitmap), cudaMemcpyDeviceToHost);
                     while (triangles){
                         int i = ffs(triangles) - 1;
 
                         //logger.info << "Testing indice " << primInfo.x << " + " << i << " = " << primInfo.x + i << logger.end;
 
                         int prim;
-                        cudaMemcpy(&prim, map->GetPrimitiveIndices()->GetDeviceData() + primInfo.x + i, sizeof(int), cudaMemcpyDeviceToHost);
+                        cudaMemcpy(&prim, map->GetPrimitiveIndices()->GetDeviceData() + primIndex + i, sizeof(int), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
                         
                         //logger.info << "Testing primitive " << prim << logger.end;

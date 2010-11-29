@@ -70,7 +70,7 @@ __global__ void CalcEmptySpaceSplits(float4 *propagatedAabbMin,
 }
 
 __global__ void EmptySpaceSplitting(char* nodeInfo, float* splitPoss,
-                                    int2* primitiveInfo, 
+                                    KDNode::amount* primitiveAmount,
                                     int* parents, int2* children, 
                                     char* emptySpacePlanes, int* emptySpaceAddrs,
                                     float4 *minPlanes, float4 *maxPlanes,
@@ -110,7 +110,7 @@ __global__ void EmptySpaceSplitting(char* nodeInfo, float* splitPoss,
             int rightID = planes ? leftID+1 : childID;
             children[parentID] = make_int2(leftID, rightID);
             nodeInfo[leftID] = KDNode::LEAF;
-            primitiveInfo[leftID] = make_int2(0,0);
+            primitiveAmount[leftID] = 0;
 
             parentID = rightID;
         }
@@ -123,7 +123,7 @@ __global__ void EmptySpaceSplitting(char* nodeInfo, float* splitPoss,
             int rightID = planes ? leftID+1 : childID;
             children[parentID] = make_int2(leftID, rightID);
             nodeInfo[leftID] = KDNode::LEAF;
-            primitiveInfo[leftID] = make_int2(0,0);
+            primitiveAmount[leftID] = 0;
 
             parentID = rightID;
         }
@@ -136,7 +136,7 @@ __global__ void EmptySpaceSplitting(char* nodeInfo, float* splitPoss,
             int rightID = planes ? leftID+1 : childID;
             children[parentID] = make_int2(leftID, rightID);
             nodeInfo[leftID] = KDNode::LEAF;
-            primitiveInfo[leftID] = make_int2(0,0);
+            primitiveAmount[leftID] = 0;
 
             parentID = rightID;
         }
@@ -151,7 +151,7 @@ __global__ void EmptySpaceSplitting(char* nodeInfo, float* splitPoss,
             int leftID = planes ? rightID+1 : childID;
             children[parentID] = make_int2(leftID, rightID);
             nodeInfo[rightID] = KDNode::LEAF;
-            primitiveInfo[rightID] = make_int2(0,0);
+            primitiveAmount[rightID] = 0;
 
             parentID = leftID;
         }
@@ -164,7 +164,7 @@ __global__ void EmptySpaceSplitting(char* nodeInfo, float* splitPoss,
             int leftID = planes ? rightID+1 : childID;
             children[parentID] = make_int2(leftID, rightID);
             nodeInfo[rightID] = KDNode::LEAF;
-            primitiveInfo[rightID] = make_int2(0,0);
+            primitiveAmount[rightID] = 0;
 
             parentID = leftID;
         }
@@ -177,7 +177,7 @@ __global__ void EmptySpaceSplitting(char* nodeInfo, float* splitPoss,
             int leftID = childID;
             children[parentID] = make_int2(leftID, rightID);
             nodeInfo[rightID] = KDNode::LEAF;
-            primitiveInfo[rightID] = make_int2(0,0);
+            primitiveAmount[rightID] = 0;
         }
     }
 }

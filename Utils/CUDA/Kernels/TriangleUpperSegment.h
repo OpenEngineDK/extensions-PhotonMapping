@@ -7,12 +7,12 @@
 // See the GNU General Public License for more details (see LICENSE). 
 //--------------------------------------------------------------------
 
-__global__ void NodeSegments(int2* primitiveInfo,
+__global__ void NodeSegments(KDNode::amount* primitiveAmount,
                              int* nodeSegments){
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
     if (id < d_activeNodeRange){
-        nodeSegments[id] = 1 + (primitiveInfo[id].y-1) / Segments::SEGMENT_SIZE;
+        nodeSegments[id] = 1 + (primitiveAmount[id]-1) / Segments::SEGMENT_SIZE;
     }
 }
 
@@ -33,7 +33,8 @@ __global__ void MarkOwnerStart(int* owners,
 
 __global__ void CalcSegmentPrimitives(int *owners,
                                       int *nodeSegmentAddrs,
-                                      int2 *nodePrimInfo,
+                                      int *nodePrimIndex,
+                                      KDNode::amount *nodePrimAmount,
                                       int2 *segmentPrimInfo){
         
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -42,9 +43,10 @@ __global__ void CalcSegmentPrimitives(int *owners,
         // @OPT node prim info can be placed in shared memory?
         const int nodeID = owners[id];
         const int offset = Segments::SEGMENT_SIZE * (id - nodeSegmentAddrs[nodeID - d_activeNodeIndex]);
-        const int2 primInfo = nodePrimInfo[nodeID];
-        const int index = primInfo.x + offset;
-        const int range = min(Segments::SEGMENT_SIZE, primInfo.y - offset);
+        const int primIndex = nodePrimIndex[nodeID];
+        const KDNode::amount primAmount = nodePrimAmount[nodeID];
+        const int index = primIndex + offset;
+        const int range = min(Segments::SEGMENT_SIZE, primAmount - offset);
         segmentPrimInfo[id] = make_int2(index, range);
     }
 }

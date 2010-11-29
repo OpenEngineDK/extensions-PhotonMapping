@@ -47,6 +47,7 @@ namespace OpenEngine {
                 emptySpaceAddrs = new CUDADataBlock<1, int>(1);
                 nodeIndices = new CUDADataBlock<1, int>(1);
                 childSize = new CUDADataBlock<1, int2>(1);
+                tempNodeAmount = new CUDADataBlock<1, KDNode::amount>(1);
 
                 // CUDPP doesn't handle removing handles well, so we
                 // define them to accept some arbitrary high number of
@@ -90,6 +91,7 @@ namespace OpenEngine {
                 if (emptySpaceAddrs) delete emptySpaceAddrs;
                 if (nodeIndices) delete nodeIndices;
                 if (childSize) delete childSize;
+                if (tempNodeAmount) delete tempNodeAmount;
             }
 
             namespace KernelsHat {
@@ -123,8 +125,9 @@ namespace OpenEngine {
                 leafIDs->Extend(0);
 
                 // Setup root node!
-                int2 i = make_int2(0, triangles);
-                cudaMemcpy(map->nodes->GetPrimitiveInfoData(), &i, sizeof(int2), cudaMemcpyHostToDevice);
+                int i = 0; KDNode::amount tris = triangles;
+                cudaMemcpy(map->nodes->GetPrimitiveIndexData(), &i, sizeof(int), cudaMemcpyHostToDevice);
+                cudaMemcpy(map->nodes->GetPrimitiveAmountData(), &tris, sizeof(KDNode::amount), cudaMemcpyHostToDevice);
                 int parent = 0;
                 cudaMemcpy(map->nodes->GetParentData(), &parent, sizeof(int), cudaMemcpyHostToDevice);
                 float4 zero = make_float4(0.0f);
@@ -192,7 +195,7 @@ namespace OpenEngine {
 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activeRange, blocks, threads);
-                NodeSegments<<<blocks, threads>>>(map->nodes->GetPrimitiveInfoData() + activeIndex,
+                NodeSegments<<<blocks, threads>>>(map->nodes->GetPrimitiveAmountData() + activeIndex,
                                                   nodeSegments->GetDeviceData());
 
                 CHECK_FOR_CUDA_ERROR();
@@ -215,7 +218,8 @@ namespace OpenEngine {
                 Calc1DKernelDimensions(amountOfSegments, blocks, threads);
                 CalcSegmentPrimitives<<<blocks, threads>>>(segments.GetOwnerData(),
                                                            nodeSegments->GetDeviceData(),
-                                                           map->nodes->GetPrimitiveInfoData(),
+                                                           map->nodes->GetPrimitiveIndexData(),
+                                                           map->nodes->GetPrimitiveAmountData(),
                                                            segments.GetPrimitiveInfoData());
                 CHECK_FOR_CUDA_ERROR();
             }
@@ -336,24 +340,24 @@ namespace OpenEngine {
                     // That means moving primitiveInfo, using childSize as temp storage
                     // And moving parents, using splitSide as temp storage
 
-                    childSize->Resize(activeRange);
                     splitSide->Resize(activeRange);
+                    tempNodeAmount->Resize(activeRange);
                     
-                    cudaMemcpy(childSize->GetDeviceData(), map->nodes->GetPrimitiveInfoData() + activeIndex, activeRange * sizeof(int2), cudaMemcpyDeviceToDevice);
-                    //cudaMemcpy(splitSide->GetDeviceData(), map->nodes->GetParentData() + activeIndex, activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
+                    cudaMemcpy(splitSide->GetDeviceData(), map->nodes->GetPrimitiveIndexData() + activeIndex, activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
+                    cudaMemcpy(tempNodeAmount->GetDeviceData(), map->nodes->GetPrimitiveAmountData() + activeIndex, activeRange * sizeof(KDNode::amount), cudaMemcpyDeviceToDevice);
 
                     activeIndex += emptyNodes;
                     cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
                     map->nodes->Resize(map->nodes->GetSize() + emptyNodes);
 
-                    cudaMemcpy(map->nodes->GetPrimitiveInfoData() + activeIndex, childSize->GetDeviceData(), activeRange * sizeof(int2), cudaMemcpyDeviceToDevice);
-                    //cudaMemcpy(map->nodes->GetParentData() + activeIndex, splitSide->GetDeviceData(), activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
+                    cudaMemcpy(map->nodes->GetPrimitiveIndexData() + activeIndex, splitSide->GetDeviceData(), activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
+                    cudaMemcpy(map->nodes->GetPrimitiveAmountData() + activeIndex, tempNodeAmount->GetDeviceData(), activeRange * sizeof(KDNode::amount), cudaMemcpyDeviceToDevice);
                     segments.IncreaseNodeIDs(emptyNodes);
 
                     // Create the empty space nodes
                     EmptySpaceSplitting<<<blocks, threads>>>(map->nodes->GetInfoData(), 
                                                              map->nodes->GetSplitPositionData(),
-                                                             map->nodes->GetPrimitiveInfoData(), 
+                                                             map->nodes->GetPrimitiveAmountData(), 
                                                              map->nodes->GetParentData() + activeIndex - emptyNodes, 
                                                              map->nodes->GetChildrenData(),
                                                              emptySpacePlanes->GetDeviceData(),
@@ -549,7 +553,8 @@ namespace OpenEngine {
 
                 unsigned int hatte, traade;
                 Calc1DKernelDimensions(activeRange, hatte, traade);
-                CalcNodeChildSize<<<hatte, traade>>>(nodes->GetPrimitiveInfoData() + activeIndex,
+                CalcNodeChildSize<<<hatte, traade>>>(nodes->GetPrimitiveIndexData() + activeIndex,
+                                                     nodes->GetPrimitiveAmountData() + activeIndex,
                                                      splitAddr->GetDeviceData(),
                                                      childSize->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
@@ -608,7 +613,8 @@ namespace OpenEngine {
                     cudaMemcpyToSymbol(d_leafNodes, splitSide->GetDeviceData() + activeRange * 2, sizeof(int), 0, cudaMemcpyDeviceToDevice);
 
                     CreateUpperChildren<false>
-                        <<<hatte, traade>>>(NULL, nodes->GetPrimitiveInfoData(),
+                        <<<hatte, traade>>>(NULL, nodes->GetPrimitiveIndexData(),
+                                            nodes->GetPrimitiveAmountData(),
                                             childSize->GetDeviceData(),
                                             splitAddr->GetDeviceData(),
                                             leafAddr->GetDeviceData(),
@@ -636,7 +642,8 @@ namespace OpenEngine {
                     tempAabbMax->Extend(newTriangles);
 
                     CreateUpperChildren<false>
-                        <<<hatte, traade>>>(NULL, nodes->GetPrimitiveInfoData(),
+                        <<<hatte, traade>>>(NULL, nodes->GetPrimitiveIndexData(),
+                                            nodes->GetPrimitiveAmountData(),
                                             childSize->GetDeviceData(),
                                             splitAddr->GetDeviceData(),
                                             nodes->GetChildrenData(),
@@ -784,12 +791,14 @@ namespace OpenEngine {
 
             void TriangleMapUpperCreator::CheckUpperLeaf(int index, float4 calcedAabbMin, float4 calcedAabbMax){
                 //logger.info << "Node " << index << " is a leaf" << logger.end;
-                int2 primInfo;
-                cudaMemcpy(&primInfo, map->nodes->GetPrimitiveInfoData() + index, sizeof(int2), cudaMemcpyDeviceToHost);
+                int primIndex;
+                cudaMemcpy(&primIndex, map->nodes->GetPrimitiveIndexData() + index, sizeof(int), cudaMemcpyDeviceToHost);
+                KDNode::amount primAmount;
+                cudaMemcpy(&primAmount, map->nodes->GetPrimitiveAmountData() + index, sizeof(KDNode::amount), cudaMemcpyDeviceToHost);
                 CHECK_FOR_CUDA_ERROR();
                 
-                bool isLeaf = primInfo.y < TriangleNode::MAX_LOWER_SIZE;
-                for (int j = primInfo.x; j < primInfo.x + primInfo.y; ++j){
+                bool isLeaf = primAmount < TriangleNode::MAX_LOWER_SIZE;
+                for (int j = primIndex; j < primIndex + primAmount; ++j){
                     float4 h_primMin, h_primMax;
                     if (isLeaf){
                         cudaMemcpy(&h_primMin, primMin->GetDeviceData() + j, sizeof(float4), cudaMemcpyDeviceToHost);

@@ -12,6 +12,7 @@
 
 #include <Utils/CUDA/ITriangleMapCreator.h>
 
+#include <Scene/TriangleNode.h>
 #include <Utils/CUDA/Segments.h>
 
 #include <cudpp/cudpp.h>
@@ -19,9 +20,6 @@
 //#define CPU_VERIFY true
 
 namespace OpenEngine {    
-    namespace Scene {
-        class TriangleNode;
-    }
     namespace Utils {
         namespace CUDA {
 
@@ -59,6 +57,7 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, int> *emptySpaceAddrs;
                 Resources::CUDA::CUDADataBlock<1, int> *nodeIndices;
                 Resources::CUDA::CUDADataBlock<1, int2> *childSize;
+                Resources::CUDA::CUDADataBlock<1, Scene::KDNode::amount> *tempNodeAmount;
 
                 int upperLeafPrimitives;
 

@@ -44,17 +44,18 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
     }
 }
 
-__global__ void CalcNodeChildSize(int2* primitiveInfo,
+__global__ void CalcNodeChildSize(int* primitiveIndex, KDNode::amount* primitiveAmount,
                                   int *splitAddrs,
                                   int2* childSize){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
     if (id < d_activeNodeRange){
-        const int2 primInfo = primitiveInfo[id];
+        const int primIndex = primitiveIndex[id];
+        const int primAmount = primitiveAmount[id];
 
-        const int leftSize = (splitAddrs[primInfo.x + primInfo.y] - splitAddrs[primInfo.x]);
-        const int rightSize = (splitAddrs[primInfo.x + primInfo.y + d_triangles] - splitAddrs[primInfo.x + d_triangles]);
+        const int leftSize = (splitAddrs[primIndex + primAmount] - splitAddrs[primIndex]);
+        const int rightSize = (splitAddrs[primIndex + primAmount + d_triangles] - splitAddrs[primIndex + d_triangles]);
 
         childSize[id] = make_int2(leftSize, rightSize);
 
@@ -108,7 +109,8 @@ __global__ void CreateEmptyLeaves(){
 
 template <bool useIndices>
 __global__ void CreateUpperChildren(int *indices,
-                                    int2 *primitiveInfo,
+                                    int *primitiveIndex,
+                                    KDNode::amount *primitiveAmount,
                                     int2 *childSize,
                                     int *splitAddrs,
                                     int2 *children,
@@ -117,20 +119,19 @@ __global__ void CreateUpperChildren(int *indices,
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
     if (id < d_activeNodeRange){
-        const int2 size = childSize[id];
-
         const int parentID = useIndices ? indices[id] : d_activeNodeIndex + id;
 
         const int leftID = d_activeNodeIndex + id + d_activeNodeRange;
         const int rightID = leftID + d_activeNodeRange;
 
-        const int2 primInfo = primitiveInfo[parentID];
+        const int primIndex = primitiveIndex[parentID];
             
-        const int leftIndex = splitAddrs[primInfo.x];
-        const int rightIndex = splitAddrs[primInfo.x + d_triangles];
+        primitiveIndex[leftID] = splitAddrs[primIndex];
+        primitiveIndex[rightID] = splitAddrs[primIndex + d_triangles];
 
-        primitiveInfo[leftID] = make_int2(leftIndex, size.x);
-        primitiveInfo[rightID] = make_int2(rightIndex, size.y);
+        const int2 size = childSize[id];
+        primitiveAmount[leftID] = size.x;
+        primitiveAmount[rightID] = size.y;
 
         children[parentID] = make_int2(leftID, rightID);
 
@@ -140,7 +141,8 @@ __global__ void CreateUpperChildren(int *indices,
 
 template <bool useIndices>
 __global__ void CreateUpperChildren(int* indices,
-                                    int2 *primitiveInfo,
+                                    int *primitiveIndex,
+                                    KDNode::amount *primitiveAmount,
                                     int2 *childSize,
                                     int *splitAddrs,
                                     int *leafAddrs,
@@ -157,15 +159,15 @@ __global__ void CreateUpperChildren(int* indices,
 
         const int parentID = useIndices ? indices[id] : d_activeNodeIndex + id;
 
-        const int2 primInfo = primitiveInfo[parentID];
+        const int primIndex = primitiveIndex[parentID];
             
         bool isLeaf = size.x < TriangleNode::MAX_LOWER_SIZE;
         int leafAddr = leafNodeAddrs[id];
         int nonLeafAddr = id - leafAddr + d_leafNodes;
         const int leftID = (isLeaf ? leafAddr : nonLeafAddr) + d_activeNodeRange + d_activeNodeIndex;
-        const int leftIndex = isLeaf ? leafAddrs[primInfo.x] + upperLeafPrimitives : splitAddrs[primInfo.x] - leafAddrs[primInfo.x];
-            
-        primitiveInfo[leftID] = make_int2(leftIndex, size.x);
+
+        primitiveIndex[leftID] = isLeaf ? leafAddrs[primIndex] + upperLeafPrimitives : splitAddrs[primIndex] - leafAddrs[primIndex];
+        primitiveAmount[leftID] = size.x;
         parent[leftID] = parentID;
 
         id += d_activeNodeRange;
@@ -174,9 +176,9 @@ __global__ void CreateUpperChildren(int* indices,
         leafAddr = leafNodeAddrs[id];
         nonLeafAddr = id - leafAddr + d_leafNodes;
         const int rightID = (isLeaf ? leafAddr : nonLeafAddr) + d_activeNodeRange + d_activeNodeIndex;
-        const int rightIndex = isLeaf ? leafAddrs[primInfo.x + d_triangles] + upperLeafPrimitives : splitAddrs[primInfo.x + d_triangles] - leafAddrs[primInfo.x + d_triangles];
 
-        primitiveInfo[rightID] = make_int2(rightIndex, size.y);
+        primitiveIndex[rightID] = isLeaf ? leafAddrs[primIndex + d_triangles] + upperLeafPrimitives : splitAddrs[primIndex + d_triangles] - leafAddrs[primIndex + d_triangles];
+        primitiveAmount[rightID] = size.y;
         parent[rightID] = parentID;
 
         children[parentID] = make_int2(leftID, rightID);

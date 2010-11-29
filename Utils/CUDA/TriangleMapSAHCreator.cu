@@ -41,7 +41,7 @@ namespace OpenEngine {
                 splitTriangleSet =  new CUDADataBlock<1, int4>(1);
                 primAreas = new CUDADataBlock<1, float>(1);
                 childAreas = new CUDADataBlock<1, float2>(1);
-                childSets = new CUDADataBlock<1, int2>(1);
+                childSets = new CUDADataBlock<1, KDNode::bitmap2>(1);
                 splitSide = new CUDADataBlock<1, int>(1);
                 splitAddr = new CUDADataBlock<1, int>(1);
 
@@ -124,7 +124,8 @@ namespace OpenEngine {
                 Calc1DKernelDimensions(activeRange, blocks, threads);
                 
                 PreprocesLowerNodes<<<blocks, threads>>>(upperLeafIDs->GetDeviceData(),
-                                                         nodes->GetPrimitiveInfoData(),
+                                                         nodes->GetPrimitiveIndexData(),
+                                                         nodes->GetPrimitiveBitmapData(),
                                                          nodes->GetSurfaceAreaData(),
                                                          primAreas->GetDeviceData(),
                                                          activeRange);
@@ -136,7 +137,8 @@ namespace OpenEngine {
 
                 CreateSplittingPlanes<<<blocks, threads, smemSize>>>
                     (upperLeafIDs->GetDeviceData(),
-                     nodes->GetPrimitiveInfoData(),
+                     nodes->GetPrimitiveIndexData(),
+                     nodes->GetPrimitiveBitmapData(),
                      primMin->GetDeviceData(), primMax->GetDeviceData(),
                      splitTriangleSet->GetDeviceData(), 
                      activeIndex, activeRange);
@@ -173,7 +175,8 @@ namespace OpenEngine {
                     CalcSAH<true><<<blocks, threads, smemSize>>>(upperLeafIDs->GetDeviceData(), 
                                                                  nodes->GetInfoData(),
                                                                  nodes->GetSplitPositionData(),
-                                                                 nodes->GetPrimitiveInfoData(),
+                                                                 nodes->GetPrimitiveIndexData(),
+                                                                 nodes->GetPrimitiveBitmapData(),
                                                                  nodes->GetSurfaceAreaData(),
                                                                  primAreas->GetDeviceData(),
                                                                  primMin->GetDeviceData(),
@@ -186,7 +189,8 @@ namespace OpenEngine {
                     CalcSAH<false><<<blocks, threads, smemSize>>>(NULL, 
                                                                   nodes->GetInfoData(),
                                                                   nodes->GetSplitPositionData(),
-                                                                  nodes->GetPrimitiveInfoData(),
+                                                                  nodes->GetPrimitiveIndexData(),
+                                                                  nodes->GetPrimitiveBitmapData(),
                                                                   nodes->GetSurfaceAreaData(),
                                                                   primAreas->GetDeviceData(),
                                                                   primMin->GetDeviceData(),
@@ -212,7 +216,8 @@ namespace OpenEngine {
                                                                       childAreas->GetDeviceData(),
                                                                       childSets->GetDeviceData(),
                                                                       nodes->GetSurfaceAreaData(),
-                                                                      nodes->GetPrimitiveInfoData(),
+                                                                      nodes->GetPrimitiveIndexData(),
+                                                                      nodes->GetPrimitiveAmountData(),
                                                                       nodes->GetChildrenData(),
                                                                       splits);
                 else
@@ -221,7 +226,8 @@ namespace OpenEngine {
                                                                        childAreas->GetDeviceData(),
                                                                        childSets->GetDeviceData(),
                                                                        nodes->GetSurfaceAreaData(),
-                                                                       nodes->GetPrimitiveInfoData(),
+                                                                       nodes->GetPrimitiveIndexData(),
+                                                                       nodes->GetPrimitiveAmountData(),
                                                                        nodes->GetChildrenData(),
                                                                        splits);
                 CHECK_FOR_CUDA_ERROR();

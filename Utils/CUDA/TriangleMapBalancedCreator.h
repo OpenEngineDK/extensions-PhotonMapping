@@ -12,6 +12,8 @@
 
 #include <Utils/CUDA/ITriangleMapCreator.h>
 
+#include <Scene/KDNode.h>
+
 #include <cudpp/cudpp.h>
 
 namespace OpenEngine {    
@@ -24,7 +26,7 @@ namespace OpenEngine {
 
                 Resources::CUDA::CUDADataBlock<1, int4> *splitTriangleSet;
 
-                Resources::CUDA::CUDADataBlock<1, int2>* childSets;
+                Resources::CUDA::CUDADataBlock<1, Scene::KDNode::bitmap2>* childSets;
                 Resources::CUDA::CUDADataBlock<1, int>* splitSide;
                 Resources::CUDA::CUDADataBlock<1, int>* splitAddr;
 

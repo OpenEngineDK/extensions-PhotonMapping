@@ -12,6 +12,8 @@
 
 #include <Utils/CUDA/ITriangleMapCreator.h>
 
+#include <Scene/KDNode.h>
+
 #include <cudpp/cudpp.h>
 
 //#define CPU_VERIFY true
@@ -29,7 +31,7 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, float> *primAreas;
 
                 Resources::CUDA::CUDADataBlock<1, float2> *childAreas;
-                Resources::CUDA::CUDADataBlock<1, int2>* childSets;
+                Resources::CUDA::CUDADataBlock<1, Scene::KDNode::bitmap2>* childSets;
                 Resources::CUDA::CUDADataBlock<1, int>* splitSide;
                 Resources::CUDA::CUDADataBlock<1, int>* splitAddr;
 

@@ -38,7 +38,7 @@ namespace OpenEngine {
                 logger.info << "Create balanced lower tree creator" << logger.end;
 
                 splitTriangleSet =  new CUDADataBlock<1, int4>(1);
-                childSets = new CUDADataBlock<1, int2>(1);
+                childSets = new CUDADataBlock<1, KDNode::bitmap2>(1);
                 splitSide = new CUDADataBlock<1, int>(1);
                 splitAddr = new CUDADataBlock<1, int>(1);
 
@@ -105,7 +105,7 @@ namespace OpenEngine {
                 unsigned int blocks, threads, smemSize;
                 Calc1DKernelDimensions(activeRange, blocks, threads);
                 PreprocessLeafNodes<<<blocks, threads>>>(upperLeafIDs->GetDeviceData(),
-                                                         nodes->GetPrimitiveInfoData(),
+                                                         nodes->GetPrimitiveBitmapData(),
                                                          activeRange);
                 CHECK_FOR_CUDA_ERROR();
                 
@@ -114,7 +114,8 @@ namespace OpenEngine {
                                                blocks, threads, smemSize, 448);
                 CreateSplittingPlanes<<<blocks, threads, smemSize>>>
                     (upperLeafIDs->GetDeviceData(),
-                     nodes->GetPrimitiveInfoData(),
+                     nodes->GetPrimitiveIndexData(),
+                     nodes->GetPrimitiveBitmapData(),
                      primMin->GetDeviceData(), primMax->GetDeviceData(),
                      splitTriangleSet->GetDeviceData(), 
                      activeIndex, activeRange);
@@ -144,7 +145,8 @@ namespace OpenEngine {
                     CalcSplit<true><<<blocks, threads>>>(upperLeafIDs->GetDeviceData(), 
                                                          nodes->GetInfoData(),
                                                          nodes->GetSplitPositionData(),
-                                                         nodes->GetPrimitiveInfoData(),
+                                                         nodes->GetPrimitiveIndexData(),
+                                                         nodes->GetPrimitiveBitmapData(),
                                                          primMin->GetDeviceData(),
                                                          primMax->GetDeviceData(),
                                                          splitTriangleSet->GetDeviceData(),
@@ -153,7 +155,8 @@ namespace OpenEngine {
                 else
                     CalcSplit<false><<<blocks, threads>>>(NULL, nodes->GetInfoData(),
                                                           nodes->GetSplitPositionData(),
-                                                          nodes->GetPrimitiveInfoData(),
+                                                          nodes->GetPrimitiveIndexData(),
+                                                          nodes->GetPrimitiveBitmapData(),
                                                           primMin->GetDeviceData(),
                                                           primMax->GetDeviceData(),
                                                           splitTriangleSet->GetDeviceData(),
@@ -174,14 +177,16 @@ namespace OpenEngine {
                                                               splitSide->GetDeviceData(),
                                                               splitAddr->GetDeviceData(),
                                                               childSets->GetDeviceData(),
-                                                              nodes->GetPrimitiveInfoData(),
+                                                              nodes->GetPrimitiveIndexData(),
+                                                              nodes->GetPrimitiveBitmapData(),
                                                               nodes->GetChildrenData(),
                                                               splits);
                 else
                     CreateChildren<false><<<blocks, threads>>>(NULL, splitSide->GetDeviceData(),
                                                                splitAddr->GetDeviceData(),
                                                                childSets->GetDeviceData(),
-                                                               nodes->GetPrimitiveInfoData(),
+                                                               nodes->GetPrimitiveIndexData(),
+                                                               nodes->GetPrimitiveAmountData(),
                                                                nodes->GetChildrenData(),
                                                                splits);
                 CHECK_FOR_CUDA_ERROR();

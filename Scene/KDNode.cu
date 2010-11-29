@@ -27,7 +27,8 @@ namespace OpenEngine {
             splitPos = new CUDADataBlock<1, float>(maxSize);
             aabbMin = new CUDADataBlock<1, point>(maxSize);
             aabbMax = new CUDADataBlock<1, point>(maxSize);
-            photonInfo = new CUDADataBlock<1, int2>(maxSize);
+            primitiveIndex = new CUDADataBlock<1, int>(maxSize);
+            primitiveBitmap = new CUDADataBlock<1, bitmap>(maxSize);
 
             children = new CUDADataBlock<1, int2>(maxSize);
 
@@ -40,7 +41,8 @@ namespace OpenEngine {
             delete splitPos;
             delete aabbMin;
             delete aabbMax;
-            delete photonInfo;
+            delete primitiveIndex;
+            delete primitiveBitmap;
             delete children;
         }
 
@@ -49,7 +51,8 @@ namespace OpenEngine {
             splitPos->Extend(i);
             aabbMin->Extend(i);
             aabbMax->Extend(i);
-            photonInfo->Extend(i);
+            primitiveIndex->Extend(i);
+            primitiveBitmap->Extend(i);
             children->Extend(i);
 
             maxSize = i;
@@ -85,9 +88,11 @@ namespace OpenEngine {
             }
 
             if (isLeaf){
-                int2 info;
-                cudaMemcpy(&info, photonInfo->GetDeviceData() + i, sizeof(int2), cudaMemcpyDeviceToHost);
-                out << "Index " << info.x << " and range " << info.y << " " << BitmapToString(info.y) << "\n";
+                int index;
+                cudaMemcpy(&index, primitiveIndex->GetDeviceData() + i, sizeof(int), cudaMemcpyDeviceToHost);
+                bitmap bmp;
+                cudaMemcpy(&bmp, primitiveBitmap->GetDeviceData() + i, sizeof(bitmap), cudaMemcpyDeviceToHost);
+                out << "Index " << index << " and range " << bmp << " " << BitmapToString(bmp) << "\n";
                 CHECK_FOR_CUDA_ERROR();
             }
             

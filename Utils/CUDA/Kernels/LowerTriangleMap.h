@@ -14,7 +14,7 @@ using namespace OpenEngine::Utils::CUDA::Kernels;
 */
 
 #define traverselCost 32.0f
-#define minLeafTriangles 8
+#define minLeafTriangles 32
 
 __global__ void CalcSurfaceArea(int *indices, 
                                 float4 *v0s, float4 *v1s, float4 *v2s,
@@ -33,23 +33,24 @@ __global__ void CalcSurfaceArea(int *indices,
 }
 
 __global__ void PreprocessLeafNodes(int *upperLeafIDs,
-                                   int2 *primitiveInfo,
-                                   int activeRange){
+                                    KDNode::bitmap *primBitmap,
+                                    int activeRange){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
     if (id < activeRange){
         int leafID = upperLeafIDs[id];
         
-        int2 triInfo = primitiveInfo[leafID];
-        triInfo.y = (1<<triInfo.y)-1;
+        KDNode::bitmap bmp = primBitmap[leafID];
+        bmp = (KDNode::bitmap(1)<<bmp)-1;
         
-        primitiveInfo[leafID] = triInfo;
+        primBitmap[leafID] = bmp;
     }
 }
 
 __global__ void PreprocesLowerNodes(int *upperLeafIDs,
-                                    int2 *primitiveInfo,
+                                    int *primIndices,
+                                    KDNode::bitmap *primBitmap,
                                     float* surfaceArea,
                                     float* primAreas,
                                     int activeRange){
@@ -58,23 +59,24 @@ __global__ void PreprocesLowerNodes(int *upperLeafIDs,
                 
     if (id < activeRange){
         int leafID = upperLeafIDs[id];
-        int2 triInfo = primitiveInfo[leafID];
+        int primIndex = primIndices[leafID];
+        KDNode::amount primAmount = primBitmap[leafID];
 
         float area = 0.0f;
-        int size = triInfo.y;
-        triInfo.y = 0;
-        for (int i = 0; i < size; ++i){
-            float a = primAreas[triInfo.x + i];
-            triInfo.y += a > 0.0f ? (1<<i) : 0;
+        KDNode::bitmap bmp = 0;
+        for (int i = 0; i < primAmount; ++i){
+            float a = primAreas[primIndex + i];
+            bmp += a > 0.0f ? (KDNode::bitmap(1)<<i) : 0;
             area += a;
         }
+        
         surfaceArea[leafID] = area;
-        primitiveInfo[leafID] = triInfo;
+        primBitmap[leafID] = bmp;
     }
 }
 
 __global__ void CreateSplittingPlanes(int *upperLeafIDs,
-                                      int2 *primitiveInfo,
+                                      int *primitiveIndex, KDNode::bitmap *primBitmap,
                                       float4* aabbMins, float4* aabbMaxs,
                                       int4 *splitTriangleSet,
                                       int activeIndex, int activeRange){
@@ -86,18 +88,18 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
     
         nodeID = upperLeafIDs[nodeID];
         
-        const int2 primInfo = primitiveInfo[nodeID];
         const int primID = id % TriangleNode::MAX_LOWER_SIZE;
-        const int primIndex = primInfo.x + primID;
+        const int primIndex = primitiveIndex[nodeID] + primID;
+        const KDNode::bitmap primBmp = primBitmap[nodeID];
 
         // Copy aabbs to shared mem.
         float3* aabbMin = SharedMemory<float3>();
         float3* aabbMax = aabbMin + blockDim.x;
 
         const float3 lowSplitPlane = aabbMin[threadIdx.x] = 
-            primInfo.y & 1<<primID ? make_float3(aabbMins[primIndex]) : make_float3(0.0f);
+            primBmp & KDNode::bitmap(1)<<primID ? make_float3(aabbMins[primIndex]) : make_float3(0.0f);
         const float3 highSplitPlane = aabbMax[threadIdx.x] = 
-            primInfo.y & 1<<primID ? make_float3(aabbMaxs[primIndex]) : make_float3(0.0f);
+            primBmp & KDNode::bitmap(1)<<primID ? make_float3(aabbMaxs[primIndex]) : make_float3(0.0f);
 
         // Is automatically optimized away by the compiler. nvcc
         // actually works sometimes.
@@ -109,32 +111,32 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
 
         int sharedOffset = threadIdx.x - primID;
 
-        int triangles = primInfo.y;
+        KDNode::bitmap triangles = primBmp;
         while(triangles){
-            int i = __ffs(triangles) - 1;
+            int i = firstBitSet(triangles) - 1;
 
             float3 minCorner = aabbMin[sharedOffset + i];
             float3 maxCorner = aabbMax[sharedOffset + i];
 
-            splitX.x |= minCorner.x <= lowSplitPlane.x ? 1<<i : 0;
-            splitX.y |= lowSplitPlane.x < maxCorner.x ? 1<<i : 0;
-            splitX.z |= minCorner.x <= highSplitPlane.x ? 1<<i : 0;
-            splitX.w |= highSplitPlane.x < maxCorner.x ? 1<<i : 0;
+            splitX.x |= minCorner.x <= lowSplitPlane.x ? KDNode::bitmap(1)<<i : 0;
+            splitX.y |= lowSplitPlane.x < maxCorner.x ? KDNode::bitmap(1)<<i : 0;
+            splitX.z |= minCorner.x <= highSplitPlane.x ? KDNode::bitmap(1)<<i : 0;
+            splitX.w |= highSplitPlane.x < maxCorner.x ? KDNode::bitmap(1)<<i : 0;
 
-            splitY.x |= minCorner.y <= lowSplitPlane.y ? 1<<i : 0;
-            splitY.y |= lowSplitPlane.y < maxCorner.y ? 1<<i : 0;
-            splitY.z |= minCorner.y <= highSplitPlane.y ? 1<<i : 0;
-            splitY.w |= highSplitPlane.y < maxCorner.y ? 1<<i : 0;
+            splitY.x |= minCorner.y <= lowSplitPlane.y ? KDNode::bitmap(1)<<i : 0;
+            splitY.y |= lowSplitPlane.y < maxCorner.y ? KDNode::bitmap(1)<<i : 0;
+            splitY.z |= minCorner.y <= highSplitPlane.y ? KDNode::bitmap(1)<<i : 0;
+            splitY.w |= highSplitPlane.y < maxCorner.y ? KDNode::bitmap(1)<<i : 0;
 
-            splitZ.x |= minCorner.z <= lowSplitPlane.z ? 1<<i : 0;
-            splitZ.y |= lowSplitPlane.z < maxCorner.z ? 1<<i : 0;
-            splitZ.z |= minCorner.z <= highSplitPlane.z ? 1<<i : 0;
-            splitZ.w |= highSplitPlane.z < maxCorner.z ? 1<<i : 0;
+            splitZ.x |= minCorner.z <= lowSplitPlane.z ? KDNode::bitmap(1)<<i : 0;
+            splitZ.y |= lowSplitPlane.z < maxCorner.z ? KDNode::bitmap(1)<<i : 0;
+            splitZ.z |= minCorner.z <= highSplitPlane.z ? KDNode::bitmap(1)<<i : 0;
+            splitZ.w |= highSplitPlane.z < maxCorner.z ? KDNode::bitmap(1)<<i : 0;
                 
-            triangles -= 1<<i;
+            triangles -= KDNode::bitmap(1)<<i;
         }
 
-        if (primInfo.y & 1<<primID){
+        if (primBmp & 1<<primID){
             splitTriangleSet[primIndex] = splitX;
             splitTriangleSet[d_triangles + primIndex] = splitY;
             splitTriangleSet[2 * d_triangles + primIndex] = splitZ;
@@ -143,11 +145,11 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
     }
 }
 
-__device__ __host__ void CalcRelationForSets(int4 splittingSet, int nodeSet,
+__device__ __host__ void CalcRelationForSets(int4 splittingSet, KDNode::bitmap nodeSet,
                                              char splitAxis, int setIndex, 
                                              float &optimalRelation,
                                              int &largestSize,
-                                             int &leftSet, int &rightSet,
+                                             KDNode::bitmap &leftSet, KDNode::bitmap &rightSet,
                                              char &optimalAxis,
                                              int &splitIndex){
     
@@ -187,56 +189,57 @@ __device__ __host__ void CalcRelationForSets(int4 splittingSet, int nodeSet,
 
 template <bool useIndices>
 __global__ void CalcSplit(int *upperLeafIDs,
-            char *info,
-            float *splitPoss,
-            int2 *primitiveInfo,
-            float4 *aabbMin, float4 *aabbMax,
-            int4 *splitTriangleSet,
-            int2 *childSets,
-            int *splitSides){
+                          char *info,
+                          float *splitPoss,
+                          int *primitiveIndex, KDNode::bitmap *primitiveBitmap,
+                          float4 *aabbMin, float4 *aabbMax,
+                          int4 *splitTriangleSet,
+                          KDNode::bitmap2 *childSets,
+                          int *splitSides){
     
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
     if (id < d_activeNodeRange){
         const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
 
-        const int2 primInfo = primitiveInfo[parentID];
+        const int primIndex = primitiveIndex[parentID];
+        const KDNode::bitmap primBmp = primitiveBitmap[parentID];
 
         float relation = 0.0f;
         int largestSetSize = TriangleNode::MAX_LOWER_SIZE;
-        int leftSet, rightSet;
+        KDNode::bitmap leftSet, rightSet;
         char axis;
         int splitIndex;
         
-        int triangles = primInfo.y;
+        int triangles = primBmp;
         while(triangles){
             int i = __ffs(triangles) - 1;
             
-            CalcRelationForSets(splitTriangleSet[primInfo.x + i], primInfo.y,
-                                KDNode::X, primInfo.x + i,
+            CalcRelationForSets(splitTriangleSet[primIndex + i], primBmp,
+                                KDNode::X, primIndex + i,
                                 relation, largestSetSize,
                                 leftSet, rightSet,
                                 axis, splitIndex);
             
-            CalcRelationForSets(splitTriangleSet[d_triangles + primInfo.x + i], primInfo.y,
-                                KDNode::Y, primInfo.x + i,
+            CalcRelationForSets(splitTriangleSet[d_triangles + primIndex + i], primBmp,
+                                KDNode::Y, primIndex + i,
                                 relation, largestSetSize,
                                 leftSet, rightSet,
                                 axis, splitIndex);
             
-            CalcRelationForSets(splitTriangleSet[2 * d_triangles + primInfo.x + i], primInfo.y,
-                                KDNode::Z, primInfo.x + i,
+            CalcRelationForSets(splitTriangleSet[2 * d_triangles + primIndex + i], primBmp,
+                                KDNode::Z, primIndex + i,
                                 relation, largestSetSize,
                                 leftSet, rightSet,
                                 axis, splitIndex);
             
-            triangles -= 1<<i;
+            triangles -= KDNode::bitmap(1)<<i;
         }
 
         bool split = minLeafTriangles < largestSetSize * relation;
         if (split){
             // Dump stuff and move on
-            childSets[id] = make_int2(leftSet, rightSet);
+            childSets[id] = KDNode::make_bitmap2(leftSet, rightSet);
             float3 splitPositions;
             if (splitIndex & 1<<31){
                 // A high splitplane was used
@@ -254,10 +257,10 @@ __global__ void CalcSplit(int *upperLeafIDs,
 
 __device__ void CalcAreaForSets(int4 splittingSets, char splitAxis, 
                                 int setIndex,
-                                int areaIndices, float* areas, 
+                                KDNode::bitmap areaIndices, float* areas, 
                                 float &optimalArea, 
                                 float &leftArea, float &rightArea,
-                                int &leftSet, int &rightSet,
+                                KDNode::bitmap &leftSet, KDNode::bitmap &rightSet,
                                 char &optimalAxis,
                                 int &splitIndex){
         
@@ -271,12 +274,12 @@ __device__ void CalcAreaForSets(int4 splittingSets, char splitAxis,
     while (areaIndices){
         int i = firstBitSet(areaIndices) - 1;
 
-        setAreas.x += splittingSets.x & (1<<i) ? areas[i] : 0.0f;
-        setAreas.y += splittingSets.y & (1<<i) ? areas[i] : 0.0f;
-        setAreas.z += splittingSets.z & (1<<i) ? areas[i] : 0.0f;
-        setAreas.w += splittingSets.w & (1<<i) ? areas[i] : 0.0f;
+        setAreas.x += splittingSets.x & (KDNode::bitmap(1)<<i) ? areas[i] : 0.0f;
+        setAreas.y += splittingSets.y & (KDNode::bitmap(1)<<i) ? areas[i] : 0.0f;
+        setAreas.z += splittingSets.z & (KDNode::bitmap(1)<<i) ? areas[i] : 0.0f;
+        setAreas.w += splittingSets.w & (KDNode::bitmap(1)<<i) ? areas[i] : 0.0f;
 
-        areaIndices -= 1<<i;
+        areaIndices -= KDNode::bitmap(1)<<i;
     }
         
     float lowArea = bitcount(splittingSets.x) * setAreas.x + bitcount(splittingSets.y) * setAreas.y;
@@ -309,31 +312,32 @@ __launch_bounds__(96)
     CalcSAH(int *upperLeafIDs,
             char *info,
             float *splitPoss,
-            int2 *primitiveInfo,
+            int *primitiveIndex, KDNode::bitmap *primBitmap,
             float *nodeSurface,
             float* primAreas,
             float4 *aabbMin, float4 *aabbMax,
             int4 *splitTriangleSet,
             float2 *childAreas,
-            int2 *childSets,
+            KDNode::bitmap2 *childSets,
             int *splitSides){
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
     if (id < d_activeNodeRange){
         const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
 
-        const int2 primInfo = primitiveInfo[parentID];
+        const int primIndex = primitiveIndex[parentID];
+        const KDNode::bitmap primBmp = primBitmap[parentID];
             
         // @OPT. Perhaps the threads can fill the area array coalesced?
         float* area = SharedMemory<float>();
         area += TriangleNode::MAX_LOWER_SIZE * threadIdx.x;
         //float area[32];
 
-        int bitmap = primInfo.y;
+        KDNode::bitmap bitmap = primBmp;
         while(bitmap){
-            int index = __ffs(bitmap) - 1;
-            area[index] = primAreas[primInfo.x + index];
-            bitmap -= 1<<index;
+            int index = firstBitSet(bitmap) - 1;
+            area[index] = primAreas[primIndex + index];
+            bitmap -= KDNode::bitmap(1)<<index;
         }            
 
         // @OPT. Calculate the area for bitmap pairs? Then areas
@@ -342,44 +346,44 @@ __launch_bounds__(96)
 
         float optimalArea = fInfinity;
         float leftArea, rightArea;
-        int leftSet, rightSet;
+        KDNode::bitmap leftSet, rightSet;
         char axis;
         int splitIndex;
 
-        int triangles = primInfo.y;
+        KDNode::bitmap triangles = primBmp;
         while(triangles){
-            int i = __ffs(triangles) - 1;
+            int i = firstBitSet(triangles) - 1;
 
-            CalcAreaForSets(splitTriangleSet[primInfo.x + i], KDNode::X,
-                            primInfo.x + i,
-                            primInfo.y, area, 
+            CalcAreaForSets(splitTriangleSet[primIndex + i], KDNode::X,
+                            primIndex + i,
+                            primBmp, area, 
                             optimalArea, 
                             leftArea, rightArea,
                             leftSet, rightSet, axis, splitIndex);
 
-            CalcAreaForSets(splitTriangleSet[d_triangles + primInfo.x + i], KDNode::Y,
-                            primInfo.x + i,
-                            primInfo.y, area, 
+            CalcAreaForSets(splitTriangleSet[d_triangles + primIndex + i], KDNode::Y,
+                            primIndex + i,
+                            primBmp, area, 
                             optimalArea, 
                             leftArea, rightArea,
                             leftSet, rightSet, axis, splitIndex);
 
-            CalcAreaForSets(splitTriangleSet[2 * d_triangles + primInfo.x + i], KDNode::Z,
-                            primInfo.x + i,
-                            primInfo.y, area, 
+            CalcAreaForSets(splitTriangleSet[2 * d_triangles + primIndex + i], KDNode::Z,
+                            primIndex + i,
+                            primBmp, area, 
                             optimalArea, 
                             leftArea, rightArea,
                             leftSet, rightSet, axis, splitIndex);
 
-            triangles -= 1<<i;
+            triangles -= KDNode::bitmap(1)<<i;
         }
             
         float nodeArea = nodeSurface[parentID];
-        bool split = optimalArea < (bitcount(primInfo.y) - traverselCost) * nodeArea;
+        bool split = optimalArea < (bitcount(primBmp) - traverselCost) * nodeArea;
         if (split){
             // Dump stuff and move on.
             childAreas[id] = make_float2(leftArea, rightArea);
-            childSets[id] = make_int2(leftSet, rightSet);
+            childSets[id] = KDNode::make_bitmap2(leftSet, rightSet);
             float3 splitPositions;
             if (splitIndex & 1<<31){
                 // A high splitplane was used
@@ -399,8 +403,9 @@ template <bool useIndices>
 __global__ void CreateChildren(int *upperLeafIDs,
                                int *childSplit,
                                int *childAddrs,
-                               int2 *childSets,
-                               int2* primitiveInfo,
+                               KDNode::bitmap2 *childSets,
+                               int* primitiveIndex,
+                               KDNode::bitmap* primitiveBitmap,
                                int2 *children, 
                                int nodeSplits){
 
@@ -410,18 +415,20 @@ __global__ void CreateChildren(int *upperLeafIDs,
         int split = childSplit[id];
 
         if (split){
-            int2 childrenSet = childSets[id];
+            KDNode::bitmap2 childrenSet = childSets[id];
                 
             const int childOffset = childAddrs[id];
 
             const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
-            int2 parentPrimInfo = primitiveInfo[parentID];
+            int parentPrimIndex = primitiveIndex[parentID];
                 
             const int leftChildID = d_activeNodeIndex + d_activeNodeRange + childOffset;
-            primitiveInfo[leftChildID] = make_int2(parentPrimInfo.x, childrenSet.x);
+            primitiveIndex[leftChildID] = parentPrimIndex;
+            primitiveBitmap[leftChildID] = childrenSet.x;
                 
             const int rightChildID = leftChildID + nodeSplits;
-            primitiveInfo[rightChildID] = make_int2(parentPrimInfo.x, childrenSet.y);
+            primitiveIndex[rightChildID] = parentPrimIndex;
+            primitiveBitmap[rightChildID] = childrenSet.y;
 
             children[parentID] = make_int2(leftChildID, rightChildID);
         }
@@ -433,9 +440,9 @@ __global__ void CreateLowerSAHChildren(int *upperLeafIDs,
                                        int *childSplit,
                                        int *childAddrs,
                                        float2 *childAreas,
-                                       int2 *childSets,
+                                       KDNode::bitmap2 *childSets,
                                        float* nodeArea,
-                                       int2* primitiveInfo,
+                                       int* primitiveIndex, KDNode::bitmap* primitiveBitmap,
                                        int2 *children, 
                                        int nodeSplits){
 
@@ -449,20 +456,22 @@ __global__ void CreateLowerSAHChildren(int *upperLeafIDs,
 
         if (split){
             float2 childrenArea = childAreas[id];
-            int2 childrenSet = childSets[id];
+            KDNode::bitmap2 childrenSet = childSets[id];
                 
             const int childOffset = childAddrs[id];
 
             const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
-            int2 parentPrimInfo = primitiveInfo[parentID];
+            int parentPrimIndex = primitiveIndex[parentID];
                 
             const int leftChildID = d_activeNodeIndex + d_activeNodeRange + childOffset;
             nodeArea[leftChildID] = childrenArea.x;
-            primitiveInfo[leftChildID] = make_int2(parentPrimInfo.x, childrenSet.x);
+            primitiveIndex[leftChildID] = parentPrimIndex;
+            primitiveBitmap[leftChildID] = childrenSet.x;
                 
             const int rightChildID = leftChildID + nodeSplits;
             nodeArea[rightChildID] = childrenArea.y;
-            primitiveInfo[rightChildID] = make_int2(parentPrimInfo.x, childrenSet.y);
+            primitiveIndex[rightChildID] = parentPrimIndex;
+            primitiveBitmap[rightChildID] = childrenSet.y;
 
             children[parentID] = make_int2(leftChildID, rightChildID);
         }
