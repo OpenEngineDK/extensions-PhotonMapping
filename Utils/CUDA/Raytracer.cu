@@ -120,7 +120,7 @@ namespace OpenEngine {
                         KDNode::bitmap triangles = primBitmap[node];
                         int primHit = -1;
                         while (triangles){
-                            int i = __ffs(triangles) - 1;
+                            int i = firstBitSet(triangles) - 1;
                             
                             int prim = primIndices[primIndex + i];
 
@@ -133,7 +133,7 @@ namespace OpenEngine {
                                 tHit = hitCoords;
                             }
                             
-                            triangles -= 1<<i;
+                            triangles -= KDNode::bitmap(1)<<i;
                         }
 
                         if (primHit != -1){                            
@@ -267,7 +267,7 @@ namespace OpenEngine {
                             tHit = hitCoords;
                         }
                         
-                        triangles -= 1<<i;
+                        triangles -= KDNode::bitmap(1)<<i;
                     }
                     
                     //logger.info << "\n" << logger.end;

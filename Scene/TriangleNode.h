@@ -17,8 +17,6 @@ namespace OpenEngine {
 
         class TriangleNode : public KDNode {
         public:
-            static const int MAX_LOWER_SIZE = 32;
-
             CUDADataBlock<1, float> *surfaceArea;
             CUDADataBlock<1, int> *parent;
             CUDADataBlock<1, float4> *parentAabbMin;

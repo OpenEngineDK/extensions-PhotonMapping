@@ -46,7 +46,7 @@ __global__ void CalcSegmentPrimitives(int *owners,
         const int primIndex = nodePrimIndex[nodeID];
         const KDNode::amount primAmount = nodePrimAmount[nodeID];
         const int index = primIndex + offset;
-        const int range = min(Segments::SEGMENT_SIZE, primAmount - offset);
+        const int range = min(Segments::SEGMENT_SIZE, int(primAmount) - offset);
         segmentPrimInfo[id] = make_int2(index, range);
     }
 }

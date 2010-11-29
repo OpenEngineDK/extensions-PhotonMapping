@@ -37,7 +37,7 @@ namespace OpenEngine {
 
                 logger.info << "Create balanced lower tree creator" << logger.end;
 
-                splitTriangleSet =  new CUDADataBlock<1, int4>(1);
+                splitTriangleSet =  new CUDADataBlock<1, KDNode::bitmap4>(1);
                 childSets = new CUDADataBlock<1, KDNode::bitmap2>(1);
                 splitSide = new CUDADataBlock<1, int>(1);
                 splitAddr = new CUDADataBlock<1, int>(1);
@@ -111,7 +111,7 @@ namespace OpenEngine {
                 
                 unsigned int smemPrThread = sizeof(float3) + sizeof(float3);
                 Calc1DKernelDimensionsWithSmem(activeRange * TriangleNode::MAX_LOWER_SIZE, smemPrThread, 
-                                               blocks, threads, smemSize, 448);
+                                               blocks, threads, smemSize, 256);
                 CreateSplittingPlanes<<<blocks, threads, smemSize>>>
                     (upperLeafIDs->GetDeviceData(),
                      nodes->GetPrimitiveIndexData(),

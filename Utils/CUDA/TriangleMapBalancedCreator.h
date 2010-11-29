@@ -24,7 +24,7 @@ namespace OpenEngine {
             protected:
                 unsigned int timerID;
 
-                Resources::CUDA::CUDADataBlock<1, int4> *splitTriangleSet;
+                Resources::CUDA::CUDADataBlock<1, Scene::KDNode::bitmap4> *splitTriangleSet;
 
                 Resources::CUDA::CUDADataBlock<1, Scene::KDNode::bitmap2>* childSets;
                 Resources::CUDA::CUDADataBlock<1, int>* splitSide;

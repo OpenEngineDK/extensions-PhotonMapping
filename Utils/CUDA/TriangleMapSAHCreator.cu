@@ -38,7 +38,7 @@ namespace OpenEngine {
 
                 logger.info << "Create SAH Creator" << logger.end;
 
-                splitTriangleSet =  new CUDADataBlock<1, int4>(1);
+                splitTriangleSet =  new CUDADataBlock<1, KDNode::bitmap4>(1);
                 primAreas = new CUDADataBlock<1, float>(1);
                 childAreas = new CUDADataBlock<1, float2>(1);
                 childSets = new CUDADataBlock<1, KDNode::bitmap2>(1);
@@ -133,8 +133,7 @@ namespace OpenEngine {
 
                 unsigned int smemPrThread = sizeof(float3) + sizeof(float3);
                 Calc1DKernelDimensionsWithSmem(activeRange * TriangleNode::MAX_LOWER_SIZE, smemPrThread, 
-                                               blocks, threads, smemSize, 448);
-
+                                               blocks, threads, smemSize, 256);
                 CreateSplittingPlanes<<<blocks, threads, smemSize>>>
                     (upperLeafIDs->GetDeviceData(),
                      nodes->GetPrimitiveIndexData(),

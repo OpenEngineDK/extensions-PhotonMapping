@@ -23,7 +23,17 @@ namespace OpenEngine {
 
         class KDNode {
         public: 
+
+#define KDNODE_MAX_LOWER_SIZE 32
+            static const int MAX_LOWER_SIZE = KDNODE_MAX_LOWER_SIZE;
+
+#if KDNODE_MAX_LOWER_SIZE == 64
+            typedef long long int bitmap;
+#else
             typedef int bitmap;
+#endif
+
+
             typedef bitmap amount;
 
             struct bitmap2 {
@@ -36,6 +46,22 @@ namespace OpenEngine {
                 bmp2.x = x;
                 bmp2.y = y;
                 return bmp2;
+            }
+
+            struct bitmap4 {
+                bitmap x;
+                bitmap y;
+                bitmap z;
+                bitmap w;
+            };
+
+            static __host__ __device__ bitmap4 make_bitmap4(bitmap x, bitmap y, bitmap z, bitmap w){
+                bitmap4 bmp;
+                bmp.x = x;
+                bmp.y = y;
+                bmp.z = z;
+                bmp.w = w;
+                return bmp;
             }
 
             static const char LEAF = 0;

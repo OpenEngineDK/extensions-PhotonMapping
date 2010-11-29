@@ -78,7 +78,7 @@ __global__ void PreprocesLowerNodes(int *upperLeafIDs,
 __global__ void CreateSplittingPlanes(int *upperLeafIDs,
                                       int *primitiveIndex, KDNode::bitmap *primBitmap,
                                       float4* aabbMins, float4* aabbMaxs,
-                                      int4 *splitTriangleSet,
+                                      KDNode::bitmap4 *splitTriangleSet,
                                       int activeIndex, int activeRange){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -106,8 +106,8 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
         if (TriangleNode::MAX_LOWER_SIZE > warpSize)
             __syncthreads();
 
-        int4 splitX = make_int4(0, 0, 0, 0); // {lowLeft, lowRight, highLeft, highRight}
-        int4 splitY = make_int4(0, 0, 0, 0); int4 splitZ = make_int4(0, 0, 0, 0);
+        KDNode::bitmap4 splitX = KDNode::make_bitmap4(0, 0, 0, 0); // {lowLeft, lowRight, highLeft, highRight}
+        KDNode::bitmap4 splitY = KDNode::make_bitmap4(0, 0, 0, 0); KDNode::bitmap4 splitZ = KDNode::make_bitmap4(0, 0, 0, 0);
 
         int sharedOffset = threadIdx.x - primID;
 
@@ -145,7 +145,7 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
     }
 }
 
-__device__ __host__ void CalcRelationForSets(int4 splittingSet, KDNode::bitmap nodeSet,
+__device__ __host__ void CalcRelationForSets(KDNode::bitmap4 splittingSet, KDNode::bitmap nodeSet,
                                              char splitAxis, int setIndex, 
                                              float &optimalRelation,
                                              int &largestSize,
@@ -193,7 +193,7 @@ __global__ void CalcSplit(int *upperLeafIDs,
                           float *splitPoss,
                           int *primitiveIndex, KDNode::bitmap *primitiveBitmap,
                           float4 *aabbMin, float4 *aabbMax,
-                          int4 *splitTriangleSet,
+                          KDNode::bitmap4 *splitTriangleSet,
                           KDNode::bitmap2 *childSets,
                           int *splitSides){
     
@@ -255,7 +255,7 @@ __global__ void CalcSplit(int *upperLeafIDs,
     }
 }
 
-__device__ void CalcAreaForSets(int4 splittingSets, char splitAxis, 
+__device__ void CalcAreaForSets(KDNode::bitmap4 splittingSets, char splitAxis, 
                                 int setIndex,
                                 KDNode::bitmap areaIndices, float* areas, 
                                 float &optimalArea, 
@@ -316,7 +316,7 @@ __launch_bounds__(96)
             float *nodeSurface,
             float* primAreas,
             float4 *aabbMin, float4 *aabbMax,
-            int4 *splitTriangleSet,
+            KDNode::bitmap4 *splitTriangleSet,
             float2 *childAreas,
             KDNode::bitmap2 *childSets,
             int *splitSides){
