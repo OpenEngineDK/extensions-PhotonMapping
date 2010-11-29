@@ -51,6 +51,22 @@ namespace OpenEngine {
 
             __constant__ int d_rays;
 
+            __global__ void
+            __launch_bounds__(MAX_THREADS) 
+                Hat(int* hut){
+                const int id = blockDim.x * blockIdx.x + threadIdx.x;                
+                
+                ShortStack::Element* elms = SharedMemory<ShortStack::Element>();
+                int offset = id * SHORT_STACK_SIZE;
+                int nxt = 0, cnt = 0;
+                
+                ShortStack::Stack<SHORT_STACK_SIZE>::Push(ShortStack::Element(id, 10.0f), elms + offset, nxt, cnt);
+
+                ShortStack::Element e = ShortStack::Stack<SHORT_STACK_SIZE>::Pop(elms + offset, nxt, cnt);
+                
+                hut[id] = e.node;
+            }
+            
             __global__ void 
             __launch_bounds__(MAX_THREADS) 
                 ShortStackTrace(float4* origins, float4* directions,
@@ -71,7 +87,12 @@ namespace OpenEngine {
                     //stack += threadIdx.x;
                     //ShortStack::Element *elms = SharedMemory<ShortStack::Element>();
                     //ShortStack::Stack<SHORT_STACK_SIZE> stack(elms + threadIdx.x * SHORT_STACK_SIZE);
-                    ShortStack::Stack<SHORT_STACK_SIZE> stack;
+                    //ShortStack::Stack<SHORT_STACK_SIZE> stack;
+                    
+                    //ShortStack::Element* elms = SharedMemory<ShortStack::Element>();
+                    //elms += id * SHORT_STACK_SIZE;
+                    ShortStack::Element elms[SHORT_STACK_SIZE];
+                    int nxt = 0, cnt = 0;
 
                     float3 origin = make_float3(origins[id]);
                     float3 direction = make_float3(directions[id]);
@@ -83,11 +104,11 @@ namespace OpenEngine {
 
                     do {
                         int node; float tNext;
-                        if (stack.IsEmpty()){
+                        if (cnt == 0){
                             node = 0;
                             tNext = fInfinity;
                         }else{
-                            ShortStack::Element e = stack.Pop();
+                            ShortStack::Element e = ShortStack::Stack<SHORT_STACK_SIZE>::Pop(elms, nxt, cnt);
                             node = e.node;
                             tNext = e.tMax;
                         }
@@ -118,7 +139,7 @@ namespace OpenEngine {
                             if (tHit.x < tSplit){
                                 node = lowerChild;
                                 if (tSplit < tNext)
-                                    stack.Push(ShortStack::Element(upperChild, tNext));
+                                    ShortStack::Stack<SHORT_STACK_SIZE>::Push(ShortStack::Element(upperChild, tNext), elms, nxt, cnt);
                                 tNext = min(tSplit, tNext);
                             }else
                                 node = upperChild;
@@ -156,7 +177,7 @@ namespace OpenEngine {
                             color = BlendColor(color, newColor);
 
                             // Invalidate the short stack as a new ray has been spawned.
-                            stack.Erase();
+                            ShortStack::Stack<SHORT_STACK_SIZE>::Erase(nxt, cnt);
                             tHit.x = 0.0f;
                         }
                         
@@ -185,18 +206,25 @@ namespace OpenEngine {
                 GeometryList* geom = map->GetGeometry();
 
                 unsigned int blocks, threads, smemSize;
-                unsigned int smemPrThread = sizeof(Stack<SHORT_STACK_SIZE>);
+                unsigned int smemPrThread = sizeof(Element) * SHORT_STACK_SIZE;
                 Calc1DKernelDimensionsWithSmem(rays, smemPrThread, blocks, threads, smemSize, MAX_THREADS);
                 START_TIMER(timerID); 
-                ShortStackTrace<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
-                                                     nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                                                     nodes->GetChildrenData(),
-                                                     nodes->GetPrimitiveIndexData(), nodes->GetPrimitiveBitmapData(),
-                                                     map->GetPrimitiveIndices()->GetDeviceData(),
-                                                     geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
-                                                     geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
-                                                     geom->GetColor0Data(),
-                                                     canvasData);
+                /*
+                Hat<<<1, threads, smemSize>>>(map->GetPrimitiveIndices()->GetDeviceData());
+                
+                logger.info << Convert::ToString(map->GetPrimitiveIndices()->GetDeviceData(), threads) << logger.end;
+                exit(0);
+                */
+                logger.info << "ShortStackTrace<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
+                ShortStackTrace<<<blocks, threads, smemSize>>>(origin->GetDeviceData(), direction->GetDeviceData(),
+                                                               nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                                                               nodes->GetChildrenData(),
+                                                               nodes->GetPrimitiveIndexData(), nodes->GetPrimitiveBitmapData(),
+                                                               map->GetPrimitiveIndices()->GetDeviceData(),
+                                                               geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                                                               geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                                                               geom->GetColor0Data(),
+                                                               canvasData);
                 PRINT_TIMER(timerID, "Short stack");
                 CHECK_FOR_CUDA_ERROR();                                               
             }
@@ -204,7 +232,9 @@ namespace OpenEngine {
             void ShortStack::HostTrace(float3 origin, float3 direction, TriangleNode* nodes){
                 GeometryList* geom = map->GetGeometry();
 
-                Stack<SHORT_STACK_SIZE> stack;
+                //Stack<SHORT_STACK_SIZE> stack;
+                Element elms[SHORT_STACK_SIZE];
+                int next = 0, count = 0;
                 
                 float3 tHit;
                 tHit.x = 0.0f;
@@ -213,14 +243,15 @@ namespace OpenEngine {
 
                 do {
                     logger.info << "=== Ray:  " << Convert::ToString(origin) << " -> " << Convert::ToString(direction) << " ===" << logger.end;
-                    logger.info << stack.ToString() << logger.end;
+                    logger.info << Stack<SHORT_STACK_SIZE>::ToString(elms, next, count) << logger.end;
                     
                     int node; float tNext;
-                    if (stack.IsEmpty()){
+                    //if (stack.IsEmpty()){
+                    if (count == 0){
                         node = 0;
                         tNext = fInfinity;
                     }else{
-                        Element e = stack.Pop();
+                        Element e = Stack<SHORT_STACK_SIZE>::Pop(elms, next, count);
                         node = e.node;
                         tNext = e.tMax;
                     }
@@ -261,7 +292,7 @@ namespace OpenEngine {
                         if (tHit.x < tSplit){
                             node = lowerChild;
                             if (tSplit < tNext)
-                                stack.Push(Element(upperChild, tNext));
+                                Stack<SHORT_STACK_SIZE>::Push(Element(upperChild, tNext), elms, next, count);
                             tNext = min(tSplit, tNext);
                         }else
                             node = upperChild;
@@ -334,7 +365,7 @@ namespace OpenEngine {
                         logger.info << "Color: " << Convert::ToString(color) << "\n" << logger.end;
 
                         // Invalidate the shortstack as we're now tracing a new ray.
-                        stack.Erase();
+                        Stack<SHORT_STACK_SIZE>::Erase(next, count);
                         tHit.x = 0.0f;
                     }
 

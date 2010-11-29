@@ -24,7 +24,7 @@ namespace OpenEngine {
 
             class ShortStack : public IRayTracer {
             public:
-                struct Element {
+                struct __align__(8) Element {
                     int node;
                     float tMax;
 
