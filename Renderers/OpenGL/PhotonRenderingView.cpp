@@ -37,11 +37,9 @@ namespace OpenEngine {
                     Initialize(arg);
                     UpdateGeometry();
 
-                    /*
                     float3 origin = make_float3(-4, 4, 4);
                     float3 dir = normalize(make_float3(4, -12, -4));
                     raytracer->HostTrace(origin, dir, triangleMap->nodes);
-                    */
 
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
                     RenderingView::Handle(arg);
@@ -92,8 +90,8 @@ namespace OpenEngine {
 
                 triangleMap = new TriangleMap(arg.canvas.GetScene());
                 //raytracer = new BruteTracer(triangleMap->geom);
-                raytracer = new RayTracer(triangleMap);
-                //raytracer = new ShortStack(triangleMap);
+                //raytracer = new RayTracer(triangleMap);
+                raytracer = new ShortStack(triangleMap);
                 //raytracer->SetVisualizeRays(true);
 
                 int size = arg.canvas.GetWidth() * arg.canvas.GetHeight();
