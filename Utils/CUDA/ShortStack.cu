@@ -18,7 +18,7 @@
 #include <Utils/CUDA/Utils.h>
 
 #define MAX_THREADS 128
-#define SHORT_STACK_SIZE 1
+#define SHORT_STACK_SIZE 4
 
 namespace OpenEngine {
     using namespace Display;
@@ -51,22 +51,6 @@ namespace OpenEngine {
 
             __constant__ int d_rays;
 
-            __global__ void
-            __launch_bounds__(MAX_THREADS) 
-                Hat(int* hut){
-                const int id = blockDim.x * blockIdx.x + threadIdx.x;                
-                
-                ShortStack::Element* elms = SharedMemory<ShortStack::Element>();
-                int offset = id * SHORT_STACK_SIZE;
-                int nxt = 0, cnt = 0;
-                
-                ShortStack::Stack<SHORT_STACK_SIZE>::Push(ShortStack::Element(id, 10.0f), elms + offset, nxt, cnt);
-
-                ShortStack::Element e = ShortStack::Stack<SHORT_STACK_SIZE>::Pop(elms + offset, nxt, cnt);
-                
-                hut[id] = e.node;
-            }
-            
             __global__ void 
             __launch_bounds__(MAX_THREADS) 
                 ShortStackTrace(float4* origins, float4* directions,
@@ -83,15 +67,8 @@ namespace OpenEngine {
                 
                 if (id < d_rays){
                     
-                    //ShortStack::Stack<6> *stack = SharedMemory<ShortStack::Stack<6> >();
-                    //stack += threadIdx.x;
-                    //ShortStack::Element *elms = SharedMemory<ShortStack::Element>();
-                    //ShortStack::Stack<SHORT_STACK_SIZE> stack(elms + threadIdx.x * SHORT_STACK_SIZE);
-                    //ShortStack::Stack<SHORT_STACK_SIZE> stack;
-                    
-                    //ShortStack::Element* elms = SharedMemory<ShortStack::Element>();
-                    //elms += id * SHORT_STACK_SIZE;
-                    ShortStack::Element elms[SHORT_STACK_SIZE];
+                    ShortStack::Element* elms = SharedMemory<ShortStack::Element>();
+                    elms += threadIdx.x * SHORT_STACK_SIZE;
                     int nxt = 0, cnt = 0;
 
                     float3 origin = make_float3(origins[id]);
@@ -209,13 +186,6 @@ namespace OpenEngine {
                 unsigned int smemPrThread = sizeof(Element) * SHORT_STACK_SIZE;
                 Calc1DKernelDimensionsWithSmem(rays, smemPrThread, blocks, threads, smemSize, MAX_THREADS);
                 START_TIMER(timerID); 
-                /*
-                Hat<<<1, threads, smemSize>>>(map->GetPrimitiveIndices()->GetDeviceData());
-                
-                logger.info << Convert::ToString(map->GetPrimitiveIndices()->GetDeviceData(), threads) << logger.end;
-                exit(0);
-                */
-                logger.info << "ShortStackTrace<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
                 ShortStackTrace<<<blocks, threads, smemSize>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                                nodes->GetChildrenData(),
