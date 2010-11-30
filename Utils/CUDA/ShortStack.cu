@@ -52,7 +52,7 @@ namespace OpenEngine {
             __constant__ int d_rays;
 
             __global__ void 
-            __launch_bounds__(MAX_THREADS) 
+            __launch_bounds__(MAX_THREADS, 1) 
                 ShortStackTrace(float4* origins, float4* directions,
                                 char* nodeInfo, float* splitPos,
                                 int2* children,
@@ -61,14 +61,18 @@ namespace OpenEngine {
                                 float4 *v0, float4 *v1, float4 *v2,
                                 float4 *n0s, float4 *n1s, float4 *n2s,
                                 uchar4 *c0s,
-                                uchar4 *canvas){
+                                uchar4 *canvas,
+                                int screenWidth){
                 
-                const int id = blockDim.x * blockIdx.x + threadIdx.x;
+                int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
                 if (id < d_rays){
                     
+                    id = IRayTracer::PacketIndex(id, screenWidth);
+
                     ShortStack::Element* elms = SharedMemory<ShortStack::Element>();
                     elms += threadIdx.x * SHORT_STACK_SIZE;
+                    //ShortStack::Element elms[SHORT_STACK_SIZE];
                     int nxt = 0, cnt = 0;
 
                     float3 origin = make_float3(origins[id]);
@@ -93,6 +97,12 @@ namespace OpenEngine {
                         char info = nodeInfo[node];
 
                         while ((info & 3) != KDNode::LEAF){
+                            /*
+                            if (id == 153600) { 
+                                debugNodes[0] = node; 
+                                ++debugNodes; 
+                                }*/
+                            
                             float splitValue = splitPos[node];
                             int2 childPair = children[node];
                             
@@ -123,7 +133,14 @@ namespace OpenEngine {
 
                             info = nodeInfo[node];
                         }
-                        
+
+                        /*
+                        if (id == 153600) { 
+                            debugNodes[0] = node; 
+                            ++debugNodes; 
+                        } 
+                        */      
+                 
                         tHit.x = tNext;
                         
                         int primIndex = nodePrimIndex[node];
@@ -154,7 +171,7 @@ namespace OpenEngine {
                             color = BlendColor(color, newColor);
 
                             // Invalidate the short stack as a new ray has been spawned.
-                            ShortStack::Stack<SHORT_STACK_SIZE>::Erase(nxt, cnt);
+                            ShortStack::Stack<SHORT_STACK_SIZE>::Erase(elms, nxt, cnt);
                             tHit.x = 0.0f;
                         }
                         
@@ -179,8 +196,17 @@ namespace OpenEngine {
                     return;
                 }
 
+                /*
+                float4 ori, dir;
+                cudaMemcpy(&ori, origin->GetDeviceData() + 153600, sizeof(float4), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&dir, direction->GetDeviceData() + 153600, sizeof(float4), cudaMemcpyDeviceToHost);
+                HostTrace(make_float3(ori), make_float3(dir), map->GetNodes());
+                */
+
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
+
+                //CUDADataBlock<1, int> debug = CUDADataBlock<1, int>(200);
 
                 unsigned int blocks, threads, smemSize;
                 unsigned int smemPrThread = sizeof(Element) * SHORT_STACK_SIZE;
@@ -194,8 +220,14 @@ namespace OpenEngine {
                                                                geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
                                                                geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                                                                geom->GetColor0Data(),
-                                                               canvasData);
+                                                               canvasData,
+                                                               width);
                 PRINT_TIMER(timerID, "Short stack");
+
+                //logger.info << Convert::ToString(debug.GetDeviceData(), 200) << logger.end;
+
+                //exit(0);
+
                 CHECK_FOR_CUDA_ERROR();                                               
             }
             
@@ -335,7 +367,7 @@ namespace OpenEngine {
                         logger.info << "Color: " << Convert::ToString(color) << "\n" << logger.end;
 
                         // Invalidate the shortstack as we're now tracing a new ray.
-                        Stack<SHORT_STACK_SIZE>::Erase(next, count);
+                        Stack<SHORT_STACK_SIZE>::Erase(elms, next, count);
                         tHit.x = 0.0f;
                     }
 

@@ -63,8 +63,8 @@ inline __device__ __host__ float4 Lighting(float3 hitCoords,
     float4 color = make_float4(c0.x / 255.0f, c0.y / 255.0f, c0.z / 255.0f, c0.w / 255.0f);
 
     if (color.w < 1.0f - 0.00001f){
-        //direction -= 0.3f * 0.5f * dot(normal, normalize(origin - point)) * normal;
-        direction = 2.0f * dot(normal, -1.0f * direction) * normal + direction;
+        direction -= 0.3f * 0.5f * dot(normal, normalize(origin - point)) * normal;
+        //direction = 2.0f * dot(normal, -1.0f * direction) * normal + direction;
     }else{
         direction = 2.0f * dot(normal, -1.0f * direction) * normal + direction;
     }

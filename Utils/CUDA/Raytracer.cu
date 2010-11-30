@@ -16,6 +16,8 @@
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
 
+#define MAX_THREADS 128
+
 namespace OpenEngine {
     using namespace Display;
     using namespace Resources;
@@ -46,8 +48,35 @@ namespace OpenEngine {
             RayTracer::~RayTracer() {}
 
             __constant__ int d_rays;
-            //__constant__ float3 d_aabbMin;
-            //__constant__ float3 d_aabbMax;
+
+            /**
+             * http://www.sven-woop.de/publications/Diplom_SvenWoop_Final.pdf
+
+             * Not working yet
+             */
+            inline __host__ __device__ bool WoopIntersection(float3 a, float3 b, float3 c,
+                                                             float3 origin, float3 direction,
+                                                             float3 hit){
+                const float3 m_x = a - c;
+                const float3 m_y = b - c;
+                const float3 m_z = make_float3(1.0f, 0.0f, 0.0f) - m_x - m_y;
+
+                const float3 n = c;
+
+                origin = make_float3(dot(m_x, origin), 
+                                     dot(m_y, origin), 
+                                     dot(m_z, origin)) + n;
+                direction = make_float3(dot(m_x, direction), 
+                                        dot(m_y, direction), 
+                                        dot(m_z, direction));
+
+                hit.x = -origin.z / direction.z;
+                hit.y = hit.x * direction.x + origin.x;
+                hit.z = hit.x * direction.y + origin.y;
+
+                return hit.x >= 0.0f && hit.y >= 0.0f && hit.z >= 0.0f && hit.y + hit.z <= 1.0f;
+            }
+
 
             __device__ __host__ void TraceNode(float3 origin, float3 direction, 
                                                char axis, float splitPos,
@@ -76,20 +105,25 @@ namespace OpenEngine {
                     node = upperChild;
             }
 
-            __global__ void KDRestart(float4* origins, float4* directions,
-                                      char* nodeInfo, float* splitPos,
-                                      int2* children,
-                                      int* nodePrimIndex, KDNode::bitmap* primBitmap,
-                                      int *primIndices, 
-                                      float4 *v0, float4 *v1, float4 *v2,
-                                      float4 *n0s, float4 *n1s, float4 *n2s,
-                                      uchar4 *c0s,
-                                      uchar4 *canvas){
+            __global__ void 
+            __launch_bounds__(MAX_THREADS, 2) 
+                KDRestart(float4* origins, float4* directions,
+                          char* nodeInfo, float* splitPos,
+                          int2* children,
+                          int* nodePrimIndex, KDNode::bitmap* primBitmap,
+                          int *primIndices, 
+                          float4 *v0, float4 *v1, float4 *v2,
+                          float4 *n0s, float4 *n1s, float4 *n2s,
+                          uchar4 *c0s,
+                          uchar4 *canvas,
+                          int screenWidth){
                 
-                const int id = blockDim.x * blockIdx.x + threadIdx.x;
+                int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
                 if (id < d_rays){
-                    
+                
+                    id = IRayTracer::PacketIndex(id, screenWidth);
+    
                     float3 origin = make_float3(origins[id]);
                     float3 direction = make_float3(directions[id]);
 
@@ -171,14 +205,9 @@ namespace OpenEngine {
 
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
-
-                // Copy scene bounding box to GPU
-                // cudaMemcpyToSymbol(d_aabbMin, nodes->GetAabbMinData(), sizeof(float3));
-                // cudaMemcpyToSymbol(d_aabbMax, nodes->GetAabbMaxData(), sizeof(float3));
-                // CHECK_FOR_CUDA_ERROR();
                 
                 unsigned int blocks, threads;
-                Calc1DKernelDimensions(rays, blocks, threads, 64);
+                Calc1DKernelDimensions(rays, blocks, threads, MAX_THREADS);
                 START_TIMER(timerID);
                 KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
                                                nodes->GetInfoData(), nodes->GetSplitPositionData(),
@@ -189,7 +218,8 @@ namespace OpenEngine {
                                                geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
                                                geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                                                geom->GetColor0Data(),
-                                               canvasData);
+                                               canvasData,
+                                               width);
                 PRINT_TIMER(timerID, "KDRestart");
                 CHECK_FOR_CUDA_ERROR();                                               
             }

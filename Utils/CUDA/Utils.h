@@ -78,22 +78,22 @@ inline __host__ __device__ bool TriangleRayIntersection(float3 v0, float3 v1, fl
                                                         float3 origin, float3 direction,
                                                         float3 &hit){
     
-    float3 e1 = v1 - v0;
-    float3 e2 = v2 - v0;
-    float3 t = origin - v0;
-    float3 p = cross(direction, e2);
-    float3 q = cross(t, e1);
-    float det = dot(p, e1);
+    const float3 e1 = v1 - v0;
+    const float3 e2 = v2 - v0;
+    const float3 t = origin - v0;
+    const float3 p = cross(direction, e2);
+    const float3 q = cross(t, e1);
+    const float invDet = 1.0f / dot(p, e1);
 
     // if det is 'equal' to zero, the ray lies in the triangles plane
     // and cannot be seen.
     //if (det == 0.0f) return false;
 
-    det = 1.0f / det;
+    //det = 1.0f / det;
 
-    hit.x = det * dot(q, e2);
-    hit.y = det * dot(p, t);
-    hit.z = det * dot(q, direction);
+    hit.x = invDet * dot(q, e2);
+    hit.y = invDet * dot(p, t);
+    hit.z = invDet * dot(q, direction);
 
     return hit.x >= 0.0f && hit.y >= 0.0f && hit.z >= 0.0f && hit.y + hit.z <= 1.0f;
 }

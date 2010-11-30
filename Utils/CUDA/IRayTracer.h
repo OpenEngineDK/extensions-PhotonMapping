@@ -38,6 +38,17 @@ namespace OpenEngine {
 
                 void SetVisualizeRays(const bool v) {visualizeRays = v;}
 
+#define PW 4
+#define PH 8
+                static inline __device__ __host__ int PacketIndex(int id, int screenWidth){
+                    int cell = id / (PW * PH);
+                    int bx = cell % (screenWidth / PW);
+                    int by = cell / (screenWidth / PW);
+                    int x = id % PW;
+                    int y = (id % (PW * PH)) / PW;
+                    return bx * PW + x + (by * PH + y) * screenWidth;
+                }
+                
             protected:
                 void CreateInitialRays(Display::IRenderCanvas* canvas);
                 void RenderRays(uchar4 *canvas, int rays);

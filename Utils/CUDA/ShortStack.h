@@ -58,7 +58,7 @@ namespace OpenEngine {
                     
                     __device__ __host__ void Erase() { next = count = 0; }
 
-                    static __device__ __host__ void Erase(int& next, int &count) { next = count = 0; }
+                    static __device__ __host__ void Erase(Element* elms, int& next, int &count) { next = count = 0; }
 
                     __device__ __host__ bool IsEmpty() const { return count == 0; }
                     
