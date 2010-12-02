@@ -56,7 +56,7 @@ namespace OpenEngine {
              */
             inline __host__ __device__ bool WoopIntersection(float3 a, float3 b, float3 c,
                                                              float3 origin, float3 direction,
-                                                             float3 hit){
+                                                             float3 &hit){
                 const float3 m_x = a - c;
                 const float3 m_y = b - c;
                 const float3 m_z = make_float3(1.0f, 0.0f, 0.0f) - m_x - m_y;
@@ -170,7 +170,7 @@ namespace OpenEngine {
                             triangles -= KDNode::bitmap(1)<<i;
                         }
 
-                        if (primHit != -1){                            
+                        if (primHit != -1){
                             float4 newColor = Lighting(tHit, origin, direction, 
                                                        n0s[primHit], n1s[primHit], n2s[primHit],
                                                        c0s[primHit]);
@@ -179,7 +179,6 @@ namespace OpenEngine {
 
                             tHit.x = 0.0f;
                         }
-
                     } while(tHit.x < fInfinity && color.w < 0.97f);
 
                     canvas[id] = make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);

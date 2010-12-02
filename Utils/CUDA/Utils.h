@@ -130,6 +130,77 @@ inline __host__ __device__ bool TriangleRayIntersection(const float3 v0, const f
     return hit.x >= 0.0f && hit.y >= 0.0f && hit.z >= 0.0f && hit.y + hit.z <= 1.0f;
 }
 
+inline __host__ __device__ bool TriangleAabbIntersection(float3 v0, float3 v1, float3 v2, 
+                                                  const float3 aabbMin, const float3 aabbMax){
+
+    const float3 f0 = v1 - v0;
+    const float3 f1 = v2 - v1;
+    const float3 f2 = v0 - v2;
+
+    const float3 halfSize = (aabbMax - aabbMin) * 0.5f;
+    const float3 center = aabbMin + halfSize;
+
+    v0 -= center; v1 -= center; v2 -= center;
+
+    // Only test 3 from Akenine-Möller
+    
+    // a00
+    float p0 = v0.z * v1.y - v0.y * v1.z;
+    float p1 = (v1.y - v0.y) * v2.z - (v1.z - v0.z) * v2.y;
+    float r = halfSize.y * fabsf(f0.z) + halfSize.z * fabsf(f0.y);
+    bool res = !(p0 > r || p1 > r || p0 < -r || p1 < -r);
+
+    // a01
+    p0 = v1.z * v2.y - v1.y * v2.z;
+    p1 = (v2.y - v1.y) * v0.z - (v2.z - v1.z) * v0.y;
+    r = halfSize.y * fabsf(f1.z) + halfSize.z * fabsf(f1.y);
+    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
+
+    // a02
+    p0 = v2.z * v0.y - v2.y * v0.z;
+    p1 = (v0.y - v2.y) * v1.z - (v0.z - v2.z) * v1.y;
+    r = halfSize.y * fabsf(f2.z) + halfSize.z * fabsf(f2.y);
+    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
+
+    // a10
+    p0 = v0.x * v1.z - v0.z * v1.x;
+    p1 = (v1.z - v0.z) * v2.x - (v1.x - v0.x) * v2.z;
+    r = halfSize.x * fabsf(f0.z) + halfSize.z * fabsf(f0.x);
+    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
+
+    // a11
+    p0 = v1.x * v2.z - v1.z * v2.x;
+    p1 = (v2.z - v1.z) * v0.x - (v2.x - v1.x) * v0.z;
+    r = halfSize.x * fabsf(f1.z) + halfSize.z * fabsf(f1.x);
+    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
+
+    // a12
+    p0 = v2.x * v0.z - v2.z * v0.x;
+    p1 = (v0.z - v2.z) * v1.x - (v0.x - v2.x) * v1.z;
+    r = halfSize.x * fabsf(f2.z) + halfSize.z * fabsf(f2.x);
+    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
+
+    // a20
+    p0 = v0.y * v1.x - v0.x * v1.y;
+    p1 = (v1.x - v0.x) * v2.y - (v1.y - v0.y) * v2.x;
+    r = halfSize.x * fabsf(f0.y) + halfSize.y * fabsf(f0.x);
+    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
+
+    // a21
+    p0 = v1.y * v2.x - v1.x * v2.y;
+    p1 = (v2.x - v1.x) * v0.y - (v2.y - v1.y) * v0.x;
+    r = halfSize.x * fabsf(f1.y) + halfSize.y * fabsf(f1.x);
+    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
+
+    // a22
+    p0 = v2.y * v0.x - v2.x * v0.y;
+    p1 = (v0.x - v2.x) * v1.y - (v0.y - v2.y) * v1.x;
+    r = halfSize.x * fabsf(f2.y) + halfSize.y * fabsf(f2.x);
+    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
+
+    return res;
+}
+
 inline __host__ __device__ int firstBitSet(const int n){
 #ifdef __CUDA_ARCH__ // device code
     return __ffs(n);
