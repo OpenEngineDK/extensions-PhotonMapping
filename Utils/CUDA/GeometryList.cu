@@ -28,6 +28,8 @@ using namespace OpenEngine::Math::CUDA;
 using namespace OpenEngine::Scene;
 using namespace OpenEngine::Resources::CUDA;
 
+#define MAX_THREADS 128
+
 namespace OpenEngine {
     namespace Utils {
         namespace CUDA {
@@ -128,15 +130,17 @@ namespace OpenEngine {
                 }
             }
 
-            __global__ void AddMeshKernel(unsigned int *indices,
-                                          float4 *verticesIn,
-                                          float4 *normalsIn,
-                                          uchar4 *colorsIn,
-                                          const Matrix44f modelMat, const Matrix33f normalMat,
-                                          float4 *p0, float4 *p1, float4 *p2,
-                                          float4 *n0, float4 *n1, float4 *n2,
-                                          uchar4 *c0, uchar4 *c1, uchar4 *c2,
-                                          int size){
+            __global__ void 
+            __launch_bounds__(MAX_THREADS) 
+                AddMeshKernel(unsigned int *indices,
+                              float4 *verticesIn,
+                              float4 *normalsIn,
+                              uchar4 *colorsIn,
+                              const Matrix44f modelMat, const Matrix33f normalMat,
+                              float4 *p0, float4 *p1, float4 *p2,
+                              float4 *n0, float4 *n1, float4 *n2,
+                              uchar4 *c0, uchar4 *c1, uchar4 *c2,
+                              int size){
                 
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -250,19 +254,17 @@ namespace OpenEngine {
             void GeometryList::AddMesh(CUDAMeshNode* mesh, 
                                        Matrix<4, 4, float> modelMat){
                 
-                //START_TIMER(timerID);
-
                 unsigned int triangles = mesh->GetSize() / 3;
                 Extend(size + triangles);                
 
-                unsigned int blocks, threads;
-                Calc1DKernelDimensions(mesh->GetSize(), blocks, threads);
                 Math::CUDA::Matrix44f mat;
                 mat.Init(modelMat.GetTranspose());
                 Math::CUDA::Matrix33f normMat; // should be transposed and inverted, jada jada bla bla just don't do weird scaling
                 normMat.Init(mat);
                 CHECK_FOR_CUDA_ERROR();
                 
+                unsigned int blocks, threads;
+                Calc1DKernelDimensions(mesh->GetSize(), blocks, threads, 128);
                 AddMeshKernel<<<blocks, threads>>>(mesh->GetIndexData(), mesh->GetVertexData(), mesh->GetNormalData(), mesh->GetColorData(),
                                                    mat, normMat,
                                                    p0->GetDeviceData() + size, p1->GetDeviceData() + size, p2->GetDeviceData() + size,
@@ -271,11 +273,7 @@ namespace OpenEngine {
                                                    triangles);
                 CHECK_FOR_CUDA_ERROR();
 
-                
-
                 size += triangles;
-                
-                //PRINT_TIMER(timerID, "Geometry collection ");
             }
             
             void GeometryList::CollectGeometry(ISceneNode* node){

@@ -12,7 +12,7 @@ __constant__ float3 d_lightAmbient;
 __constant__ float3 d_lightDiffuse;
 __constant__ float3 d_lightSpecular;
 
-inline __device__ __host__ float4 PhongLighting(float4 color, float3 normal, float3 point, float3 origin){
+inline __device__ __host__ float4 PhongLighting(const float4 color, const float3 normal, const float3 point, const float3 origin){
     
 #ifdef __CUDA_ARCH__
     float3 lightDir = normalize(d_lightPosition - point);
@@ -48,10 +48,10 @@ inline __device__ __host__ float4 PhongLighting(float4 color, float3 normal, flo
     return make_float4(clamp(light, 0.0f, 1.0f), alpha);
 }
 
-inline __device__ __host__ float4 Lighting(float3 hitCoords, 
+inline __device__ __host__ float4 Lighting(const float3 hitCoords, 
                                            float3 &origin, float3 &direction,
-                                           float4 n0, float4 n1, float4 n2,
-                                           uchar4 c0){
+                                           const float4 n0, const float4 n1, const float4 n2,
+                                           const uchar4 c0){
 
     float3 point = origin + hitCoords.x * direction;
 

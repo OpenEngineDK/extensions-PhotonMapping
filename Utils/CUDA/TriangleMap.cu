@@ -47,10 +47,13 @@ namespace OpenEngine {
                 Setup();
 
                 logger.info << "Start primitives: " << geom->GetSize() << logger.end;
-                
+
+                START_TIMER(timerID);
                 upperCreator->Create(this, NULL);
 
                 lowerCreator->Create(this, leafIDs);
+
+                PRINT_TIMER(timerID, "Total tree creation");
 
                 logger.info << "End primitives: " << primIndices->GetSize() << logger.end;
                 logger.info << "Tree nodes: " << nodes->GetSize() << logger.end;

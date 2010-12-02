@@ -41,6 +41,38 @@ inline unsigned int NextPow2(unsigned int x) {
     return ++x;
 }
 
+struct KernelConf {
+    int blocks;
+    int threads;
+    int smem;
+};
+
+inline KernelConf KernelConf1D(const unsigned int threads, unsigned int maxThreadsPrBlock = 2<<16,
+                               const unsigned int registerUsage = 0,
+                               const unsigned int smemPrThread = 0){
+
+    KernelConf conf;
+    unsigned int maxThreads = min(maxThreadsPrBlock, activeCudaDevice.maxThreadsDim[0]);
+    
+    // Take register usage into account
+    if (registerUsage) maxThreads = min(maxThreadsPrBlock, activeCudaDevice.regsPerBlock / registerUsage);
+
+    // Take shared mem into account
+    if (smemPrThread) maxThreads = min(maxThreadsPrBlock, (unsigned int)activeCudaDevice.sharedMemPerBlock / smemPrThread);
+    
+    if (threads < maxThreads){
+        conf.threads = ((threads - 1) / activeCudaDevice.warpSize + 1) * activeCudaDevice.warpSize;
+        conf.blocks = 1;
+    }else{
+        conf.threads = maxThreads;
+        conf.blocks = min(((threads-1) / maxThreads) + 1, activeCudaDevice.maxGridSize[0]);
+    }
+
+    conf.smem = smemPrThread * conf.threads;
+
+    return conf;
+}
+
 inline bool Calc1DKernelDimensions(const unsigned int size, 
                                    unsigned int &blocks, unsigned int &threads,
                                    unsigned int maxThreads = 0){
@@ -74,8 +106,8 @@ inline bool Calc1DKernelDimensionsWithSmem(const unsigned int size, const unsign
     return succes;
 }
 
-inline __host__ __device__ bool TriangleRayIntersection(float3 v0, float3 v1, float3 v2,
-                                                        float3 origin, float3 direction,
+inline __host__ __device__ bool TriangleRayIntersection(const float3 v0, const float3 v1, const float3 v2,
+                                                        const float3 origin, const float3 direction,
                                                         float3 &hit){
     
     const float3 e1 = v1 - v0;
@@ -83,13 +115,13 @@ inline __host__ __device__ bool TriangleRayIntersection(float3 v0, float3 v1, fl
     const float3 t = origin - v0;
     const float3 p = cross(direction, e2);
     const float3 q = cross(t, e1);
-    const float invDet = 1.0f / dot(p, e1);
+    const float det = dot(p, e1);
 
     // if det is 'equal' to zero, the ray lies in the triangles plane
     // and cannot be seen.
     //if (det == 0.0f) return false;
 
-    //det = 1.0f / det;
+    const float invDet = 1.0f / det;
 
     hit.x = invDet * dot(q, e2);
     hit.y = invDet * dot(p, t);

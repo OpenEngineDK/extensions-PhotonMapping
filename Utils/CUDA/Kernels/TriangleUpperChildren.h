@@ -103,10 +103,6 @@ __global__ void MarkNodeLeafs(int2 *childSize,
     }
 }
 
-__global__ void CreateEmptyLeaves(){
-
-}
-
 template <bool useIndices>
 __global__ void CreateUpperChildren(int *indices,
                                     int *primitiveIndex,

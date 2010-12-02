@@ -16,6 +16,11 @@ using namespace OpenEngine::Utils::CUDA::Kernels;
 #define traverselCost 32.0f
 #define minLeafTriangles 32
 
+// @TODO use the reduced bounding box and actual bounding box'es
+// diagonals to estimate the sub triangles surface area.  Or the
+// amount of aabb reduction in each dimension multiplied? How will
+// that handle 0 sized sides?
+
 __global__ void CalcSurfaceArea(int *indices, 
                                 float4 *v0s, float4 *v1s, float4 *v2s,
                                 float *areas,

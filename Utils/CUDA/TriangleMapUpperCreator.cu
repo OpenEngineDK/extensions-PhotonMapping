@@ -280,7 +280,7 @@ namespace OpenEngine {
                     AabbMemset<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
                                                     map->nodes->GetAabbMaxData() + activeIndex);
                     CHECK_FOR_CUDA_ERROR();
-                    
+
                     for (int i = 0; i < blocks; ++i){
                         int segs = segments.GetSize() - i * threads;
                         cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));

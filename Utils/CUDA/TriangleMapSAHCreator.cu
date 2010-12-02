@@ -168,7 +168,6 @@ namespace OpenEngine {
                 unsigned int smemPrThread = TriangleNode::MAX_LOWER_SIZE * sizeof(float);
                 Calc1DKernelDimensionsWithSmem(activeRange, smemPrThread, 
                                                blocks, threads, smemSize, 96);
-                
                 //logger.info << "<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
                 if (upperLeafIDs)
                     CalcSAH<true><<<blocks, threads, smemSize>>>(upperLeafIDs->GetDeviceData(), 
