@@ -11,7 +11,7 @@
 #define _CUDA_KD_BASE_NODE_H_
 
 #include <Meta/CUDA.h>
-#include <Utils/Cuda/Point.h>
+#include <Utils/CUDA/Point.h>
 #include <Resources/CUDA/CUDADataBlock.h>
 
 #include <string>
