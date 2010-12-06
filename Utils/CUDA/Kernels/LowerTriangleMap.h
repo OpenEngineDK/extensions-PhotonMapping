@@ -193,7 +193,8 @@ __device__ __host__ void CalcRelationForSets(KDNode::bitmap4 splittingSet, KDNod
 // use index lookups to avoid branching and store fewer values
 
 template <bool useIndices>
-__global__ void CalcSplit(int *upperLeafIDs,
+__global__ void 
+CalcSplit(int *upperLeafIDs,
                           char *info,
                           float *splitPoss,
                           int *primitiveIndex, KDNode::bitmap *primitiveBitmap,
@@ -218,7 +219,7 @@ __global__ void CalcSplit(int *upperLeafIDs,
         
         int triangles = primBmp;
         while(triangles){
-            int i = __ffs(triangles) - 1;
+            int i = firstBitSet(triangles) - 1;
             
             CalcRelationForSets(splitTriangleSet[primIndex + i], primBmp,
                                 KDNode::X, primIndex + i,

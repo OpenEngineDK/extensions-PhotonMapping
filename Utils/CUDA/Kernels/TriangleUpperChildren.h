@@ -20,11 +20,11 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
     const int segmentID = blockIdx.x;
 
     if (segmentID < d_segments){
-        int2 primInfo = segmentPrimInfo[segmentID];
+        const int2 primInfo = segmentPrimInfo[segmentID];
         if (threadIdx.x < primInfo.y){ 
-            int owner = segmentOwner[segmentID];
-            char axis = info[owner];
-            float splitPos = splitPoss[owner];
+            const int owner = segmentOwner[segmentID];
+            const char axis = info[owner];
+            const float splitPos = splitPoss[owner];
                 
             const int id = primInfo.x + threadIdx.x;
                 
@@ -37,6 +37,51 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
             float rightPos = axis == KDNode::X ? aabbMax.x : aabbMax.y;
             rightPos = axis == KDNode::Z ? aabbMax.z : rightPos;
             splitSides[id + d_triangles] = splitPos < rightPos;
+
+            if (segmentID == 0 && threadIdx.x == 0)
+                splitSides[d_triangles * 2] = 0;
+        }
+    }
+}
+
+__global__ void 
+__launch_bounds__(Segments::SEGMENT_SIZE) 
+    SetDivideSide(int2 *segmentPrimInfo,
+                  int* segmentOwner,
+                  char* info, float *splitPoss,
+                  float4* indices,
+                  float4* nodeAabbMins, float4* nodeAabbMaxs,
+                  float4* v0s, float4* v1s, float4* v2s,
+                  int* splitSides){
+    
+    const int segmentID = blockIdx.x;
+
+    if (segmentID < d_segments){
+        const int2 primInfo = segmentPrimInfo[segmentID];
+        if (threadIdx.x < primInfo.y){ 
+            const int nodeID = segmentOwner[segmentID];
+            const char axis = info[nodeID];
+            const float splitPos = splitPoss[nodeID];
+                
+            const int id = primInfo.x + threadIdx.x;
+
+            const float3 nodeMin = make_float3(nodeAabbMins[nodeID]);
+            const float3 nodeMax = make_float3(nodeAabbMaxs[nodeID]);
+            const int primID = indices[id].w;
+            const float3 v0 = make_float3(v0s[primID]);
+            const float3 v1 = make_float3(v1s[primID]);
+            const float3 v2 = make_float3(v2s[primID]);
+            
+            splitSides[id] = TriangleAabbIntersection(v0, v1, v2, nodeMin,
+                                                      make_float3(axis == KDNode::X ? splitPos : nodeMax.x,
+                                                                  axis == KDNode::Y ? splitPos : nodeMax.y,
+                                                                  axis == KDNode::Z ? splitPos : nodeMax.z));
+
+            splitSides[id + d_triangles] = TriangleAabbIntersection(v0, v1, v2, 
+                                                                    make_float3(axis == KDNode::X ? splitPos : nodeMin.x,
+                                                                                axis == KDNode::Y ? splitPos : nodeMin.y,
+                                                                                axis == KDNode::Z ? splitPos : nodeMin.z),
+                                                                    nodeMax);
 
             if (segmentID == 0 && threadIdx.x == 0)
                 splitSides[d_triangles * 2] = 0;
