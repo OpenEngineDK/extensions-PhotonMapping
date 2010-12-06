@@ -112,16 +112,20 @@ inline __host__ __device__ bool TriangleRayIntersection(const float3 v0, const f
     
     const float3 e1 = v1 - v0;
     const float3 e2 = v2 - v0;
-    const float3 t = origin - v0;
     const float3 p = cross(direction, e2);
-    const float3 q = cross(t, e1);
     const float det = dot(p, e1);
+    const float3 t = origin - v0;
+    const float3 q = cross(t, e1);
 
     // if det is 'equal' to zero, the ray lies in the triangles plane
     // and cannot be seen.
     //if (det == 0.0f) return false;
 
+#ifdef __CUDA_ARCH__
+    const float invDet = __fdividef(1.0f, det);
+#else
     const float invDet = 1.0f / det;
+#endif
 
     hit.x = invDet * dot(q, e2);
     hit.y = invDet * dot(p, t);
