@@ -13,7 +13,7 @@
 #include <Utils/CUDA/TriangleMapUpperCreator.h>
 #include <Utils/CUDA/TriangleMapSAHCreator.h>
 #include <Utils/CUDA/TriangleMapBalancedCreator.h>
-//#include <Utils/CUDA/TriangleMapBalancedFast.h>
+#include <Utils/CUDA/Utils.h>
 #include <Utils/CUDA/Convert.h>
 
 using namespace OpenEngine::Scene;
