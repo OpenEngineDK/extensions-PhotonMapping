@@ -30,13 +30,14 @@ inline __device__ __host__ float4 PhongLighting(const float4 color, const float3
     float stemp = dot(normalize(origin - point), reflect);
     stemp = stemp < 0.0f ? 0.0f : stemp;
     float specProp = 1.0f - color.w;
-    float specular = specProp * pow(stemp, 128.0f * specProp);
-
 #ifdef __CUDA_ARCH__
+    float specular = specProp * __powf(stemp, 128.0f * specProp);
+
     float3 light = make_float3(color) * (d_lightAmbient +
                                          d_lightDiffuse * diffuse) +
                                          d_lightSpecular * specular * 10.0f;
 #else
+    float specular = specProp * powf(stemp, 128.0f * specProp);
     const float3 lightColor = make_float3(1.0f, 0.92f, 0.8f);
     float3 light = make_float3(color) * (lightColor * 0.3f +
                                          lightColor * 0.7f * diffuse) +
@@ -59,7 +60,7 @@ inline __device__ __host__ float4 Lighting(const float3 hitCoords,
                     hitCoords.y * make_float3(n1) + 
                     hitCoords.z * make_float3(n2);
     normal = normalize(normal);
-                
+
     float4 color = make_float4(c0.x / 255.0f, c0.y / 255.0f, c0.z / 255.0f, c0.w / 255.0f);
 
     if (color.w < 1.0f - 0.00001f){
