@@ -83,16 +83,16 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
                 float3 v1 = make_float3(v1s[primID]);
                 float3 v2 = make_float3(v2s[primID]);
                 
-                splitLeft = TriangleAabbIntersection(v0, v1, v2, nodeMin,
-                                                     make_float3(axis == KDNode::X ? splitPos : nodeMax.x,
-                                                                 axis == KDNode::Y ? splitPos : nodeMax.y,
-                                                                 axis == KDNode::Z ? splitPos : nodeMax.z));
+                splitLeft = TriangleAabbIntersectionStep3(v0, v1, v2, nodeMin,
+                                                          make_float3(axis == KDNode::X ? splitPos : nodeMax.x,
+                                                                      axis == KDNode::Y ? splitPos : nodeMax.y,
+                                                                      axis == KDNode::Z ? splitPos : nodeMax.z));
                 
-                splitRight = TriangleAabbIntersection(v0, v1, v2,
-                                                      make_float3(axis == KDNode::X ? splitPos : nodeMin.x,
-                                                                  axis == KDNode::Y ? splitPos : nodeMin.y,
-                                                                  axis == KDNode::Z ? splitPos : nodeMin.z),
-                                                      nodeMax);
+                splitRight = TriangleAabbIntersectionStep3(v0, v1, v2,
+                                                           make_float3(axis == KDNode::X ? splitPos : nodeMin.x,
+                                                                       axis == KDNode::Y ? splitPos : nodeMin.y,
+                                                                       axis == KDNode::Z ? splitPos : nodeMin.z),
+                                                           nodeMax);
             }
 
             splitSides[id] = splitLeft;

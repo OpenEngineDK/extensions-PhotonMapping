@@ -484,4 +484,40 @@ __global__ void CreateLowerSAHChildren(int *upperLeafIDs,
     }        
 }
 
+template <bool useIndices>
+__global__ void PropagateAabbToChildren(int *indices,
+                                        char *nodeInfo, float *splitPoss,
+                                        float4 *aabbMins, float4 *aabbMaxs,
+                                        int2 *children){
+
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (id < d_activeNodeRange){
+        const int parentID = useIndices ? indices[id] : d_activeNodeIndex + id;
+
+        const char axis = nodeInfo[parentID] & 3;
+        if (axis != KDNode::LEAF){
+            const float splitPos = splitPoss[parentID];
+            
+            const int2 childIDs = children[parentID];
+            
+            const float4 aabbMin = aabbMins[parentID];
+            
+            aabbMins[childIDs.x] = aabbMin;
+            aabbMins[childIDs.y] = make_float4(axis == KDNode::X ? splitPos : aabbMin.x,
+                                               axis == KDNode::Y ? splitPos : aabbMin.y,
+                                               axis == KDNode::Z ? splitPos : aabbMin.z,
+                                               0.0f);
+            
+            const float4 aabbMax = aabbMaxs[parentID];
+            
+            aabbMaxs[childIDs.x] = make_float4(axis == KDNode::X ? splitPos : aabbMax.x,
+                                               axis == KDNode::Y ? splitPos : aabbMax.y,
+                                               axis == KDNode::Z ? splitPos : aabbMax.z,
+                                               0.0f);
+            aabbMaxs[childIDs.y] = aabbMax;
+        }    
+    }
+}
+
 #endif

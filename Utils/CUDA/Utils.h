@@ -134,8 +134,8 @@ inline __host__ __device__ bool TriangleRayIntersection(const float3 v0, const f
     return hit.x >= 0.0f && hit.y >= 0.0f && hit.z >= 0.0f && hit.y + hit.z <= 1.0f;
 }
 
-inline __host__ __device__ bool TriangleAabbIntersection(float3 v0, float3 v1, float3 v2, 
-                                                         const float3 aabbMin, const float3 aabbMax, const float eps = 0.00001f){
+inline __host__ __device__ bool TriangleAabbIntersectionStep3(float3 v0, float3 v1, float3 v2, 
+                                                              const float3 aabbMin, const float3 aabbMax, const float eps = 0.00001f){
 
     const float3 f0 = v1 - v0;
     const float3 f1 = v2 - v1;

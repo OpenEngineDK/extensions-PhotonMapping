@@ -507,9 +507,11 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), triangles * 2 + 1);
+                CHECK_FOR_CUDA_ERROR();
 
 #ifdef CPU_VERIFY
                 CheckSplits();
+                CHECK_FOR_CUDA_ERROR();
 #endif
 
                 int newTriangles;
@@ -642,11 +644,11 @@ namespace OpenEngine {
 
                 if (emptySpaceSplitting){
                     Calc1DKernelDimensions(activeRange, blocks, threads);
-                    PropagateChildAabb<false><<<blocks, threads>>>(NULL, nodes->GetInfoData(),
-                                                                   nodes->GetSplitPositionData(),
-                                                                   nodes->GetAabbMinData(),
-                                                                   nodes->GetAabbMaxData(),
-                                                                   nodes->GetChildrenData());
+                    PropagateAabbToChildren<false><<<blocks, threads>>>(NULL, nodes->GetInfoData(),
+                                                                        nodes->GetSplitPositionData(),
+                                                                        nodes->GetAabbMinData(),
+                                                                        nodes->GetAabbMaxData(),
+                                                                        nodes->GetChildrenData());
                     CHECK_FOR_CUDA_ERROR();
                 }
                 

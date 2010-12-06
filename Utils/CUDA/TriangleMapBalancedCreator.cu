@@ -31,13 +31,13 @@ namespace OpenEngine {
             using namespace TriangleMapBalancedKernels;
 
             TriangleMapBalancedCreator::TriangleMapBalancedCreator()
-                : ITriangleMapCreator() {
+                : ITriangleMapCreator(), removeFalsePrimitives(true) {
 
                 cutCreateTimer(&timerID);
 
                 logger.info << "Create balanced lower tree creator" << logger.end;
 
-                splitTriangleSet =  new CUDADataBlock<1, KDNode::bitmap4>(1);
+                splitTriangleSet = new CUDADataBlock<1, KDNode::bitmap4>(1);
                 childSets = new CUDADataBlock<1, KDNode::bitmap2>(1);
                 splitSide = new CUDADataBlock<1, int>(1);
                 splitAddr = new CUDADataBlock<1, int>(1);
@@ -141,6 +141,7 @@ namespace OpenEngine {
                 Calc1DKernelDimensionsWithSmem(activeRange, smemPrThread, 
                                                blocks, threads, smemSize, 128);
 
+                START_TIMER(timerID);
                 if (upperLeafIDs)
                     CalcSplit<true><<<blocks, threads>>>(upperLeafIDs->GetDeviceData(), 
                                                          nodes->GetInfoData(),
@@ -162,6 +163,8 @@ namespace OpenEngine {
                                                           splitTriangleSet->GetDeviceData(),
                                                           childSets->GetDeviceData(),
                                                           splitSide->GetDeviceData());
+
+                PRINT_TIMER(timerID, "CalcSplit");
                 CHECK_FOR_CUDA_ERROR();
 
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), activeRange+1);
@@ -192,6 +195,25 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 childrenCreated = splits * 2;
+
+                if (removeFalsePrimitives){
+                    
+                    // @TODO propagate downwards or upwards? Test
+                    // which is fastest (for non trivial splits
+                    // sherlock
+                    if (upperLeafIDs){
+                        PropagateAabbToChildren<true><<<blocks, threads>>>(upperLeafIDs->GetDeviceData(), 
+                                                                           nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                                                                           nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                                                                           nodes->GetChildrenData());
+                    }else
+                        PropagateAabbToChildren<false><<<blocks, threads>>>(NULL, nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                                                                            nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                                                                            nodes->GetChildrenData());
+                    CHECK_FOR_CUDA_ERROR();
+
+                    
+                }
             }
 
         }

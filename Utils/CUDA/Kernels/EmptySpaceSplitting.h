@@ -183,10 +183,10 @@ __global__ void EmptySpaceSplitting(char* nodeInfo, float* splitPoss,
 }
 
 template <bool useIndices>
-__global__ void PropagateChildAabb(int *indices,
-                                   char *nodeInfo, float *splitPoss,
-                                   float4 *aabbMins, float4 *aabbMaxs,
-                                   int2 *children){
+__global__ void PropagateAabbToChildren(int *indices,
+                                        char *nodeInfo, float *splitPoss,
+                                        float4 *aabbMins, float4 *aabbMaxs,
+                                        int2 *children){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -213,7 +213,6 @@ __global__ void PropagateChildAabb(int *indices,
                                            axis == KDNode::Z ? splitPos : aabbMax.z,
                                            0.0f);
         aabbMaxs[childIDs.y] = aabbMax;
-        
     }    
 }
 
