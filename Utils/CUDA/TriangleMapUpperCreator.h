@@ -25,7 +25,7 @@ namespace OpenEngine {
 
             class TriangleMapUpperCreator : public ITriangleMapCreator {
             public:
-                enum SplitAlgorithm {NONE, DIVIDE, SPLIT};
+                enum SplitAlgorithm {BOX, DIVIDE, SPLIT};
 
             protected:
                 unsigned int timerID;

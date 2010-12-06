@@ -26,7 +26,7 @@ namespace OpenEngine {
 
             TriangleMapUpperCreator::TriangleMapUpperCreator()
                 : ITriangleMapCreator(), emptySpaceSplitting(true),
-                  emptySpaceThreshold(0.25f), splitAlg(NONE) {
+                  emptySpaceThreshold(0.25f), splitAlg(DIVIDE) {
                 
                 cutCreateTimer(&timerID);
 
@@ -482,7 +482,7 @@ namespace OpenEngine {
                 nodes->Extend(nodes->GetSize() + activeRange * 2);
                 
                 switch(splitAlg){
-                case NONE:
+                case BOX:
                     SetSplitSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                       segments.GetOwnerData(),
                                                       nodes->GetInfoData(),
@@ -492,25 +492,11 @@ namespace OpenEngine {
                                                       splitSide->GetDeviceData());
                     break;
                 case DIVIDE:
-                    /*
-                    logger.info << "Segment prim info: " << Convert::ToString(segments.GetPrimitiveInfoData(), 1) << logger.end;
-                    logger.info << "Segment nodeID: " << Convert::ToString(segments.GetOwnerData(), 1) << logger.end;
-                    logger.info << "Node info: " << Convert::ToString(nodes->GetInfoData(), 1) << logger.end;
-                    logger.info << "Node split pos: " << Convert::ToString(nodes->GetSplitPositionData(), 1) << logger.end;
-                    logger.info << "indices in w: " << Convert::ToString(aabbMin->GetDeviceData(), 1) << logger.end;
-                    logger.info << "Node min: " << Convert::ToString(nodes->GetAabbMinData(), 1) << logger.end;
-                    logger.info << "Node max: " << Convert::ToString(nodes->GetAabbMaxData(), 1) << logger.end;
-
-                    logger.info << "p0: " << Convert::ToString(map->GetGeometry()->GetP0Data(), 1) << logger.end;
-                    logger.info << "p1: " << Convert::ToString(map->GetGeometry()->GetP1Data(), 1) << logger.end;
-                    logger.info << "p2: " << Convert::ToString(map->GetGeometry()->GetP2Data(), 1) << logger.end;
-                    */
-
                     SetDivideSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                        segments.GetOwnerData(),
                                                        nodes->GetInfoData(),
                                                        nodes->GetSplitPositionData(),
-                                                       aabbMin->GetDeviceData(),
+                                                       aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
                                                        nodes->GetAabbMinData(), nodes->GetAabbMaxData(),
                                                        map->GetGeometry()->GetP0Data(), map->GetGeometry()->GetP1Data(), map->GetGeometry()->GetP2Data(), 
                                                        splitSide->GetDeviceData());
@@ -521,9 +507,6 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), triangles * 2 + 1);
-
-                //logger.info << "splitSide: " << Convert::ToString(splitSide->GetDeviceData(), 32) << logger.end;
-                //exit(0);
 
 #ifdef CPU_VERIFY
                 CheckSplits();
@@ -734,15 +717,6 @@ namespace OpenEngine {
                     
                     int leftIndex = childrenIndex.x;
 
-                    /*
-                    int leftParent;
-                    cudaMemcpy(&leftParent, nodes->GetParentData() + leftIndex, sizeof(int), cudaMemcpyDeviceToHost);
-                    if (leftParent != index)
-                        throw Exception("Node " + Utils::Convert::ToString(leftIndex) +
-                                        "'s parent " + Utils::Convert::ToString(leftParent) +
-                                        " does not match actual parent " + Utils::Convert::ToString(index));
-                    */
-
                     float4 leftAabbMin = calcedAabbMin;
                     float4 leftAabbMax = make_float4(axis == KDNode::X ? splitPos : calcedAabbMax.x,
                                                      axis == KDNode::Y ? splitPos : calcedAabbMax.y,
@@ -755,15 +729,6 @@ namespace OpenEngine {
                         CheckUpperLeaf(leftIndex, leftAabbMin, leftAabbMax);
 
                     int rightIndex = childrenIndex.y;
-
-                    /*                        
-                    int rightParent;
-                    cudaMemcpy(&rightParent, nodes->GetParentData() + rightIndex, sizeof(int), cudaMemcpyDeviceToHost);
-                    if (rightParent != index)
-                        throw Exception("Node " + Utils::Convert::ToString(rightIndex) +
-                                        "'s parent " + Utils::Convert::ToString(rightParent) +
-                                        " does not match actual parent " + Utils::Convert::ToString(index));
-                    */
                         
                     float4 rightAabbMin = make_float4(axis == KDNode::X ? splitPos : calcedAabbMin.x,
                                                       axis == KDNode::Y ? splitPos : calcedAabbMin.y,
@@ -827,9 +792,10 @@ namespace OpenEngine {
 
                 for (int i = 0; i < triangles; ++i){
                     // Check that a bounding box is at least assigned to one side.
-                    if (sides[i] + sides[triangles + i] == 0)
+                    if (sides[i] + sides[triangles + i] == 0){
                         throw Exception("Bounding box " + Utils::Convert::ToString(i) +
-                                        "was neither left nor right.");
+                                        " was neither left nor right.");
+                    }
                 }
 
                 int prims = 0;

@@ -135,7 +135,7 @@ inline __host__ __device__ bool TriangleRayIntersection(const float3 v0, const f
 }
 
 inline __host__ __device__ bool TriangleAabbIntersection(float3 v0, float3 v1, float3 v2, 
-                                                  const float3 aabbMin, const float3 aabbMax){
+                                                         const float3 aabbMin, const float3 aabbMax, const float eps = 0.00001f){
 
     const float3 f0 = v1 - v0;
     const float3 f1 = v2 - v1;
@@ -147,12 +147,12 @@ inline __host__ __device__ bool TriangleAabbIntersection(float3 v0, float3 v1, f
     v0 -= center; v1 -= center; v2 -= center;
 
     // Only test 3 from Akenine-Möller
-    
+
     // a00
     float p0 = v0.z * v1.y - v0.y * v1.z;
     float p1 = (v1.y - v0.y) * v2.z - (v1.z - v0.z) * v2.y;
     float r = halfSize.y * fabsf(f0.z) + halfSize.z * fabsf(f0.y);
-    bool res = !(p0 > r || p1 > r || p0 < -r || p1 < -r);
+    bool res = !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
     // a01
     p0 = v1.z * v2.y - v1.y * v2.z;

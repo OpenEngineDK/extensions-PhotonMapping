@@ -52,7 +52,9 @@ namespace OpenEngine {
             /**
              * http://www.sven-woop.de/publications/Diplom_SvenWoop_Final.pdf
 
-             * Not working yet
+             * Not working yet. Precalc inverted matrix in
+             * geometrylist. Then do actual intersection in
+             * raytracer. Perhaps calc uv first and provide early out.
              */
             inline __host__ __device__ bool WoopIntersection(float3 a, float3 b, float3 c,
                                                              float3 origin, float3 direction,
