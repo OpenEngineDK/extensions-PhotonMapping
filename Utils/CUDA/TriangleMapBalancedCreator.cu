@@ -139,7 +139,7 @@ namespace OpenEngine {
                 unsigned int blocks, threads, smemSize;
                 unsigned int smemPrThread = TriangleNode::MAX_LOWER_SIZE * sizeof(float);
                 Calc1DKernelDimensionsWithSmem(activeRange, smemPrThread, 
-                                               blocks, threads, smemSize, 96);
+                                               blocks, threads, smemSize, 128);
 
                 if (upperLeafIDs)
                     CalcSplit<true><<<blocks, threads>>>(upperLeafIDs->GetDeviceData(), 

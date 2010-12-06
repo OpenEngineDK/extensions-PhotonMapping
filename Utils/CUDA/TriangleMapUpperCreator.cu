@@ -26,7 +26,7 @@ namespace OpenEngine {
 
             TriangleMapUpperCreator::TriangleMapUpperCreator()
                 : ITriangleMapCreator(), emptySpaceSplitting(true),
-                  emptySpaceThreshold(0.25f) {
+                  emptySpaceThreshold(0.25f), splitAlg(NONE) {
                 
                 cutCreateTimer(&timerID);
 
@@ -366,51 +366,7 @@ namespace OpenEngine {
                                                              tempAabbMax->GetDeviceData(),
                                                              emptyNodes);
                     CHECK_FOR_CUDA_ERROR();
-
-                    // CheckEmptySpaceSplitting(activeIndex, activeRange);
                 }
-            }
-
-            void TriangleMapUpperCreator::CheckEmptySpaceSplitting(int activeIndex, int activeRange){
-                
-                int parents[activeRange];
-                cudaMemcpy(parents, map->nodes->GetParentData() + activeIndex, activeRange * sizeof(int), cudaMemcpyDeviceToHost);
-                int minNode = activeRange + activeIndex, maxNode = 0;
-                for (int i = 0; i < activeRange; ++i){
-                    minNode = min(minNode, parents[i]);
-                    maxNode = max(maxNode, parents[i]);
-                }
-                
-                int childrenRange = maxNode - minNode + 1;
-                int2 children[childrenRange];
-                cudaMemcpy(children, map->nodes->GetChildrenData() + minNode, childrenRange * sizeof(int2), cudaMemcpyDeviceToHost);
-                
-                /*
-                logger.info << minNode << ", maxNode " << maxNode << logger.end;
-
-                logger.info << "Parents: " << parents[0];
-                for (int i = 1; i < activeRange; i++){
-                    logger.info << ", " << parents[i];
-                }
-                logger.info << logger.end;
-
-                logger.info << "Children: " << Convert::ToString(children[0]);
-                for (int i = 1; i < childrenRange; i++){
-                    logger.info << ", " << Convert::ToString(children[i]);
-                }
-                logger.info << logger.end;
-                */
-
-                for (int i = 0; i < activeRange; i++){
-                    int parent = parents[i] - minNode;
-                    int2 childIDs = children[parent];
-                    
-                    if (!(childIDs.x == i + activeIndex || childIDs.y == i + activeIndex)){
-                        logger.info << "parent: " << parent << ", childIDs: " << Convert::ToString(childIDs) << ", activeIndex " << activeIndex << logger.end;
-                        throw Exception("Not moved correctly");
-                    }
-                }
-
             }
 
             void TriangleMapUpperCreator::CheckSegmentReduction(int activeIndex, int activeRange,
@@ -524,17 +480,50 @@ namespace OpenEngine {
                 leafAddr->Extend(triangles * 2 + 1, false);
                 childSize->Extend(activeRange, false);
                 nodes->Extend(nodes->GetSize() + activeRange * 2);
+                
+                switch(splitAlg){
+                case NONE:
+                    SetSplitSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                      segments.GetOwnerData(),
+                                                      nodes->GetInfoData(),
+                                                      nodes->GetSplitPositionData(),
+                                                      aabbMin->GetDeviceData(),
+                                                      aabbMax->GetDeviceData(),
+                                                      splitSide->GetDeviceData());
+                    break;
+                case DIVIDE:
+                    /*
+                    logger.info << "Segment prim info: " << Convert::ToString(segments.GetPrimitiveInfoData(), 1) << logger.end;
+                    logger.info << "Segment nodeID: " << Convert::ToString(segments.GetOwnerData(), 1) << logger.end;
+                    logger.info << "Node info: " << Convert::ToString(nodes->GetInfoData(), 1) << logger.end;
+                    logger.info << "Node split pos: " << Convert::ToString(nodes->GetSplitPositionData(), 1) << logger.end;
+                    logger.info << "indices in w: " << Convert::ToString(aabbMin->GetDeviceData(), 1) << logger.end;
+                    logger.info << "Node min: " << Convert::ToString(nodes->GetAabbMinData(), 1) << logger.end;
+                    logger.info << "Node max: " << Convert::ToString(nodes->GetAabbMaxData(), 1) << logger.end;
 
-                SetSplitSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
-                                                  segments.GetOwnerData(),
-                                                  nodes->GetInfoData(),
-                                                  nodes->GetSplitPositionData(),
-                                                  aabbMin->GetDeviceData(),
-                                                  aabbMax->GetDeviceData(),
-                                                  splitSide->GetDeviceData());
+                    logger.info << "p0: " << Convert::ToString(map->GetGeometry()->GetP0Data(), 1) << logger.end;
+                    logger.info << "p1: " << Convert::ToString(map->GetGeometry()->GetP1Data(), 1) << logger.end;
+                    logger.info << "p2: " << Convert::ToString(map->GetGeometry()->GetP2Data(), 1) << logger.end;
+                    */
+
+                    SetDivideSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                       segments.GetOwnerData(),
+                                                       nodes->GetInfoData(),
+                                                       nodes->GetSplitPositionData(),
+                                                       aabbMin->GetDeviceData(),
+                                                       nodes->GetAabbMinData(), nodes->GetAabbMaxData(),
+                                                       map->GetGeometry()->GetP0Data(), map->GetGeometry()->GetP1Data(), map->GetGeometry()->GetP2Data(), 
+                                                       splitSide->GetDeviceData());
+                    break;
+                case SPLIT:
+                    break;
+                }
                 CHECK_FOR_CUDA_ERROR();
 
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), triangles * 2 + 1);
+
+                //logger.info << "splitSide: " << Convert::ToString(splitSide->GetDeviceData(), 32) << logger.end;
+                //exit(0);
 
 #ifdef CPU_VERIFY
                 CheckSplits();

@@ -24,6 +24,9 @@ namespace OpenEngine {
         namespace CUDA {
 
             class TriangleMapUpperCreator : public ITriangleMapCreator {
+            public:
+                enum SplitAlgorithm {NONE, DIVIDE, SPLIT};
+
             protected:
                 unsigned int timerID;
 
@@ -34,6 +37,8 @@ namespace OpenEngine {
 
                 bool emptySpaceSplitting;
                 float emptySpaceThreshold;
+
+                SplitAlgorithm splitAlg;
 
                 // Primitive aabb values
                 Resources::CUDA::CUDADataBlock<1, float4> *aabbMin;
@@ -100,8 +105,6 @@ namespace OpenEngine {
                                          Scene::TriangleNode* nodes, 
                                          float4 *finalMin, 
                                          float4 *finalMax);
-
-                void CheckEmptySpaceSplitting(int activeIndex, int activeRange);
 
                 void CheckPrimAabb(Resources::CUDA::CUDADataBlock<1, float4> *aabbMin, 
                                    Resources::CUDA::CUDADataBlock<1, float4> *aabbMax);
