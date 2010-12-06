@@ -27,7 +27,7 @@ namespace OpenEngine {
         namespace CUDA {
 
 #include <Utils/CUDA/Kernels/ColorKernels.h>
-
+            
             RayTracer::RayTracer(TriangleMap* map)
                 : map(map) {
                 
@@ -96,13 +96,12 @@ namespace OpenEngine {
                 }
                 
                 float tSplit = (splitPos - ori) / dir;
-                int lowerChild = 0 < dir ? left : right;
-                int upperChild = 0 < dir ? right : left;
+
                 if (tMin < tSplit){
-                    node = lowerChild;
+                    node = 0 < dir ? left : right;
                     tNext = min(tSplit, tNext);
                 }else
-                    node = upperChild;
+                    node = 0 < dir ? right : left;
             }
 
             __global__ void 
