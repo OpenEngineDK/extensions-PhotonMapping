@@ -11,9 +11,11 @@
 #define __TRACING_INTERSECTION_TESTS_H_
 
 #include <Utils/CUDA/Utils.h>
+#include <Utils/CUDA/Convert.h>
 #include <Scene/KDNode.h>
 
 using namespace OpenEngine::Scene;
+using namespace OpenEngine::Utils::CUDA;
 
 inline __host__ __device__
 void a0XTests(const float v0X, const float v0Y, const float v0Z, 
@@ -137,10 +139,16 @@ void a2XTests(const float v0X, const float v0Y, const float v0Z,
  * Asserts that the triangle [a,b,c] intersects the box [aabbMin,
  * aabbMax]. If this is not the case then doom on you!
  */
-inline void DivideTriangle(const float3 a, const float3 b, const float3 c,
+inline __host__ __device__
+void DivideTriangle(const float3 a, const float3 b, const float3 c,
                            const float3 aabbMin, const float3 aabbMax,
                            const char axis, const float splitPos,
                            bool &intersectsLeft, bool &intersectsRight){
+
+#ifndef __CUDA_ARCH__
+    logger.info << "AABB: " << Convert::ToString(aabbMin) << " -> " << Convert::ToString(aabbMax) << logger.end;
+    logger.info << "Triangle: " << Convert::ToString(a) << ", " << Convert::ToString(b) << ", " << Convert::ToString(c) << logger.end;
+#endif
 
     switch (axis){
     case KDNode::X:
@@ -151,7 +159,7 @@ inline void DivideTriangle(const float3 a, const float3 b, const float3 c,
             intersectsLeft = triMin <= splitPos && aabbMin.x <= triMax;
             intersectsRight = triMin <= aabbMax.x && splitPos <= triMax;
 
-            if (intersectsLeft == true || intersectsRight == true){
+            if (intersectsLeft == true && intersectsRight == true){
                 // Perform further testing based on step 3 from
                 // Akenine-Möller
                 
@@ -209,13 +217,13 @@ inline void DivideTriangle(const float3 a, const float3 b, const float3 c,
         }
     case KDNode::Y:
         {
-            const float triMin = min(a.x, min(b.x, c.x));
-            const float triMax = max(a.x, max(b.x, c.x));
+            const float triMin = min(a.y, min(b.y, c.y));
+            const float triMax = max(a.y, max(b.y, c.y));
             
-            intersectsLeft = triMin <= splitPos && aabbMin.x <= triMax;
-            intersectsRight = triMin <= aabbMax.x && splitPos <= triMax;
+            intersectsLeft = triMin <= splitPos && aabbMin.y <= triMax;
+            intersectsRight = triMin <= aabbMax.y && splitPos <= triMax;
 
-            if (intersectsLeft == true || intersectsRight == true){
+            if (intersectsLeft == true && intersectsRight == true){
                 // Perform further testing based on step 3 from
                 // Akenine-Möller
 
@@ -270,6 +278,7 @@ inline void DivideTriangle(const float3 a, const float3 b, const float3 c,
                 }
 
             }
+            break;
         }
     case KDNode::Z:
         {
@@ -279,7 +288,7 @@ inline void DivideTriangle(const float3 a, const float3 b, const float3 c,
             intersectsLeft = triMin <= splitPos && aabbMin.z <= triMax;
             intersectsRight = triMin <= aabbMax.z && splitPos <= triMax;
 
-            if (intersectsLeft == true || intersectsRight == true){
+            if (intersectsLeft == true && intersectsRight == true){
                 // Perform further testing based on step 3 from
                 // Akenine-Möller
 
@@ -299,7 +308,7 @@ inline void DivideTriangle(const float3 a, const float3 b, const float3 c,
                 
                 if (intersectsLeft == true){
                     const float halfSizeZ = (splitPos - aabbMin.z) * 0.5f;
-                    const float centerZ = aabbMin.z + halfSizeX;
+                    const float centerZ = aabbMin.z + halfSizeZ;
                     const float v0Z = a.z - centerZ;
                     const float v1Z = b.z - centerZ;
                     const float v2Z = c.z - centerZ;
@@ -316,7 +325,7 @@ inline void DivideTriangle(const float3 a, const float3 b, const float3 c,
                 }
 
                 if (intersectsRight == true){
-                    const float halfSizeZ = (aabbMax.x - splitPos) * 0.5f;
+                    const float halfSizeZ = (aabbMax.z - splitPos) * 0.5f;
                     const float centerZ = splitPos + halfSizeZ;
                     const float v0Z = a.z - centerZ;
                     const float v1Z = b.z - centerZ;
