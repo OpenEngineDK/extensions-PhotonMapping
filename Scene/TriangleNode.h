@@ -19,8 +19,6 @@ namespace OpenEngine {
         public:
             CUDADataBlock<1, float> *surfaceArea;
             CUDADataBlock<1, int> *parent;
-            CUDADataBlock<1, float4> *parentAabbMin;
-            CUDADataBlock<1, float4> *parentAabbMax;
             
         public:
             TriangleNode();
@@ -31,8 +29,6 @@ namespace OpenEngine {
 
             float* GetSurfaceAreaData() const { return surfaceArea->GetDeviceData(); }
             int* GetParentData() const { return parent->GetDeviceData(); }
-            float4* GetParentMinData() const { return parentAabbMin->GetDeviceData(); }
-            float4* GetParentMaxData() const { return parentAabbMax->GetDeviceData(); }
             
             virtual std::string ToString(unsigned int i);
         };
