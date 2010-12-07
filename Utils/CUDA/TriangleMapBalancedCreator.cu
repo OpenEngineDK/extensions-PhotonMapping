@@ -13,6 +13,7 @@
 #include <Utils/CUDA/Convert.h>
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
+#include <Utils/CUDA/IntersectionTests.h>
 #include <Logging/Logger.h>
 
 #include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
@@ -72,9 +73,9 @@ namespace OpenEngine {
                 int triangles = map->primMin->GetSize();
                 cudaMemcpyToSymbol(d_triangles, &triangles, sizeof(int));
 
-                START_TIMER(timerID); 
+                //START_TIMER(timerID); 
                 PreprocessLowerNodes(activeIndex, activeRange, map, upperLeafIDs);
-                PRINT_TIMER(timerID, "Preprocess lower nodes");
+                //PRINT_TIMER(timerID, "Preprocess lower nodes");
 
                 START_TIMER(timerID); 
                 ProcessLowerNodes(activeIndex, activeRange,
@@ -141,7 +142,6 @@ namespace OpenEngine {
                 Calc1DKernelDimensionsWithSmem(activeRange, smemPrThread, 
                                                blocks, threads, smemSize, 128);
 
-                START_TIMER(timerID);
                 if (upperLeafIDs)
                     CalcSplit<true><<<blocks, threads>>>(upperLeafIDs->GetDeviceData(), 
                                                          nodes->GetInfoData(),
@@ -163,8 +163,6 @@ namespace OpenEngine {
                                                           splitTriangleSet->GetDeviceData(),
                                                           childSets->GetDeviceData(),
                                                           splitSide->GetDeviceData());
-
-                PRINT_TIMER(timerID, "CalcSplit");
                 CHECK_FOR_CUDA_ERROR();
 
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), activeRange+1);
@@ -196,7 +194,7 @@ namespace OpenEngine {
 
                 childrenCreated = splits * 2;
 
-                if (removeFalsePrimitives){
+                if (removeFalsePrimitives && childrenCreated > 0){
                     
                     // @TODO propagate downwards or upwards? Test
                     // which is fastest (for non trivial splits
@@ -212,7 +210,16 @@ namespace OpenEngine {
                                                                             nodes->GetChildrenData());
                     CHECK_FOR_CUDA_ERROR();
 
-                    
+                    KernelConf conf = KernelConf1D(childrenCreated, 128, 39);
+                    TrimChildBitmaps<<<conf.blocks, conf.threads>>>
+                        (nodes->GetPrimitiveIndexData() + activeIndex + activeRange,
+                         nodes->GetPrimitiveBitmapData() + activeIndex + activeRange,
+                         nodes->GetAabbMinData() + activeIndex + activeRange,
+                         nodes->GetAabbMaxData() + activeIndex + activeRange,
+                         map->GetPrimitiveIndices()->GetDeviceData(),
+                         map->GetGeometry()->GetP0Data(), map->GetGeometry()->GetP1Data(), map->GetGeometry()->GetP2Data(),
+                         childrenCreated);
+                    CHECK_FOR_CUDA_ERROR();
                 }
             }
 

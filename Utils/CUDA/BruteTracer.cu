@@ -14,6 +14,7 @@
 #include <Utils/CUDA/GeometryList.h>
 #include <Utils/CUDA/SharedMemory.h>
 #include <Utils/CUDA/Utils.h>
+#include <Utils/CUDA/IntersectionTests.h>
 
 namespace OpenEngine {
     using namespace Display;

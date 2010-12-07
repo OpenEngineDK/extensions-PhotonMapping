@@ -106,103 +106,42 @@ inline bool Calc1DKernelDimensionsWithSmem(const unsigned int size, const unsign
     return succes;
 }
 
-inline __host__ __device__ bool TriangleRayIntersection(const float3 v0, const float3 v1, const float3 v2,
-                                                        const float3 origin, const float3 direction,
-                                                        float3 &hit){
-    
-    const float3 e1 = v1 - v0;
-    const float3 e2 = v2 - v0;
-    const float3 p = cross(direction, e2);
-    const float det = dot(p, e1);
-    const float3 t = origin - v0;
-    const float3 q = cross(t, e1);
-
-    // if det is 'equal' to zero, the ray lies in the triangles plane
-    // and cannot be seen.
-    //if (det == 0.0f) return false;
-
-#ifdef __CUDA_ARCH__
-    const float invDet = __fdividef(1.0f, det);
-#else
-    const float invDet = 1.0f / det;
-#endif
-
-    hit.x = invDet * dot(q, e2);
-    hit.y = invDet * dot(p, t);
-    hit.z = invDet * dot(q, direction);
-
-    return hit.x >= 0.0f && hit.y >= 0.0f && hit.z >= 0.0f && hit.y + hit.z <= 1.0f;
+inline __host__ __device__ void maxCorner(float4 v, float3 u, float3 &ret){
+    ret = make_float3(max(v.x, u.x),
+                      max(v.y, u.y),
+                      max(v.z, u.z));
 }
 
-inline __host__ __device__ bool TriangleAabbIntersectionStep3(float3 v0, float3 v1, float3 v2, 
-                                                              const float3 aabbMin, const float3 aabbMax, const float eps = 0.00001f){
+inline __host__ __device__ void minCorner(float4 v, float3 u, float3 &ret){
+    ret = make_float3(min(v.x, u.x),
+                      min(v.y, u.y),
+                      min(v.z, u.z));
+}
 
-    const float3 f0 = v1 - v0;
-    const float3 f1 = v2 - v1;
-    const float3 f2 = v0 - v2;
+inline __host__ __device__ float3 max(float3 v, float3 u){
+    return make_float3(max(v.x, u.x),
+                       max(v.y, u.y),
+                       max(v.z, u.z));
+}
 
-    const float3 halfSize = (aabbMax - aabbMin) * 0.5f;
-    const float3 center = aabbMin + halfSize;
+inline __host__ __device__ float3 min(float3 v, float3 u){
+    return make_float3(min(v.x, u.x),
+                       min(v.y, u.y),
+                       min(v.z, u.z));
+}
 
-    v0 -= center; v1 -= center; v2 -= center;
+inline __host__ __device__ float4 max(float4 v, float4 u){
+    return make_float4(max(v.x, u.x),
+                       max(v.y, u.y),
+                       max(v.z, u.z),
+                       max(v.w, u.w));
+}
 
-    // Only test 3 from Akenine-Möller
-
-    // a00
-    float p0 = v0.z * v1.y - v0.y * v1.z;
-    float p1 = (v1.y - v0.y) * v2.z - (v1.z - v0.z) * v2.y;
-    float r = halfSize.y * fabsf(f0.z) + halfSize.z * fabsf(f0.y);
-    bool res = !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
-
-    // a01
-    p0 = v1.z * v2.y - v1.y * v2.z;
-    p1 = (v2.y - v1.y) * v0.z - (v2.z - v1.z) * v0.y;
-    r = halfSize.y * fabsf(f1.z) + halfSize.z * fabsf(f1.y);
-    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
-
-    // a02
-    p0 = v2.z * v0.y - v2.y * v0.z;
-    p1 = (v0.y - v2.y) * v1.z - (v0.z - v2.z) * v1.y;
-    r = halfSize.y * fabsf(f2.z) + halfSize.z * fabsf(f2.y);
-    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
-
-    // a10
-    p0 = v0.x * v1.z - v0.z * v1.x;
-    p1 = (v1.z - v0.z) * v2.x - (v1.x - v0.x) * v2.z;
-    r = halfSize.x * fabsf(f0.z) + halfSize.z * fabsf(f0.x);
-    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
-
-    // a11
-    p0 = v1.x * v2.z - v1.z * v2.x;
-    p1 = (v2.z - v1.z) * v0.x - (v2.x - v1.x) * v0.z;
-    r = halfSize.x * fabsf(f1.z) + halfSize.z * fabsf(f1.x);
-    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
-
-    // a12
-    p0 = v2.x * v0.z - v2.z * v0.x;
-    p1 = (v0.z - v2.z) * v1.x - (v0.x - v2.x) * v1.z;
-    r = halfSize.x * fabsf(f2.z) + halfSize.z * fabsf(f2.x);
-    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
-
-    // a20
-    p0 = v0.y * v1.x - v0.x * v1.y;
-    p1 = (v1.x - v0.x) * v2.y - (v1.y - v0.y) * v2.x;
-    r = halfSize.x * fabsf(f0.y) + halfSize.y * fabsf(f0.x);
-    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
-
-    // a21
-    p0 = v1.y * v2.x - v1.x * v2.y;
-    p1 = (v2.x - v1.x) * v0.y - (v2.y - v1.y) * v0.x;
-    r = halfSize.x * fabsf(f1.y) + halfSize.y * fabsf(f1.x);
-    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
-
-    // a22
-    p0 = v2.y * v0.x - v2.x * v0.y;
-    p1 = (v0.x - v2.x) * v1.y - (v0.y - v2.y) * v1.x;
-    r = halfSize.x * fabsf(f2.y) + halfSize.y * fabsf(f2.x);
-    res &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
-
-    return res;
+inline __host__ __device__ float4 min(float4 v, float4 u){
+    return make_float4(min(v.x, u.x),
+                       min(v.y, u.y),
+                       min(v.z, u.z),
+                       min(v.w, u.w));
 }
 
 inline __host__ __device__ int firstBitSet(const int n){
@@ -285,45 +224,6 @@ inline std::string BitmapToString(long long int n){
         out << 0 << "]";
     
     return out.str();
-}
-
-
-inline __host__ __device__ void maxCorner(float4 v, float3 u, float3 &ret){
-    ret = make_float3(max(v.x, u.x),
-                      max(v.y, u.y),
-                      max(v.z, u.z));
-}
-
-inline __host__ __device__ void minCorner(float4 v, float3 u, float3 &ret){
-    ret = make_float3(min(v.x, u.x),
-                      min(v.y, u.y),
-                      min(v.z, u.z));
-}
-
-inline __host__ __device__ float3 max(float3 v, float3 u){
-    return make_float3(max(v.x, u.x),
-                       max(v.y, u.y),
-                       max(v.z, u.z));
-}
-
-inline __host__ __device__ float3 min(float3 v, float3 u){
-    return make_float3(min(v.x, u.x),
-                       min(v.y, u.y),
-                       min(v.z, u.z));
-}
-
-inline __host__ __device__ float4 max(float4 v, float4 u){
-    return make_float4(max(v.x, u.x),
-                       max(v.y, u.y),
-                       max(v.z, u.z),
-                       max(v.w, u.w));
-}
-
-inline __host__ __device__ float4 min(float4 v, float4 u){
-    return make_float4(min(v.x, u.x),
-                       min(v.y, u.y),
-                       min(v.z, u.z),
-                       min(v.w, u.w));
 }
 
 #endif // _CUDA_PHOTON_UTILS_H_

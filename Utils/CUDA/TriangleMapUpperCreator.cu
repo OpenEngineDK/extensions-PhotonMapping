@@ -14,6 +14,7 @@
 #include <Utils/CUDA/GeometryList.h>
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
+#include <Utils/CUDA/IntersectionTests.h>
 
 #include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
 

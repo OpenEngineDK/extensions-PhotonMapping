@@ -520,4 +520,40 @@ __global__ void PropagateAabbToChildren(int *indices,
     }
 }
 
+__global__ void TrimChildBitmaps(int* primitiveIndex,
+                                 KDNode::bitmap* primitiveBitmap,
+                                 float4 *nodeAabbMin, float4 *nodeAabbMax, 
+                                 int* primIndices,
+                                 float4* v0s, float4* v1s, float4* v2s, 
+                                 int children){
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (id < children){
+        const int primIndex = primitiveIndex[id];
+        KDNode::bitmap primBmp = primitiveBitmap[id];
+
+        const float3 nodeMin = make_float3(nodeAabbMin[id]);
+        const float3 nodeMax = make_float3(nodeAabbMax[id]);
+
+        KDNode::bitmap triangles = primBmp;
+        while(triangles){
+            int i = firstBitSet(triangles) - 1;
+
+            int indice = primIndices[primIndex + i];
+            
+            const float3 v0 = make_float3(v0s[indice]);
+            const float3 v1 = make_float3(v1s[indice]);
+            const float3 v2 = make_float3(v2s[indice]);
+
+            if (!TriangleAabbIntersection(v0, v1, v2, nodeMin, nodeMax))
+                primBmp -= KDNode::bitmap(1)<<i;
+            
+            triangles -= KDNode::bitmap(1)<<i;
+        }
+
+        primitiveBitmap[id] = primBmp;
+
+    }
+}
+
 #endif

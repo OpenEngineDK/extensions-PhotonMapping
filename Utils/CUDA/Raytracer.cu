@@ -15,6 +15,7 @@
 #include <Utils/CUDA/Convert.h>
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
+#include <Utils/CUDA/IntersectionTests.h>
 
 #define MAX_THREADS 128
 
