@@ -57,6 +57,15 @@ void a0XTests(const float v0X, const float v0Y, const float v0Z,
 }
 
 inline __host__ __device__
+void a0XTests(const float3 v0, const float3 v1, const float3 v2, 
+              const float3 halfSize,
+              bool &ret){
+    a0XTests(v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, 
+             halfSize.x, halfSize.y, halfSize.z, 
+             ret);
+}
+
+inline __host__ __device__
 void a1XTests(const float v0X, const float v0Y, const float v0Z, 
               const float v1X, const float v1Y, const float v1Z,
               const float v2X, const float v2Y, const float v2Z, 
@@ -92,6 +101,14 @@ void a1XTests(const float v0X, const float v0Y, const float v0Z,
 #ifndef __CUDA_ARCH__
     logger.info << "a12: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
 #endif
+}
+inline __host__ __device__
+void a1XTests(const float3 v0, const float3 v1, const float3 v2, 
+              const float3 halfSize,
+              bool &ret){
+    a1XTests(v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, 
+             halfSize.x, halfSize.y, halfSize.z, 
+             ret);
 }
 
 inline __host__ __device__
@@ -131,6 +148,14 @@ void a2XTests(const float v0X, const float v0Y, const float v0Z,
     logger.info << "a22: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
 #endif
 }
+inline __host__ __device__
+void a2XTests(const float3 v0, const float3 v1, const float3 v2, 
+              const float3 halfSize,
+              bool &ret){
+    a2XTests(v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, 
+             halfSize.x, halfSize.y, halfSize.z, 
+             ret);
+}
 
 /**
  * Divides the box [aabbMin, aabbMax] along axis at splitPos and
@@ -156,8 +181,10 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
             const float triMin = min(a.x, min(b.x, c.x));
             const float triMax = max(a.x, max(b.x, c.x));
             
-            intersectsLeft = triMin <= splitPos && aabbMin.x <= triMax;
-            intersectsRight = triMin <= aabbMax.x && splitPos <= triMax;
+            //intersectsLeft = triMin <= splitPos && aabbMin.x <= triMax;
+            //intersectsRight = triMin <= aabbMax.x && splitPos <= triMax;
+            intersectsLeft = triMin < splitPos;
+            intersectsRight = splitPos < triMax;
 
             if (intersectsLeft == true && intersectsRight == true){
                 // Perform further testing based on step 3 from
@@ -177,7 +204,7 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
                 const float v2Y = c.y - centerY;
                 const float v2Z = c.z - centerZ;
                 
-                if (intersectsLeft == true){
+                if (intersectsLeft){
                     const float halfSizeX = (splitPos - aabbMin.x) * 0.5f;
                     const float centerX = aabbMin.x + halfSizeX;
                     const float v0X = a.x - centerX;
@@ -195,7 +222,7 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
                              intersectsLeft);
                 }
                 
-                if (intersectsRight == true){
+                if (intersectsRight){
                     const float halfSizeX = (aabbMax.x - splitPos) * 0.5f;
                     const float centerX = splitPos + halfSizeX;
                     const float v0X = a.x - centerX;
@@ -220,10 +247,12 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
             const float triMin = min(a.y, min(b.y, c.y));
             const float triMax = max(a.y, max(b.y, c.y));
             
-            intersectsLeft = triMin <= splitPos && aabbMin.y <= triMax;
-            intersectsRight = triMin <= aabbMax.y && splitPos <= triMax;
+            //intersectsLeft = triMin <= splitPos && aabbMin.y <= triMax;
+            //intersectsRight = triMin <= aabbMax.y && splitPos <= triMax;
+            intersectsLeft = triMin < splitPos;
+            intersectsRight = splitPos < triMax;
 
-            if (intersectsLeft == true && intersectsRight == true){
+            if (intersectsLeft && intersectsRight){
                 // Perform further testing based on step 3 from
                 // Akenine-Möller
 
@@ -241,7 +270,7 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
                 const float v2X = c.x - centerX;
                 const float v2Z = c.z - centerZ;
 
-                if (intersectsLeft == true){
+                if (intersectsLeft){
                     const float halfSizeY = (splitPos - aabbMin.y) * 0.5f;
                     const float centerY = aabbMin.y + halfSizeY;
                     const float v0Y = a.y - centerY;
@@ -259,7 +288,7 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
                              intersectsLeft);                    
                 }
 
-                if (intersectsRight == true){
+                if (intersectsRight){
                     const float halfSizeY = (aabbMax.y - splitPos) * 0.5f;
                     const float centerY = splitPos + halfSizeY;
                     const float v0Y = a.y - centerY;
@@ -285,10 +314,12 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
             const float triMin = min(a.z, min(b.z, c.z));
             const float triMax = max(a.z, max(b.z, c.z));
             
-            intersectsLeft = triMin <= splitPos && aabbMin.z <= triMax;
-            intersectsRight = triMin <= aabbMax.z && splitPos <= triMax;
+            //intersectsLeft = triMin <= splitPos && aabbMin.z <= triMax;
+            //intersectsRight = triMin <= aabbMax.z && splitPos <= triMax;
+            intersectsLeft = triMin < splitPos;
+            intersectsRight = splitPos < triMax;
 
-            if (intersectsLeft == true && intersectsRight == true){
+            if (intersectsLeft && intersectsRight){
                 // Perform further testing based on step 3 from
                 // Akenine-Möller
 
@@ -306,7 +337,7 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
                 const float v2X = c.x - centerX;
                 const float v2Y = c.y - centerY;
                 
-                if (intersectsLeft == true){
+                if (intersectsLeft){
                     const float halfSizeZ = (splitPos - aabbMin.z) * 0.5f;
                     const float centerZ = aabbMin.z + halfSizeZ;
                     const float v0Z = a.z - centerZ;
@@ -324,7 +355,7 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
                     // Skip a20, a21, a22 as they don't contain any reference to Z
                 }
 
-                if (intersectsRight == true){
+                if (intersectsRight){
                     const float halfSizeZ = (aabbMax.z - splitPos) * 0.5f;
                     const float centerZ = splitPos + halfSizeZ;
                     const float v0Z = a.z - centerZ;
@@ -375,17 +406,11 @@ bool TriangleAabbIntersectionStep3(float3 v0, float3 v1, float3 v2,
     // Only test 3 from Akenine-Möller
 
     bool res = true;
-    a0XTests(v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, 
-             halfSize.x, halfSize.y, halfSize.z, 
-             res);
+    a0XTests(v0, v1, v2, halfSize, res);
 
-    a1XTests(v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, 
-             halfSize.x, halfSize.y, halfSize.z, 
-             res);
+    a1XTests(v0, v1, v2, halfSize, res);
 
-    a2XTests(v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, 
-             halfSize.x, halfSize.y, halfSize.z, 
-             res);
+    a2XTests(v0, v1, v2, halfSize, res);
 
     return res;
 }

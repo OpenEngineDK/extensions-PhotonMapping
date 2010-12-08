@@ -27,7 +27,23 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
             const float splitPos = splitPoss[owner];
                 
             const int id = primInfo.x + threadIdx.x;
-                
+
+            switch(axis){
+            case KDNode::X:
+                splitSides[id] = aabbMins[id].x < splitPos;
+                splitSides[id + d_triangles] = splitPos < aabbMaxs[id].x;
+                break;
+            case KDNode::Y:
+                splitSides[id] = aabbMins[id].y < splitPos;
+                splitSides[id + d_triangles] = splitPos < aabbMaxs[id].y;
+                break;
+            case KDNode::Z:
+                splitSides[id] = aabbMins[id].z < splitPos;
+                splitSides[id + d_triangles] = splitPos < aabbMaxs[id].z;
+                break;
+            }
+
+            /*
             const float4 aabbMin = aabbMins[id];
             float leftPos = axis == KDNode::X ? aabbMin.x : aabbMin.y;
             leftPos = axis == KDNode::Z ? aabbMin.z : leftPos;
@@ -37,6 +53,7 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
             float rightPos = axis == KDNode::X ? aabbMax.x : aabbMax.y;
             rightPos = axis == KDNode::Z ? aabbMax.z : rightPos;
             splitSides[id + d_triangles] = splitPos < rightPos;
+            */
 
             if (segmentID == 0 && threadIdx.x == 0)
                 splitSides[d_triangles * 2] = 0;
