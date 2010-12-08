@@ -104,9 +104,9 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
                     const float3 nodeMin = make_float3(nodeAabbMins[nodeID]);
                     const float3 nodeMax = make_float3(nodeAabbMaxs[nodeID]);
                     const int primID = primMins[id].w;
-                    float3 v0 = make_float3(v0s[primID]);
-                    float3 v1 = make_float3(v1s[primID]);
-                    float3 v2 = make_float3(v2s[primID]);
+                    const float3 v0 = make_float3(v0s[primID]);
+                    const float3 v1 = make_float3(v1s[primID]);
+                    const float3 v2 = make_float3(v2s[primID]);
                     
                     splitLeft = TriangleAabbIntersectionStep3(v0, v1, v2, nodeMin,
                                                           make_float3(axis == KDNode::X ? splitPos : nodeMax.x,

@@ -17,6 +17,8 @@
 using namespace OpenEngine::Scene;
 using namespace OpenEngine::Utils::CUDA;
 
+#define EPS 0.00001f
+
 inline __host__ __device__
 void a0XTests(const float v0X, const float v0Y, const float v0Z, 
               const float v1X, const float v1Y, const float v1Z,
@@ -27,7 +29,7 @@ void a0XTests(const float v0X, const float v0Y, const float v0Z,
     // a00
     float p0 = v0Z * v1Y - v0Y * v1Z;
     float p1 = (v1Y - v0Y) * v2Z - (v1Z - v0Z) * v2Y;
-    float r = halfSizeZ * fabsf(v1Y - v0Y) + halfSizeY * fabsf(v1Z - v0Z);
+    float r = halfSizeZ * fabsf(v1Y - v0Y) + halfSizeY * fabsf(v1Z - v0Z) + EPS;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -37,7 +39,7 @@ void a0XTests(const float v0X, const float v0Y, const float v0Z,
     // a01
     p0 = v1Z * v2Y - v1Y * v2Z;
     p1 = (v2Y - v1Y) * v0Z - (v2Z - v1Z) * v0Y;
-    r = halfSizeZ * fabsf(v2Y - v1Y) + halfSizeY * fabsf(v2Z - v1Z);
+    r = halfSizeZ * fabsf(v2Y - v1Y) + halfSizeY * fabsf(v2Z - v1Z) + EPS;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -47,7 +49,7 @@ void a0XTests(const float v0X, const float v0Y, const float v0Z,
     // a02
     p0 = v2Z * v0Y - v2Y * v0Z;
     p1 = (v0Y - v2Y) * v1Z - (v0Z - v2Z) * v1Y;
-    r = halfSizeZ * fabsf(v0Y - v2Y) + halfSizeY * fabsf(v0Z - v2Z);
+    r = halfSizeZ * fabsf(v0Y - v2Y) + halfSizeY * fabsf(v0Z - v2Z) + EPS;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -75,7 +77,7 @@ void a1XTests(const float v0X, const float v0Y, const float v0Z,
     // a10
     float p0 = v0X * v1Z - v0Z * v1X;
     float p1 = (v1Z - v0Z) * v2X - (v1X - v0X) * v2Z;
-    float r = halfSizeX * fabsf(v1Z - v0Z) + halfSizeZ * fabsf(v1X - v0X);
+    float r = halfSizeX * fabsf(v1Z - v0Z) + halfSizeZ * fabsf(v1X - v0X) + EPS;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -85,7 +87,7 @@ void a1XTests(const float v0X, const float v0Y, const float v0Z,
     // a11
     p0 = v1X * v2Z - v1Z * v2X;
     p1 = (v2Z - v1Z) * v0X - (v2X - v1X) * v0Z;
-    r = halfSizeX * fabsf(v2Z - v1Z) + halfSizeZ * fabsf(v2X - v1X);
+    r = halfSizeX * fabsf(v2Z - v1Z) + halfSizeZ * fabsf(v2X - v1X) + EPS;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -95,7 +97,7 @@ void a1XTests(const float v0X, const float v0Y, const float v0Z,
     // a12
     p0 = v2X * v0Z - v2Z * v0X;
     p1 = (v0Z - v2Z) * v1X - (v0X - v2X) * v1Z;
-    r = halfSizeX * fabsf(v0Z - v2Z) + halfSizeZ * fabsf(v0X - v2X);
+    r = halfSizeX * fabsf(v0Z - v2Z) + halfSizeZ * fabsf(v0X - v2X) + EPS;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -121,7 +123,7 @@ void a2XTests(const float v0X, const float v0Y, const float v0Z,
     // a20
     float p0 = v0Y * v1X - v0X * v1Y;
     float p1 = (v1X - v0X) * v2Y - (v1Y - v0Y) * v2X;
-    float r =  halfSizeY * fabsf(v1X - v0X) + halfSizeX * fabsf(v1Y - v0Y);
+    float r =  halfSizeY * fabsf(v1X - v0X) + halfSizeX * fabsf(v1Y - v0Y) + EPS;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -131,7 +133,7 @@ void a2XTests(const float v0X, const float v0Y, const float v0Z,
     // a21
     p0 = v1Y * v2X - v1X * v2Y;
     p1 = (v2X - v1X) * v0Y - (v2Y - v1Y) * v0X;
-    r = halfSizeY * fabsf(v2X - v1X) + halfSizeX * fabsf(v2Y - v1Y);
+    r = halfSizeY * fabsf(v2X - v1X) + halfSizeX * fabsf(v2Y - v1Y) + EPS;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -141,7 +143,7 @@ void a2XTests(const float v0X, const float v0Y, const float v0Z,
     // a22
     p0 = v2Y * v0X - v2X * v0Y;
     p1 = (v0X - v2X) * v1Y - (v0Y - v2Y) * v1X;
-    r = halfSizeY * fabsf(v0X - v2X) + halfSizeX * fabsf(v0Y - v2Y);
+    r = halfSizeY * fabsf(v0X - v2X) + halfSizeX * fabsf(v0Y - v2Y) + EPS;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
