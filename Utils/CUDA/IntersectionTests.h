@@ -157,6 +157,7 @@ void a2XTests(const float3 v0, const float3 v1, const float3 v2,
              ret);
 }
 
+
 /**
  * Divides the box [aabbMin, aabbMax] along axis at splitPos and
  * checks which sides the triangle [a,b,c] intersects.
@@ -166,10 +167,10 @@ void a2XTests(const float3 v0, const float3 v1, const float3 v2,
  */
 inline __host__ __device__
 void DivideTriangle(const float3 a, const float3 b, const float3 c,
-                           const float3 aabbMin, const float3 aabbMax,
-                           const char axis, const float splitPos,
-                           bool &intersectsLeft, bool &intersectsRight){
-
+                    const float3 aabbMin, const float3 aabbMax,
+                    const char axis, const float splitPos,
+                    bool &intersectsLeft, bool &intersectsRight){
+    
 #ifndef __CUDA_ARCH__
     logger.info << "AABB: " << Convert::ToString(aabbMin) << " -> " << Convert::ToString(aabbMax) << logger.end;
     logger.info << "Triangle: " << Convert::ToString(a) << ", " << Convert::ToString(b) << ", " << Convert::ToString(c) << logger.end;
@@ -265,7 +266,7 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
                 const float v0Z = a.z - centerZ;
 
                 const float v1X = b.x - centerX;
-                const float v1Z = b.x - centerZ;
+                const float v1Z = b.z - centerZ;
 
                 const float v2X = c.x - centerX;
                 const float v2Z = c.z - centerZ;
@@ -393,10 +394,6 @@ bool TriangleAabbIntersectionStep1(const float3 v0, const float3 v1, const float
 inline __host__ __device__ 
 bool TriangleAabbIntersectionStep3(float3 v0, float3 v1, float3 v2, 
                                    const float3 aabbMin, const float3 aabbMax){
-
-    const float3 f0 = v1 - v0;
-    const float3 f1 = v2 - v1;
-    const float3 f2 = v0 - v2;
 
     const float3 halfSize = (aabbMax - aabbMin) * 0.5f;
     const float3 center = aabbMin + halfSize;

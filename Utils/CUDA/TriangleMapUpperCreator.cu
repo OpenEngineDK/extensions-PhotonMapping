@@ -493,14 +493,14 @@ namespace OpenEngine {
                                                       splitSide->GetDeviceData());
                     break;
                 case DIVIDE:
-                    SetDivideSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
-                                                       segments.GetOwnerData(),
-                                                       nodes->GetInfoData(),
-                                                       nodes->GetSplitPositionData(),
-                                                       aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
-                                                       nodes->GetAabbMinData(), nodes->GetAabbMaxData(),
-                                                       map->GetGeometry()->GetP0Data(), map->GetGeometry()->GetP1Data(), map->GetGeometry()->GetP2Data(), 
-                                                       splitSide->GetDeviceData());
+                    SetDivideSide<false><<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                              segments.GetOwnerData(),
+                                                              nodes->GetInfoData(),
+                                                              nodes->GetSplitPositionData(),
+                                                              aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
+                                                              nodes->GetAabbMinData(), nodes->GetAabbMaxData(),
+                                                              map->GetGeometry()->GetP0Data(), map->GetGeometry()->GetP1Data(), map->GetGeometry()->GetP2Data(), 
+                                                              splitSide->GetDeviceData());
                     break;
                 case SPLIT:
                     break;

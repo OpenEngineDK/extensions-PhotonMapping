@@ -61,6 +61,7 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
     }
 }
 
+template <bool useFast>
 __global__ void 
 __launch_bounds__(Segments::SEGMENT_SIZE) 
     SetDivideSide(int2 *segmentPrimInfo,
@@ -82,48 +83,53 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
                 
             const int id = primInfo.x + threadIdx.x;
 
-            /*
-            const float3 primMax = make_float3(primMaxs[id]);
-            float rightPos = axis == KDNode::X ? primMax.x : primMax.y;
-            rightPos = axis == KDNode::Z ? primMax.z : rightPos;
-            bool splitRight = splitPos < rightPos;
-
-            const float4 primMin = primMins[id];
-            float leftPos = axis == KDNode::X ? primMin.x : primMin.y;
-            leftPos = axis == KDNode::Z ? primMin.z : leftPos;
-            bool splitLeft = leftPos < splitPos;            
-
-            if (splitLeft && splitRight){
-                const float3 nodeMin = make_float3(nodeAabbMins[nodeID]);
-                const float3 nodeMax = make_float3(nodeAabbMaxs[nodeID]);
-                const int primID = primMin.w;
-                float3 v0 = make_float3(v0s[primID]);
-                float3 v1 = make_float3(v1s[primID]);
-                float3 v2 = make_float3(v2s[primID]);
+            bool splitLeft, splitRight;
+            if (!useFast){
+                switch(axis){
+                case KDNode::X:
+                    splitLeft = primMins[id].x < splitPos;
+                    splitRight = splitPos < primMaxs[id].x;
+                    break;
+                case KDNode::Y:
+                    splitLeft = primMins[id].y < splitPos;
+                    splitRight = splitPos < primMaxs[id].y;
+                    break;
+                case KDNode::Z:
+                    splitLeft = primMins[id].z < splitPos;
+                    splitRight = splitPos < primMaxs[id].z;
+                    break;
+                }
                 
-                splitLeft = TriangleAabbIntersectionStep3(v0, v1, v2, nodeMin,
+                if (splitLeft && splitRight){
+                    const float3 nodeMin = make_float3(nodeAabbMins[nodeID]);
+                    const float3 nodeMax = make_float3(nodeAabbMaxs[nodeID]);
+                    const int primID = primMins[id].w;
+                    float3 v0 = make_float3(v0s[primID]);
+                    float3 v1 = make_float3(v1s[primID]);
+                    float3 v2 = make_float3(v2s[primID]);
+                    
+                    splitLeft = TriangleAabbIntersectionStep3(v0, v1, v2, nodeMin,
                                                           make_float3(axis == KDNode::X ? splitPos : nodeMax.x,
                                                                       axis == KDNode::Y ? splitPos : nodeMax.y,
                                                                       axis == KDNode::Z ? splitPos : nodeMax.z));
+                    
+                    splitRight = TriangleAabbIntersectionStep3(v0, v1, v2,
+                                                               make_float3(axis == KDNode::X ? splitPos : nodeMin.x,
+                                                                           axis == KDNode::Y ? splitPos : nodeMin.y,
+                                                                           axis == KDNode::Z ? splitPos : nodeMin.z),
+                                                               nodeMax);
+                }
+            }else{
+                const int primID = primMins[id].w;
+                const float3 v0 = make_float3(v0s[primID]);
+                const float3 v1 = make_float3(v1s[primID]);
+                const float3 v2 = make_float3(v2s[primID]);            
+                const float3 nodeMin = make_float3(nodeAabbMins[nodeID]);
+                const float3 nodeMax = make_float3(nodeAabbMaxs[nodeID]);
                 
-                splitRight = TriangleAabbIntersectionStep3(v0, v1, v2,
-                                                           make_float3(axis == KDNode::X ? splitPos : nodeMin.x,
-                                                                       axis == KDNode::Y ? splitPos : nodeMin.y,
-                                                                       axis == KDNode::Z ? splitPos : nodeMin.z),
-                                                           nodeMax);
+                DivideTriangle(v0, v1, v2, nodeMin, nodeMax, axis, splitPos,
+                               splitLeft, splitRight);
             }
-            */
-
-            const int primID = primMins[id].w;
-            const float3 v0 = make_float3(v0s[primID]);
-            const float3 v1 = make_float3(v1s[primID]);
-            const float3 v2 = make_float3(v2s[primID]);            
-            const float3 nodeMin = make_float3(nodeAabbMins[nodeID]);
-            const float3 nodeMax = make_float3(nodeAabbMaxs[nodeID]);
-
-            bool splitLeft, splitRight;
-            DivideTriangle(v0, v1, v2, nodeMin, nodeMax, axis, splitPos,
-                           splitLeft, splitRight);
 
             splitSides[id] = splitLeft;
             splitSides[id + d_triangles] = splitRight;
