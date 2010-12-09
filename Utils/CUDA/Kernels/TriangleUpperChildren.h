@@ -120,6 +120,7 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
                                                                nodeMax);
                 }
             }else{
+
                 const int primID = primMins[id].w;
                 const float3 v0 = make_float3(v0s[primID]);
                 const float3 v1 = make_float3(v1s[primID]);

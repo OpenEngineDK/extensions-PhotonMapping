@@ -510,6 +510,42 @@ namespace OpenEngine {
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), triangles * 2 + 1);
                 CHECK_FOR_CUDA_ERROR();
 
+                /*
+                if (activeRange == 86){
+                    int node = 356;
+                    logger.info << nodes->ToString(node) << logger.end;
+
+                    logger.info << "primMin: " << Convert::ToString(aabbMin->GetDeviceData() + 7935, 1) << logger.end;
+                    logger.info << "primMax: " << Convert::ToString(aabbMax->GetDeviceData() + 7935, 1) << logger.end;
+
+                    logger.info << "v0: " << Convert::ToString(map->GetGeometry()->GetP0Data() + 2, 1) << logger.end;
+                    logger.info << "v1: " << Convert::ToString(map->GetGeometry()->GetP1Data() + 2, 1) << logger.end;
+                    logger.info << "v2: " << Convert::ToString(map->GetGeometry()->GetP2Data() + 2, 1) << logger.end;
+
+                    float3 v0, v1, v2, nodeMin, nodeMax;
+                    cudaMemcpy(&v0, map->GetGeometry()->GetP0Data() + 2, sizeof(float3), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&v1, map->GetGeometry()->GetP1Data() + 2, sizeof(float3), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&v2, map->GetGeometry()->GetP2Data() + 2, sizeof(float3), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&nodeMin, nodes->GetAabbMinData() + node, sizeof(float3), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&nodeMax, nodes->GetAabbMaxData() + node, sizeof(float3), cudaMemcpyDeviceToHost);
+                    char axis;
+                    cudaMemcpy(&axis, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
+                    float splitPos;
+                    cudaMemcpy(&splitPos, nodes->GetSplitPositionData() + node, sizeof(float), cudaMemcpyDeviceToHost);
+
+                    if (TriangleAabbIntersectionStep3(v0, v1, v2, nodeMin, nodeMax))
+                        logger.info << "included in parent\n" << logger.end;
+                    else
+                        logger.info << "WTF!!\n" << logger.end;
+
+                    bool hit =  TriangleAabbIntersectionStep3(v0, v1, v2, nodeMin,
+                                                               make_float3(axis == KDNode::X ? splitPos : nodeMax.x,
+                                                                           axis == KDNode::Y ? splitPos : nodeMax.y,
+                                                                           axis == KDNode::Z ? splitPos : nodeMax.z));
+                    logger.info << "included in left: " << hit << "\n" << logger.end;
+                }
+                */
+
 #ifdef CPU_VERIFY
                 CheckSplits();
                 CHECK_FOR_CUDA_ERROR();

@@ -421,6 +421,8 @@ inline __host__ __device__ bool TriangleAabbIntersection(const float3 v0, const 
         && TriangleAabbIntersectionStep3(v0, v1, v2, aabbMin, aabbMax);
 }
 
+/* Möller Trumbore Ray Triangle Intersection */
+
 inline __host__ __device__ bool TriangleRayIntersection(const float3 v0, const float3 v1, const float3 v2,
                                                         const float3 origin, const float3 direction,
                                                         float3 &hit){
@@ -449,4 +451,87 @@ inline __host__ __device__ bool TriangleRayIntersection(const float3 v0, const f
     return hit.x >= 0.0f && hit.y >= 0.0f && hit.z >= 0.0f && hit.y + hit.z <= 1.0f;
 }
 
+/*** Woop Ray Triangle Intersection ***/
+
+inline __host__ __device__
+void WoopTransformationMatrix(const float3 a, const float3 b, const float3 c, 
+                              float4 &m0, float4 &m1, float4 &m2){
+    // Compute transformation matrix
+    const float3 invM0 = a-c;
+    const float3 invM1 = b-c;
+    const float3 invM2 = cross(invM0, invM1)-c;
+    
+    // Invert the damn matrix man
+    const float det = invM0.x * (invM1.y * invM2.z - invM1.z * invM2.y) +
+        invM1.x * (invM2.y * invM0.z - invM2.z * invM0.y) +
+        invM2.x * (invM0.y * invM1.z - invM0.z * invM1.y);
+
+    const float invDet = 1.0f / det;
+
+    const float3 tmp0 = make_float3(invM1.y * invM2.z - invM1.z * invM2.y,
+                                    invM2.x * invM1.z - invM2.z * invM1.x,
+                                    invM1.x * invM2.y - invM1.y * invM2.x) * invDet;
+    
+    const float3 tmp1 = make_float3(invM2.y * invM0.z - invM2.z * invM0.y,
+                                    invM0.x * invM2.z - invM0.z * invM2.x,
+                                    invM2.x * invM0.y - invM2.y * invM0.x) * invDet;
+    
+    const float3 tmp2 = make_float3(invM0.y * invM1.z - invM0.z * invM1.y,
+                                    invM1.x * invM0.z - invM1.z * invM0.x,
+                                    invM0.x * invM1.y - invM0.y * invM1.x) * invDet;
+
+    m0 = make_float4(tmp0, dot(tmp0, c));
+    m1 = make_float4(tmp1, dot(tmp1, c));
+    m2 = make_float4(tmp2, dot(tmp2, c));
+}
+
+inline __host__ __device__
+float WoopLambda(const float3 origin, const float3 direction,
+                const float4 m2){
+    
+    return - (dot(make_float3(m2), origin) - m2.w) / dot(make_float3(m2), direction);
+}
+
+inline __host__ __device__
+float WoopU(const float3 origin, const float3 direction,
+            const float lambda, const float4 m0){
+    
+    return lambda * dot(make_float3(m0), direction) + dot(make_float3(m0), origin) - m0.w;
+}
+
+inline __host__ __device__
+float WoopV(const float3 origin, const float3 direction,
+            const float lambda, const float4 m1){
+    
+    return lambda * dot(make_float3(m1), direction) + dot(make_float3(m1), origin) - m1.w;
+}
+
+inline __host__ __device__
+bool WoopIntersectionTest(const float3 origin, const float3 direction,
+                          const float4 m0, const float4 m1, const float4 m2,
+                          float3 &tHit){
+
+    tHit.x = WoopLambda(origin, direction, m2);
+    tHit.y = WoopU(origin, direction, tHit.x, m0);
+    tHit.z = WoopV(origin, direction, tHit.x, m1);
+    
+    return tHit.x >= 0.0f && tHit.y >= 0.0f && tHit.z >= 0.0f && tHit.y + tHit.z <= 1.0f;
+}
+
+inline __host__ __device__
+bool WoopIntersection(const float3 a, const float3 b, const float3 c, 
+                      const float3 origin, const float3 direction){
+    
+    float4 m0, m1, m2;
+    WoopTransformationMatrix(a, b, c, m0, m1, m2);
+        
+    float3 tHit = make_float3(1000.0f, 1000.0f, 1000.0f);
+    bool hit = WoopIntersectionTest(origin, direction, m0, m1, m2, tHit);
+
+    return hit;
+}
+
+
 #endif
+
+
