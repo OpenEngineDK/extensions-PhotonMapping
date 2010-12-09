@@ -24,7 +24,7 @@ namespace OpenEngine {
         namespace CUDA {
             
             IRayTracer::IRayTracer() 
-                : visualizeRays(false), intersectionAlgorithm(MOELLER) {                
+                : visualizeRays(false), intersectionAlgorithm(WOOP) {
 
                 origin = new CUDADataBlock<1, float4>(1);
                 direction = new CUDADataBlock<1, float4>(1);

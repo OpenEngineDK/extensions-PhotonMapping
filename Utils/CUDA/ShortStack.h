@@ -41,20 +41,12 @@ namespace OpenEngine {
                 };
 
                 template <int N> struct Stack {
-                    //Element* elm;
                     Element elm[N];
                     int next, count;
 
                     __host__ __device__ Stack() {
-                        //elm = new Element[N];
                         Erase();
                     }
-
-                    /*
-                    __device__ __host__ Stack(Element* elm) 
-                        : elm(elm) {
-                        Erase();
-                        }*/
                     
                     __device__ __host__ void Erase() { next = count = 0; }
 
@@ -114,7 +106,7 @@ namespace OpenEngine {
                 virtual ~ShortStack();
 
                 void Trace(Display::IRenderCanvas* canvas, uchar4* canvasData);
-                void HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes);
+                void HostTrace(int x, int y, Scene::TriangleNode* nodes);
 
             };
             

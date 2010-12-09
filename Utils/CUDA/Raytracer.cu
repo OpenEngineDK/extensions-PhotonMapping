@@ -342,42 +342,17 @@ namespace OpenEngine {
                         CHECK_FOR_CUDA_ERROR();
                         
                         //logger.info << "Testing primitive " << prim << logger.end;
-                        float3 hitCoords;
+
                         if (intersectionAlgorithm == WOOP){
-                            
                             float4 *woop0, *woop1, *woop2;
                             geom->GetWoopValues(&woop0, &woop1, &woop2);
-                            
-                            float4 w0, w1, w2;
-                            cudaMemcpy(&w0, woop0 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
-                            cudaMemcpy(&w1, woop1 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
-                            cudaMemcpy(&w2, woop2 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
 
-                            hitCoords.x = WoopLambda(ori, dir, w2);
-                            if (0.0f <= hitCoords.x && hitCoords.x < tHit.x){
-                                hitCoords.y = WoopUV(ori, dir, hitCoords.x, w0);
-                                hitCoords.z = WoopUV(ori, dir, hitCoords.x, w1);
-                                
-                                if (hitCoords.y >= 0.0f && hitCoords.z >= 0.0f && hitCoords.y + hitCoords.z <= 1.0f){
-                                    primHit = prim;
-                                    tHit = hitCoords;
-                                }
-                            }
+                            IRayTracer::Woop(woop0, woop1, woop2, prim,
+                                             ori, dir, primHit, tHit);
 
                         }else{
-
-                            float3 v0, v1, v2;
-                            cudaMemcpy(&v0, geom->GetP0Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
-                            cudaMemcpy(&v1, geom->GetP1Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
-                            cudaMemcpy(&v2, geom->GetP2Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
-                            CHECK_FOR_CUDA_ERROR();
-
-                            bool hit = TriangleRayIntersection(v0, v1, v2, ori, dir, hitCoords);
-
-                            if (hit && hitCoords.x < tHit.x){
-                                primHit = prim;
-                                tHit = hitCoords;
-                            }
+                            IRayTracer::MoellerTrumbore(geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), prim,
+                                                        ori, dir, primHit, tHit);
                         }
                         
                         triangles -= KDNode::bitmap(1)<<i;

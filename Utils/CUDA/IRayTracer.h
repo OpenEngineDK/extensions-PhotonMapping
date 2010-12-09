@@ -61,10 +61,24 @@ namespace OpenEngine {
                           float3 origin, float3 direction, int &primHit, float3 &tHit){
                     
                     float3 hitCoords;
-                    hitCoords.x = WoopLambda(origin, direction, woop2[prim]);
+#ifdef __CUDA_ARCH__
+                    float4 woop = woop2[prim];
+#else
+                    float4 woop;
+                    cudaMemcpy(&woop, woop0 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
+#endif
+                    hitCoords.x = WoopLambda(origin, direction, woop);
                     if (0.0f <= hitCoords.x && hitCoords.x < tHit.x){
-                        hitCoords.y = WoopUV(origin, direction, hitCoords.x, woop0[prim]);
-                        hitCoords.z = WoopUV(origin, direction, hitCoords.x, woop1[prim]);
+#ifdef __CUDA_ARCH__
+                        float4 w0 = woop0[prim];
+                        float4 w1 = woop1[prim];
+#else
+                        float4 w0, w1;
+                        cudaMemcpy(&w0, woop0 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
+                        cudaMemcpy(&w1, woop1 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
+#endif
+                        hitCoords.y = WoopUV(origin, direction, hitCoords.x, w0);
+                        hitCoords.z = WoopUV(origin, direction, hitCoords.x, w1);
                         
                         if (hitCoords.y >= 0.0f && hitCoords.z >= 0.0f && hitCoords.y + hitCoords.z <= 1.0f){
                             primHit = prim;
@@ -79,9 +93,16 @@ namespace OpenEngine {
                     
                     float3 hitCoords;
 
+#ifdef __CUDA_ARCH__
                     const float3 v0 = make_float3(v0s[prim]);
                     const float3 v1 = make_float3(v1s[prim]);
                     const float3 v2 = make_float3(v2s[prim]);
+#else
+                    float3 v0, v1, v2;
+                    cudaMemcpy(&v0, v0s + prim, sizeof(float3), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&v1, v1s + prim, sizeof(float3), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&v2, v2s + prim, sizeof(float3), cudaMemcpyDeviceToHost);
+#endif
 
                     const float3 e1 = v1 - v0;
                     const float3 e2 = v2 - v0;
