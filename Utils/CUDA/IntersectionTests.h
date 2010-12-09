@@ -178,205 +178,195 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
     logger.info << "Triangle: " << Convert::ToString(a) << ", " << Convert::ToString(b) << ", " << Convert::ToString(c) << logger.end;
 #endif
 
-    switch (axis){
-    case KDNode::X:
-        {
-            const float triMin = min(a.x, min(b.x, c.x));
-            const float triMax = max(a.x, max(b.x, c.x));
-            
-            //intersectsLeft = triMin <= splitPos && aabbMin.x <= triMax;
-            //intersectsRight = triMin <= aabbMax.x && splitPos <= triMax;
-            intersectsLeft = triMin < splitPos;
-            intersectsRight = splitPos < triMax;
+    if (axis == KDNode::X){
+        const float triMin = min(a.x, min(b.x, c.x));
+        const float triMax = max(a.x, max(b.x, c.x));
+        
+        //intersectsLeft = triMin <= splitPos && aabbMin.x <= triMax;
+        //intersectsRight = triMin <= aabbMax.x && splitPos <= triMax;
+        intersectsLeft = triMin < splitPos;
+        intersectsRight = splitPos < triMax;
 
-            if (intersectsLeft == true && intersectsRight == true){
-                // Perform further testing based on step 3 from
-                // Akenine-Möller
+        if (intersectsLeft == true && intersectsRight == true){
+            // Perform further testing based on step 3 from
+            // Akenine-Möller
                 
-                const float halfSizeY = (aabbMax.y - aabbMin.y) * 0.5f;
-                const float halfSizeZ = (aabbMax.z - aabbMin.z) * 0.5f;
-                const float centerY = aabbMin.y + halfSizeY;
-                const float centerZ = aabbMin.z + halfSizeZ;
+            const float halfSizeY = (aabbMax.y - aabbMin.y) * 0.5f;
+            const float halfSizeZ = (aabbMax.z - aabbMin.z) * 0.5f;
+            const float centerY = aabbMin.y + halfSizeY;
+            const float centerZ = aabbMin.z + halfSizeZ;
 
-                const float v0Y = a.y - centerY;
-                const float v0Z = a.z - centerZ;
+            const float v0Y = a.y - centerY;
+            const float v0Z = a.z - centerZ;
 
-                const float v1Y = b.y - centerY;
-                const float v1Z = b.z - centerZ;
+            const float v1Y = b.y - centerY;
+            const float v1Z = b.z - centerZ;
 
-                const float v2Y = c.y - centerY;
-                const float v2Z = c.z - centerZ;
+            const float v2Y = c.y - centerY;
+            const float v2Z = c.z - centerZ;
                 
-                if (intersectsLeft){
-                    const float halfSizeX = (splitPos - aabbMin.x) * 0.5f;
-                    const float centerX = aabbMin.x + halfSizeX;
-                    const float v0X = a.x - centerX;
-                    const float v1X = b.x - centerX;
-                    const float v2X = c.x - centerX;
-                    
-                    // Skip a00, a01, a02 as they don't contain any reference to X
-
-                    a1XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsLeft);
-                    
-                    a2XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsLeft);
-                }
-                
-                if (intersectsRight){
-                    const float halfSizeX = (aabbMax.x - splitPos) * 0.5f;
-                    const float centerX = splitPos + halfSizeX;
-                    const float v0X = a.x - centerX;
-                    const float v1X = b.x - centerX;
-                    const float v2X = c.x - centerX;
-
-                    // Skip a00, a01, a02 as they don't contain any reference to X
-
-                    a1XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsRight);
-                    
-                    a2XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsRight);
-                }
-            }
-            break;
-        }
-    case KDNode::Y:
-        {
-            const float triMin = min(a.y, min(b.y, c.y));
-            const float triMax = max(a.y, max(b.y, c.y));
-            
-            //intersectsLeft = triMin <= splitPos && aabbMin.y <= triMax;
-            //intersectsRight = triMin <= aabbMax.y && splitPos <= triMax;
-            intersectsLeft = triMin < splitPos;
-            intersectsRight = splitPos < triMax;
-
-            if (intersectsLeft && intersectsRight){
-                // Perform further testing based on step 3 from
-                // Akenine-Möller
-
-                const float halfSizeX = (aabbMax.x - aabbMin.x) * 0.5f;
-                const float halfSizeZ = (aabbMax.z - aabbMin.z) * 0.5f;
+            if (intersectsLeft){
+                const float halfSizeX = (splitPos - aabbMin.x) * 0.5f;
                 const float centerX = aabbMin.x + halfSizeX;
-                const float centerZ = aabbMin.z + halfSizeZ;
-
                 const float v0X = a.x - centerX;
-                const float v0Z = a.z - centerZ;
-
                 const float v1X = b.x - centerX;
-                const float v1Z = b.z - centerZ;
-
                 const float v2X = c.x - centerX;
+                    
+                // Skip a00, a01, a02 as they don't contain any reference to X
+
+                a1XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsLeft);
+                    
+                a2XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsLeft);
+            }
+                
+            if (intersectsRight){
+                const float halfSizeX = (aabbMax.x - splitPos) * 0.5f;
+                const float centerX = splitPos + halfSizeX;
+                const float v0X = a.x - centerX;
+                const float v1X = b.x - centerX;
+                const float v2X = c.x - centerX;
+
+                // Skip a00, a01, a02 as they don't contain any reference to X
+
+                a1XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsRight);
+                    
+                a2XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsRight);
+            }
+        }
+    }else if (axis == KDNode::Y){
+        const float triMin = min(a.y, min(b.y, c.y));
+        const float triMax = max(a.y, max(b.y, c.y));
+        
+        //intersectsLeft = triMin <= splitPos && aabbMin.y <= triMax;
+        //intersectsRight = triMin <= aabbMax.y && splitPos <= triMax;
+        intersectsLeft = triMin < splitPos;
+        intersectsRight = splitPos < triMax;
+
+        if (intersectsLeft && intersectsRight){
+            // Perform further testing based on step 3 from
+            // Akenine-Möller
+
+            const float halfSizeX = (aabbMax.x - aabbMin.x) * 0.5f;
+            const float halfSizeZ = (aabbMax.z - aabbMin.z) * 0.5f;
+            const float centerX = aabbMin.x + halfSizeX;
+            const float centerZ = aabbMin.z + halfSizeZ;
+
+            const float v0X = a.x - centerX;
+            const float v0Z = a.z - centerZ;
+
+            const float v1X = b.x - centerX;
+            const float v1Z = b.z - centerZ;
+
+            const float v2X = c.x - centerX;
+            const float v2Z = c.z - centerZ;
+
+            if (intersectsLeft){
+                const float halfSizeY = (splitPos - aabbMin.y) * 0.5f;
+                const float centerY = aabbMin.y + halfSizeY;
+                const float v0Y = a.y - centerY;
+                const float v1Y = b.y - centerY;
+                const float v2Y = c.y - centerY;
+                    
+                a0XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsLeft);
+                    
+                // Skip a10, a11, a12 as they don't contain any reference to Y
+
+                a2XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsLeft);                    
+            }
+
+            if (intersectsRight){
+                const float halfSizeY = (aabbMax.y - splitPos) * 0.5f;
+                const float centerY = splitPos + halfSizeY;
+                const float v0Y = a.y - centerY;
+                const float v1Y = b.y - centerY;
+                const float v2Y = c.y - centerY;
+                    
+                a0XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsRight);
+                    
+                // Skip a10, a11, a12 as they don't contain any reference to Y
+
+                a2XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsRight);                    
+            }
+
+        }
+    }else if (axis == KDNode::Z) {
+        const float triMin = min(a.z, min(b.z, c.z));
+        const float triMax = max(a.z, max(b.z, c.z));
+            
+        //intersectsLeft = triMin <= splitPos && aabbMin.z <= triMax;
+        //intersectsRight = triMin <= aabbMax.z && splitPos <= triMax;
+        intersectsLeft = triMin < splitPos;
+        intersectsRight = splitPos < triMax;
+
+        if (intersectsLeft && intersectsRight){
+            // Perform further testing based on step 3 from
+            // Akenine-Möller
+
+            const float halfSizeX = (aabbMax.x - aabbMin.x) * 0.5f;
+            const float halfSizeY = (aabbMax.y - aabbMin.y) * 0.5f;
+            const float centerX = aabbMin.x + halfSizeX;
+            const float centerY = aabbMin.y + halfSizeY;
+
+            const float v0X = a.x - centerX;
+            const float v0Y = a.y - centerY;
+
+            const float v1X = b.x - centerX;
+            const float v1Y = b.y - centerY;
+
+            const float v2X = c.x - centerX;
+            const float v2Y = c.y - centerY;
+                
+            if (intersectsLeft){
+                const float halfSizeZ = (splitPos - aabbMin.z) * 0.5f;
+                const float centerZ = aabbMin.z + halfSizeZ;
+                const float v0Z = a.z - centerZ;
+                const float v1Z = b.z - centerZ;
                 const float v2Z = c.z - centerZ;
 
-                if (intersectsLeft){
-                    const float halfSizeY = (splitPos - aabbMin.y) * 0.5f;
-                    const float centerY = aabbMin.y + halfSizeY;
-                    const float v0Y = a.y - centerY;
-                    const float v1Y = b.y - centerY;
-                    const float v2Y = c.y - centerY;
+                a0XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsLeft);
                     
-                    a0XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsLeft);
-                    
-                    // Skip a10, a11, a12 as they don't contain any reference to Y
+                a1XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsLeft);
 
-                    a2XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsLeft);                    
-                }
-
-                if (intersectsRight){
-                    const float halfSizeY = (aabbMax.y - splitPos) * 0.5f;
-                    const float centerY = splitPos + halfSizeY;
-                    const float v0Y = a.y - centerY;
-                    const float v1Y = b.y - centerY;
-                    const float v2Y = c.y - centerY;
-                    
-                    a0XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsRight);
-                    
-                    // Skip a10, a11, a12 as they don't contain any reference to Y
-
-                    a2XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsRight);                    
-                }
-
+                // Skip a20, a21, a22 as they don't contain any reference to Z
             }
-            break;
-        }
-    case KDNode::Z:
-        {
-            const float triMin = min(a.z, min(b.z, c.z));
-            const float triMax = max(a.z, max(b.z, c.z));
-            
-            //intersectsLeft = triMin <= splitPos && aabbMin.z <= triMax;
-            //intersectsRight = triMin <= aabbMax.z && splitPos <= triMax;
-            intersectsLeft = triMin < splitPos;
-            intersectsRight = splitPos < triMax;
 
-            if (intersectsLeft && intersectsRight){
-                // Perform further testing based on step 3 from
-                // Akenine-Möller
+            if (intersectsRight){
+                const float halfSizeZ = (aabbMax.z - splitPos) * 0.5f;
+                const float centerZ = splitPos + halfSizeZ;
+                const float v0Z = a.z - centerZ;
+                const float v1Z = b.z - centerZ;
+                const float v2Z = c.z - centerZ;
 
-                const float halfSizeX = (aabbMax.x - aabbMin.x) * 0.5f;
-                const float halfSizeY = (aabbMax.y - aabbMin.y) * 0.5f;
-                const float centerX = aabbMin.x + halfSizeX;
-                const float centerY = aabbMin.y + halfSizeY;
-
-                const float v0X = a.x - centerX;
-                const float v0Y = a.y - centerY;
-
-                const float v1X = b.x - centerX;
-                const float v1Y = b.y - centerY;
-
-                const float v2X = c.x - centerX;
-                const float v2Y = c.y - centerY;
-                
-                if (intersectsLeft){
-                    const float halfSizeZ = (splitPos - aabbMin.z) * 0.5f;
-                    const float centerZ = aabbMin.z + halfSizeZ;
-                    const float v0Z = a.z - centerZ;
-                    const float v1Z = b.z - centerZ;
-                    const float v2Z = c.z - centerZ;
-
-                    a0XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsLeft);
+                a0XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsRight);
                     
-                    a1XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsLeft);
+                a1XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
+                         halfSizeX, halfSizeY, halfSizeZ, 
+                         intersectsRight);
 
-                    // Skip a20, a21, a22 as they don't contain any reference to Z
-                }
-
-                if (intersectsRight){
-                    const float halfSizeZ = (aabbMax.z - splitPos) * 0.5f;
-                    const float centerZ = splitPos + halfSizeZ;
-                    const float v0Z = a.z - centerZ;
-                    const float v1Z = b.z - centerZ;
-                    const float v2Z = c.z - centerZ;
-
-                    a0XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsRight);
-                    
-                    a1XTests(v0X, v0Y, v0Z, v1X, v1Y, v1Z, v2X, v2Y, v2Z, 
-                             halfSizeX, halfSizeY, halfSizeZ, 
-                             intersectsRight);
-
-                    // Skip a20, a21, a22 as they don't contain any reference to Z
-                }
+                // Skip a20, a21, a22 as they don't contain any reference to Z
             }
-            break;
         }
     }
 }
