@@ -15,9 +15,9 @@
 #include <Scene/KDNode.h>
 
 using namespace OpenEngine::Scene;
-using namespace OpenEngine::Utils::CUDA;
+using namespace OpenEngine::Utils;
 
-#define EPS 0.00001f
+#define EPSILON 0.00001f
 
 inline __host__ __device__
 void a0XTests(const float v0X, const float v0Y, const float v0Z, 
@@ -29,7 +29,7 @@ void a0XTests(const float v0X, const float v0Y, const float v0Z,
     // a00
     float p0 = v0Z * v1Y - v0Y * v1Z;
     float p1 = (v1Y - v0Y) * v2Z - (v1Z - v0Z) * v2Y;
-    float r = halfSizeZ * fabsf(v1Y - v0Y) + halfSizeY * fabsf(v1Z - v0Z) + EPS;
+    float r = halfSizeZ * fabsf(v1Y - v0Y) + halfSizeY * fabsf(v1Z - v0Z) + EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -39,7 +39,7 @@ void a0XTests(const float v0X, const float v0Y, const float v0Z,
     // a01
     p0 = v1Z * v2Y - v1Y * v2Z;
     p1 = (v2Y - v1Y) * v0Z - (v2Z - v1Z) * v0Y;
-    r = halfSizeZ * fabsf(v2Y - v1Y) + halfSizeY * fabsf(v2Z - v1Z) + EPS;
+    r = halfSizeZ * fabsf(v2Y - v1Y) + halfSizeY * fabsf(v2Z - v1Z) + EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -49,7 +49,7 @@ void a0XTests(const float v0X, const float v0Y, const float v0Z,
     // a02
     p0 = v2Z * v0Y - v2Y * v0Z;
     p1 = (v0Y - v2Y) * v1Z - (v0Z - v2Z) * v1Y;
-    r = halfSizeZ * fabsf(v0Y - v2Y) + halfSizeY * fabsf(v0Z - v2Z) + EPS;
+    r = halfSizeZ * fabsf(v0Y - v2Y) + halfSizeY * fabsf(v0Z - v2Z) + EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -77,7 +77,7 @@ void a1XTests(const float v0X, const float v0Y, const float v0Z,
     // a10
     float p0 = v0X * v1Z - v0Z * v1X;
     float p1 = (v1Z - v0Z) * v2X - (v1X - v0X) * v2Z;
-    float r = halfSizeX * fabsf(v1Z - v0Z) + halfSizeZ * fabsf(v1X - v0X) + EPS;
+    float r = halfSizeX * fabsf(v1Z - v0Z) + halfSizeZ * fabsf(v1X - v0X) + EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -87,7 +87,7 @@ void a1XTests(const float v0X, const float v0Y, const float v0Z,
     // a11
     p0 = v1X * v2Z - v1Z * v2X;
     p1 = (v2Z - v1Z) * v0X - (v2X - v1X) * v0Z;
-    r = halfSizeX * fabsf(v2Z - v1Z) + halfSizeZ * fabsf(v2X - v1X) + EPS;
+    r = halfSizeX * fabsf(v2Z - v1Z) + halfSizeZ * fabsf(v2X - v1X) + EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -97,7 +97,7 @@ void a1XTests(const float v0X, const float v0Y, const float v0Z,
     // a12
     p0 = v2X * v0Z - v2Z * v0X;
     p1 = (v0Z - v2Z) * v1X - (v0X - v2X) * v1Z;
-    r = halfSizeX * fabsf(v0Z - v2Z) + halfSizeZ * fabsf(v0X - v2X) + EPS;
+    r = halfSizeX * fabsf(v0Z - v2Z) + halfSizeZ * fabsf(v0X - v2X) + EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -123,7 +123,7 @@ void a2XTests(const float v0X, const float v0Y, const float v0Z,
     // a20
     float p0 = v0Y * v1X - v0X * v1Y;
     float p1 = (v1X - v0X) * v2Y - (v1Y - v0Y) * v2X;
-    float r =  halfSizeY * fabsf(v1X - v0X) + halfSizeX * fabsf(v1Y - v0Y) + EPS;
+    float r =  halfSizeY * fabsf(v1X - v0X) + halfSizeX * fabsf(v1Y - v0Y) + EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -133,7 +133,7 @@ void a2XTests(const float v0X, const float v0Y, const float v0Z,
     // a21
     p0 = v1Y * v2X - v1X * v2Y;
     p1 = (v2X - v1X) * v0Y - (v2Y - v1Y) * v0X;
-    r = halfSizeY * fabsf(v2X - v1X) + halfSizeX * fabsf(v2Y - v1Y) + EPS;
+    r = halfSizeY * fabsf(v2X - v1X) + halfSizeX * fabsf(v2Y - v1Y) + EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -143,7 +143,7 @@ void a2XTests(const float v0X, const float v0Y, const float v0Z,
     // a22
     p0 = v2Y * v0X - v2X * v0Y;
     p1 = (v0X - v2X) * v1Y - (v0Y - v2Y) * v1X;
-    r = halfSizeY * fabsf(v0X - v2X) + halfSizeX * fabsf(v0Y - v2Y) + EPS;
+    r = halfSizeY * fabsf(v0X - v2X) + halfSizeX * fabsf(v0Y - v2Y) + EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
 #ifndef __CUDA_ARCH__
@@ -174,8 +174,8 @@ void DivideTriangle(const float3 a, const float3 b, const float3 c,
                     bool &intersectsLeft, bool &intersectsRight){
     
 #ifndef __CUDA_ARCH__
-    logger.info << "AABB: " << Convert::ToString(aabbMin) << " -> " << Convert::ToString(aabbMax) << logger.end;
-    logger.info << "Triangle: " << Convert::ToString(a) << ", " << Convert::ToString(b) << ", " << Convert::ToString(c) << logger.end;
+    logger.info << "AABB: " << Utils::CUDA::Convert::ToString(aabbMin) << " -> " << Utils::CUDA::Convert::ToString(aabbMax) << logger.end;
+    logger.info << "Triangle: " << Utils::CUDA::Convert::ToString(a) << ", " << Utils::CUDA::Convert::ToString(b) << ", " << Utils::CUDA::Convert::ToString(c) << logger.end;
 #endif
 
     if (axis == KDNode::X){
@@ -483,17 +483,10 @@ float WoopLambda(const float3 origin, const float3 direction,
 }
 
 inline __host__ __device__
-float WoopU(const float3 origin, const float3 direction,
-            const float lambda, const float4 m0){
+float WoopUV(const float3 origin, const float3 direction,
+             const float lambda, const float4 m0){
     
     return lambda * dot(make_float3(m0), direction) + dot(make_float3(m0), origin) - m0.w;
-}
-
-inline __host__ __device__
-float WoopV(const float3 origin, const float3 direction,
-            const float lambda, const float4 m1){
-    
-    return lambda * dot(make_float3(m1), direction) + dot(make_float3(m1), origin) - m1.w;
 }
 
 inline __host__ __device__
@@ -501,9 +494,21 @@ bool WoopIntersectionTest(const float3 origin, const float3 direction,
                           const float4 m0, const float4 m1, const float4 m2,
                           float3 &tHit){
 
+#ifndef __CUDA_ARCH__
+    logger.info << "origin " << Utils::CUDA::Convert::ToString(origin) << logger.end;
+    logger.info << "direction " << Utils::CUDA::Convert::ToString(direction) << logger.end;
+    logger.info << "m0 " << Utils::CUDA::Convert::ToString(m0) << logger.end;
+    logger.info << "m1 " << Utils::CUDA::Convert::ToString(m1) << logger.end;
+    logger.info << "m2 " << Utils::CUDA::Convert::ToString(m2) << logger.end;
+#endif
+
     tHit.x = WoopLambda(origin, direction, m2);
-    tHit.y = WoopU(origin, direction, tHit.x, m0);
-    tHit.z = WoopV(origin, direction, tHit.x, m1);
+    tHit.y = WoopUV(origin, direction, tHit.x, m0);
+    tHit.z = WoopUV(origin, direction, tHit.x, m1);
+
+#ifndef __CUDA_ARCH__
+    logger.info << "tHit: " << Utils::CUDA::Convert::ToString(tHit) << logger.end;
+#endif
     
     return tHit.x >= 0.0f && tHit.y >= 0.0f && tHit.z >= 0.0f && tHit.y + tHit.z <= 1.0f;
 }
@@ -511,7 +516,7 @@ bool WoopIntersectionTest(const float3 origin, const float3 direction,
 inline __host__ __device__
 bool WoopIntersection(const float3 a, const float3 b, const float3 c, 
                       const float3 origin, const float3 direction){
-    
+
     float4 m0, m1, m2;
     WoopTransformationMatrix(a, b, c, m0, m1, m2);
         
