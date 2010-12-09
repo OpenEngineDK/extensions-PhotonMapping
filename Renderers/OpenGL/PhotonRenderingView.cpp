@@ -37,10 +37,6 @@ namespace OpenEngine {
                     Initialize(arg);
                     UpdateGeometry();
 
-                    // float3 origin = make_float3(-4, 4, 4);
-                    // float3 dir = normalize(make_float3(4, -12, -4));
-                    // raytracer->HostTrace(origin, dir, triangleMap->nodes);
-
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
                     RenderingView::Handle(arg);
                     //if (renderTree)
@@ -59,6 +55,8 @@ namespace OpenEngine {
                         CHECK_FOR_CUDA_ERROR();
                         
                         raytracer->Trace(&arg.canvas, pixels);
+
+                        //raytracer->HostTrace(320, 240, triangleMap->nodes);
                         
                         cudaGraphicsUnmapResources(1, &pboResource, 0);
                         cudaGraphicsUnregisterResource(pboResource);

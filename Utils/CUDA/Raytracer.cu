@@ -15,9 +15,9 @@
 #include <Utils/CUDA/Convert.h>
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
-#include <Utils/CUDA/IntersectionTests.h>
 
-#define MAX_THREADS 128
+#define MAX_THREADS 64
+#define MIN_BLOCKS 4
 
 namespace OpenEngine {
     using namespace Display;
@@ -50,37 +50,6 @@ namespace OpenEngine {
 
             __constant__ int d_rays;
 
-            /**
-             * http://www.sven-woop.de/publications/Diplom_SvenWoop_Final.pdf
-
-             * Not working yet. Precalc inverted matrix in
-             * geometrylist. Then do actual intersection in
-             * raytracer. Perhaps calc uv first and provide early out.
-             */
-            inline __host__ __device__ bool WoopIntersection(float3 a, float3 b, float3 c,
-                                                             float3 origin, float3 direction,
-                                                             float3 &hit){
-                const float3 m_x = a - c;
-                const float3 m_y = b - c;
-                const float3 m_z = make_float3(1.0f, 0.0f, 0.0f) - m_x - m_y;
-
-                const float3 n = c;
-
-                origin = make_float3(dot(m_x, origin), 
-                                     dot(m_y, origin), 
-                                     dot(m_z, origin)) + n;
-                direction = make_float3(dot(m_x, direction), 
-                                        dot(m_y, direction), 
-                                        dot(m_z, direction));
-
-                hit.x = -origin.z / direction.z;
-                hit.y = hit.x * direction.x + origin.x;
-                hit.z = hit.x * direction.y + origin.y;
-
-                return hit.x >= 0.0f && hit.y >= 0.0f && hit.z >= 0.0f && hit.y + hit.z <= 1.0f;
-            }
-
-
             __device__ __host__ void TraceNode(float3 origin, float3 direction, 
                                                char axis, float splitPos,
                                                int left, int right, float tMin,
@@ -107,8 +76,80 @@ namespace OpenEngine {
                     node = 0 < dir ? right : left;
             }
 
+            __global__ void
+            __launch_bounds__(MAX_THREADS, MIN_BLOCKS)
+            KDRestartWoop(float4* origins, float4* directions,
+                          char* nodeInfo, float* splitPos,
+                          int2* children,
+                          int* nodePrimIndex, KDNode::bitmap* primBitmap,
+                          int *primIndices, 
+                          float4 *woop0, float4 *woop1, float4 *woop2,
+                          float4 *n0s, float4 *n1s, float4 *n2s,
+                          uchar4 *c0s,
+                          uchar4 *canvas,
+                          int screenWidth){
+
+                int id = blockDim.x * blockIdx.x + threadIdx.x;
+                
+                if (id < d_rays){                
+
+                    id = IRayTracer::PacketIndex(id, screenWidth);
+    
+                    float3 origin = make_float3(origins[id]);
+                    float3 direction = make_float3(directions[id]);
+
+                    float3 tHit;
+                    tHit.x = 0.0f;
+
+                    float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+
+                    do {
+                        float tNext = fInfinity;
+                        int node = 0;
+                        char info = nodeInfo[node];
+                        
+                        while((info & 3) != KDNode::LEAF){
+                            // Trace
+                            float splitValue = splitPos[node];
+                            int2 childPair = children[node];
+
+                            TraceNode(origin, direction, info & 3, splitValue, childPair.x, childPair.y, tHit.x,
+                                      node, tNext);
+                                                        
+                            info = nodeInfo[node];
+                        }
+
+                        tHit.x = tNext;
+
+                        int primIndex = nodePrimIndex[node];
+                        KDNode::bitmap triangles = primBitmap[node];
+                        int primHit = -1;
+                        while (triangles){
+                            int i = firstBitSet(triangles) - 1;
+                            int prim = primIndices[primIndex + i];
+
+                            IRayTracer::Woop(woop0, woop1, woop2, prim,
+                                             origin, direction, primHit, tHit);
+                            
+                            triangles -= KDNode::bitmap(1)<<i;
+                        }
+
+                        if (primHit != -1){
+                            float4 newColor = Lighting(tHit, origin, direction, 
+                                                       n0s[primHit], n1s[primHit], n2s[primHit],
+                                                       c0s[primHit]);
+                            color = BlendColor(color, newColor);
+
+                            tHit.x = 0.0f;
+                        }
+                    } while(tHit.x < fInfinity && color.w < 0.97f);
+
+                    canvas[id] = make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
+                }
+            }
+
             __global__ void 
-            __launch_bounds__(MAX_THREADS, 2) 
+            __launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
                 KDRestart(float4* origins, float4* directions,
                           char* nodeInfo, float* splitPos,
                           int2* children,
@@ -157,17 +198,10 @@ namespace OpenEngine {
                         int primHit = -1;
                         while (triangles){
                             int i = firstBitSet(triangles) - 1;
-                            
                             int prim = primIndices[primIndex + i];
 
-                            float3 hitCoords;
-                            bool hit = TriangleRayIntersection(make_float3(v0[prim]), make_float3(v1[prim]), make_float3(v2[prim]), 
-                                                               origin, direction, hitCoords);
-
-                            if (hit && hitCoords.x < tHit.x){
-                                primHit = prim;
-                                tHit = hitCoords;
-                            }
+                            IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
+                                                        origin, direction, primHit, tHit);
                             
                             triangles -= KDNode::bitmap(1)<<i;
                         }
@@ -206,26 +240,52 @@ namespace OpenEngine {
 
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
-                
-                unsigned int blocks, threads;
-                Calc1DKernelDimensions(rays, blocks, threads, MAX_THREADS);
-                START_TIMER(timerID);
-                KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
-                                               nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                                               nodes->GetChildrenData(),
-                                               nodes->GetPrimitiveIndexData(),
-                                               nodes->GetPrimitiveBitmapData(),
-                                               map->GetPrimitiveIndices()->GetDeviceData(),
-                                               geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
-                                               geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
-                                               geom->GetColor0Data(),
-                                               canvasData,
-                                               width);
-                PRINT_TIMER(timerID, "KDRestart");
-                CHECK_FOR_CUDA_ERROR();                                               
+
+                if (this->intersectionAlgorithm == WOOP){
+                    float4 *woop0, *woop1, *woop2;
+                    geom->GetWoopValues(&woop0, &woop1, &woop2);
+
+                    KernelConf conf = KernelConf1D(rays, 64);
+                    START_TIMER(timerID);
+                    KDRestartWoop<<<conf.blocks, conf.threads>>>
+                        (origin->GetDeviceData(), direction->GetDeviceData(),
+                         nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                         nodes->GetChildrenData(),
+                         nodes->GetPrimitiveIndexData(),
+                         nodes->GetPrimitiveBitmapData(),
+                         map->GetPrimitiveIndices()->GetDeviceData(),
+                         woop0, woop1, woop2,
+                         geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                         geom->GetColor0Data(),
+                         canvasData,
+                         width);
+                    PRINT_TIMER(timerID, "KDRestart with Woop intersection");
+                }else{               
+                    unsigned int blocks, threads;
+                    Calc1DKernelDimensions(rays, blocks, threads, MAX_THREADS);
+                    START_TIMER(timerID);
+                    KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
+                                                   nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                                                   nodes->GetChildrenData(),
+                                                   nodes->GetPrimitiveIndexData(),
+                                                   nodes->GetPrimitiveBitmapData(),
+                                                   map->GetPrimitiveIndices()->GetDeviceData(),
+                                                   geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                                                   geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                                                   geom->GetColor0Data(),
+                                                   canvasData,
+                                                   width);
+                    PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore");
+                }                                
+                CHECK_FOR_CUDA_ERROR();
             }
 
-            void RayTracer::HostTrace(float3 origin, float3 direction, TriangleNode* nodes){
+            void RayTracer::HostTrace(int x, int y, TriangleNode* nodes){
+
+                int id = x + y * screenWidth;
+                float3 ori, dir;
+                cudaMemcpy(&ori, origin->GetDeviceData() + id, sizeof(float3), cudaMemcpyDeviceToHost);
+                cudaMemcpy(&dir, direction->GetDeviceData() + id, sizeof(float3), cudaMemcpyDeviceToHost);
 
                 GeometryList* geom = map->GetGeometry();
 
@@ -235,7 +295,7 @@ namespace OpenEngine {
                 float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
                 do {
-                    logger.info << "=== Ray:  " << Convert::ToString(origin) << " -> " << Convert::ToString(direction) << " ===\n" << logger.end;
+                    logger.info << "=== Ray:  " << Convert::ToString(ori) << " -> " << Convert::ToString(dir) << " ===\n" << logger.end;
                 
                     float tNext = fInfinity;
                     int node = 0;
@@ -254,7 +314,7 @@ namespace OpenEngine {
                         cudaMemcpy(&children, nodes->GetChildrenData() + node, sizeof(int2), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
                         
-                        TraceNode(origin, direction, info & 3, splitValue, children.x, children.y, tHit.x,
+                        TraceNode(ori, dir, info & 3, splitValue, children.x, children.y, tHit.x,
                                   node, tNext);
 
                         //logger.info << "tNext " << tNext << logger.end;
@@ -282,20 +342,42 @@ namespace OpenEngine {
                         CHECK_FOR_CUDA_ERROR();
                         
                         //logger.info << "Testing primitive " << prim << logger.end;
-
-                        float3 v0, v1, v2;
-                        cudaMemcpy(&v0, geom->GetP0Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&v1, geom->GetP1Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&v2, geom->GetP2Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
-                        CHECK_FOR_CUDA_ERROR();
-
                         float3 hitCoords;
-                        bool hit = TriangleRayIntersection(v0, v1, v2, 
-                                                           origin, direction, hitCoords);
+                        if (intersectionAlgorithm == WOOP){
+                            
+                            float4 *woop0, *woop1, *woop2;
+                            geom->GetWoopValues(&woop0, &woop1, &woop2);
+                            
+                            float4 w0, w1, w2;
+                            cudaMemcpy(&w0, woop0 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
+                            cudaMemcpy(&w1, woop1 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
+                            cudaMemcpy(&w2, woop2 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
 
-                        if (hit && hitCoords.x < tHit.x){
-                            primHit = prim;
-                            tHit = hitCoords;
+                            hitCoords.x = WoopLambda(ori, dir, w2);
+                            if (0.0f <= hitCoords.x && hitCoords.x < tHit.x){
+                                hitCoords.y = WoopUV(ori, dir, hitCoords.x, w0);
+                                hitCoords.z = WoopUV(ori, dir, hitCoords.x, w1);
+                                
+                                if (hitCoords.y >= 0.0f && hitCoords.z >= 0.0f && hitCoords.y + hitCoords.z <= 1.0f){
+                                    primHit = prim;
+                                    tHit = hitCoords;
+                                }
+                            }
+
+                        }else{
+
+                            float3 v0, v1, v2;
+                            cudaMemcpy(&v0, geom->GetP0Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
+                            cudaMemcpy(&v1, geom->GetP1Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
+                            cudaMemcpy(&v2, geom->GetP2Data() + prim, sizeof(float3), cudaMemcpyDeviceToHost);
+                            CHECK_FOR_CUDA_ERROR();
+
+                            bool hit = TriangleRayIntersection(v0, v1, v2, ori, dir, hitCoords);
+
+                            if (hit && hitCoords.x < tHit.x){
+                                primHit = prim;
+                                tHit = hitCoords;
+                            }
                         }
                         
                         triangles -= KDNode::bitmap(1)<<i;
@@ -315,7 +397,7 @@ namespace OpenEngine {
 
                         logger.info << "Prim color: " << Convert::ToString(c0) << logger.end;
 
-                        float4 newColor = Lighting(tHit, origin, direction, 
+                        float4 newColor = Lighting(tHit, ori, dir, 
                                                    n0, n1, n2,
                                                    c0);
 
@@ -331,6 +413,7 @@ namespace OpenEngine {
                 } while(tHit.x < fInfinity && color.w < 0.97f);
 
                 logger.info << "Final color: " << Convert::ToString(color) << logger.end;
+                //exit(0);
             }
 
         }

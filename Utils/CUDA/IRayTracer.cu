@@ -78,10 +78,10 @@ namespace OpenEngine {
                 float3 h_camPos; h_camPos.x = camPos.Get(0); h_camPos.y = camPos.Get(1); h_camPos.z = camPos.Get(2);
                 
                 int height = canvas->GetHeight();
-                int width = canvas->GetWidth();
+                screenWidth = canvas->GetWidth();
                 
-                int rays = height * width;
-                cudaMemcpyToSymbol(d_screenWidth, &width, sizeof(int));
+                int rays = height * screenWidth;
+                cudaMemcpyToSymbol(d_screenWidth, &screenWidth, sizeof(int));
                 cudaMemcpyToSymbol(d_screenHeight, &height, sizeof(int));
                 cudaMemcpyToSymbol(d_rays, &rays, sizeof(int));
                 cudaMemcpyToSymbol(d_camPos, &h_camPos, sizeof(float3));
