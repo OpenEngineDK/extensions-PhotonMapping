@@ -23,9 +23,13 @@ namespace OpenEngine {
         namespace CUDA {
             
             class IRayTracer {
+            public:
+                enum IntersectionAlgorithm {MOELLER, WOOP};
+
             protected:
                 bool visualizeRays;
-
+                IntersectionAlgorithm intersectionAlgorithm;
+                
                 Resources::CUDA::CUDADataBlock<1, float4> *origin;
                 Resources::CUDA::CUDADataBlock<1, float4> *direction;
                 
@@ -37,6 +41,7 @@ namespace OpenEngine {
                 virtual void HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes) = 0;
 
                 void SetVisualizeRays(const bool v) {visualizeRays = v;}
+                void SetIntersectionAlgorithm(const IntersectionAlgorithm a) { intersectionAlgorithm = a;}
 
 #define PW 4
 #define PH 8
