@@ -88,7 +88,7 @@ namespace OpenEngine {
                     const float3 p2 = make_float3(p2s[id]);
 
                     float4 m0, m1, m2;
-                    WoopTransformationMatrix(p0, p1, p2, m0, m1, m2);
+                    WoopTransformationMatrix(p1, p2, p0, m0, m1, m2);
 
                     m0s[id] = m0;
                     m1s[id] = m1;
@@ -102,8 +102,8 @@ namespace OpenEngine {
                 
                 KernelConf conf = KernelConf1D(i);
                 CreateWoopValues<<<conf.blocks, conf.threads>>>
-                    (p0->GetDeviceData(), p0->GetDeviceData(), p0->GetDeviceData(),
-                     woop0->GetDeviceData(), woop0->GetDeviceData(), woop0->GetDeviceData(),
+                    (p0->GetDeviceData(), p1->GetDeviceData(), p2->GetDeviceData(),
+                     woop0->GetDeviceData(), woop1->GetDeviceData(), woop2->GetDeviceData(),
                      i);
                 CHECK_FOR_CUDA_ERROR();
 
