@@ -18,6 +18,7 @@
 #include <Scene/RenderStateNode.h>
 #include <Scene/TransformationNode.h>
 #include <Utils/CUDA/Utils.h>
+#include <Utils/CUDA/IntersectionTests.h>
 #include <Utils/CUDA/Convert.h>
 
 #include <sstream>
@@ -53,12 +54,17 @@ namespace OpenEngine {
                 c0 = new CUDADataBlock<1, uchar4>(maxSize);
                 c1 = new CUDADataBlock<1, uchar4>(maxSize);
                 c2 = new CUDADataBlock<1, uchar4>(maxSize);
+
+                woop0 = new CUDADataBlock<1, float4>(maxSize);
+                woop1 = new CUDADataBlock<1, float4>(maxSize);
+                woop2 = new CUDADataBlock<1, float4>(maxSize);
             }
 
             void GeometryList::Resize(int i){
                 p0->Resize(i); p1->Resize(i); p2->Resize(i);
                 n0->Resize(i); n1->Resize(i); n2->Resize(i);
                 c0->Resize(i); c1->Resize(i); c2->Resize(i);
+                woop0->Resize(i); woop1->Resize(i); woop2->Resize(i);
 
                 maxSize = i;
                 size = min(size, i);
@@ -67,6 +73,43 @@ namespace OpenEngine {
             void GeometryList::Extend(int i){
                 if (maxSize < i)
                     Resize(i);
+            }
+
+            __global__ void CreateWoopValues(float4* p0s, float4* p1s, float4* p2s, 
+                                             float4* m0s, float4* m1s, float4* m2s,
+                                             int primitives){
+                
+                const int id = blockDim.x * blockIdx.x + threadIdx.x;
+                
+                if (id < primitives){
+
+                    const float3 p0 = make_float3(p0s[id]);
+                    const float3 p1 = make_float3(p1s[id]);
+                    const float3 p2 = make_float3(p2s[id]);
+
+                    float4 m0, m1, m2;
+                    WoopTransformationMatrix(p0, p1, p2, m0, m1, m2);
+
+                    m0s[id] = m0;
+                    m1s[id] = m1;
+                    m2s[id] = m2;
+                }
+            }
+
+            void GeometryList::GetWoopValues(float4** m0, float4** m1, float4** m2){
+                int i = p0->GetSize();
+                woop0->Resize(i); woop1->Resize(i); woop2->Resize(i);
+                
+                KernelConf conf = KernelConf1D(i);
+                CreateWoopValues<<<conf.blocks, conf.threads>>>
+                    (p0->GetDeviceData(), p0->GetDeviceData(), p0->GetDeviceData(),
+                     woop0->GetDeviceData(), woop0->GetDeviceData(), woop0->GetDeviceData(),
+                     i);
+                CHECK_FOR_CUDA_ERROR();
+
+                *m0 = woop0->GetDeviceData();
+                *m1 = woop1->GetDeviceData();
+                *m2 = woop2->GetDeviceData();
             }
 
             std::string GeometryList::ToString(unsigned int i) const {

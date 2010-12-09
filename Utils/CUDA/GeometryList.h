@@ -41,6 +41,7 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, float4> *p0, *p1, *p2;
                 Resources::CUDA::CUDADataBlock<1, float4> *n0, *n1, *n2;
                 Resources::CUDA::CUDADataBlock<1, uchar4> *c0, *c1, *c2;
+                Resources::CUDA::CUDADataBlock<1, float4> *woop0, *woop1, *woop2;
 
                 // Visitor variables
                 Math::Matrix<4,4, float> currentModelMat;
@@ -66,6 +67,8 @@ namespace OpenEngine {
                 uchar4* GetColor1Data() const { return c1->GetDeviceData(); }
                 uchar4* GetColor2Data() const { return c2->GetDeviceData(); }
                 
+                void GetWoopValues(float4** m0, float4** m1, float4** m2);
+
                 std::string ToString(unsigned int i) const;
 
                 void AddMesh(Geometry::MeshPtr mesh, 
