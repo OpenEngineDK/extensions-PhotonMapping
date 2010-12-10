@@ -30,7 +30,7 @@ namespace OpenEngine {
 
                 void Trace(Display::IRenderCanvas* canvas, uchar4* canvasData);
 
-                void HostTrace(float3 origin, float3 direction, Scene::TriangleNode* nodes);
+                void HostTrace(int x, int y, Scene::TriangleNode* nodes);
             };
 
         }

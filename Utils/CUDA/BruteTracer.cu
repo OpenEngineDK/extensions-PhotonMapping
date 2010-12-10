@@ -48,9 +48,11 @@ namespace OpenEngine {
 
             BruteTracer::~BruteTracer() {}
 
-#define MAX_PRIMS 128
-
-            __global__ void BruteTracing(float4* origins, float4* directions,
+#define MAX_PRIMS 512
+            
+            template <bool useWoop>
+            __global__ void 
+            BruteTracing(float4* origins, float4* directions,
                                          float4 *v0s, float4 *v1s, float4 *v2s,
                                          float4 *n0s, float4 *n1s, float4 *n2s,
                                          uchar4 *c0s,
@@ -68,44 +70,19 @@ namespace OpenEngine {
                     float3 tHit;
 
                     float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-
-                    float3 *v0 = SharedMemory<float3>();
-                    float3 *v1 = v0 + blockDim.x;
-                    float3 *v2 = v1 + blockDim.x;
                     
                     do {
                         tHit.x = fInfinity;
 
                         int primHit = -1;
-                        /*
-                        for (int i = 0; i < prims; i += blockDim.x){
-                            int index = i + threadIdx.x;
-                            v0[threadIdx.x] = index < prims ? make_float3(v0s[index]) : make_float3(0.0f);
-                            v1[threadIdx.x] = index < prims ? make_float3(v1s[index]) : make_float3(0.0f);
-                            v2[threadIdx.x] = index < prims ? make_float3(v2s[index]) : make_float3(0.0f);
-                            __syncthreads();
-                          
-                            for (int prim = 0; prim < blockDim.x; ++prim){
-                                float3 hitCoords;
-                                bool hit = TriangleRayIntersection(v0[prim], v1[prim], v2[prim], 
-                                                                   origin, dir, hitCoords);
-                                
-                                if (hit && hitCoords.x < tHit.x){
-                                    primHit = prim;
-                                    tHit = hitCoords;
-                                }
-                            }
-                        }
-                        */                        
-
                         for (int prim = 0; prim < prims; ++prim){
-                            float3 hitCoords;
-                            bool hit = TriangleRayIntersection(make_float3(v0s[prim]), make_float3(v1s[prim]), make_float3(v2s[prim]), 
-                                                               origin, dir, hitCoords);
-                            
-                            if (hit && hitCoords.x < tHit.x){
-                                primHit = prim;
-                                tHit = hitCoords;
+
+                            if (useWoop){
+                                IRayTracer::Woop(v0s, v1s, v2s, prim,
+                                                 origin, dir, primHit, tHit);
+                            }else{
+                                IRayTracer::MoellerTrumbore(v0s, v1s, v2s, prim,
+                                                            origin, dir, primHit, tHit);
                             }
                         }
                         
@@ -139,23 +116,40 @@ namespace OpenEngine {
                     return;
                 }
 
-                unsigned int blocks, threads;
-                Calc1DKernelDimensions(rays, blocks, threads, 64);
-                int smemSize = threads * sizeof(float3) * 3;
-                START_TIMER(timerID);
-                //logger.info << "BruteTracing<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
-                BruteTracing<<<blocks, threads, smemSize>>>(origin->GetDeviceData(), direction->GetDeviceData(),
-                                                            geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), 
-                                                            geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
-                                                            geom->GetColor0Data(),
-                                                            canvasData,
-                                                            geom->GetSize());
-                PRINT_TIMER(timerID, "Brute tracing");
+                if (intersectionAlgorithm == WOOP){
+                    float4 *woop0, *woop1, *woop2;
+                    geom->GetWoopValues(&woop0, &woop1, &woop2);
+
+                    KernelConf conf = KernelConf1D(rays, 64, 0, sizeof(float3) * 3);
+                    START_TIMER(timerID);
+                    BruteTracing<true><<<conf.blocks, conf.threads, conf.smem>>>
+                        (origin->GetDeviceData(), direction->GetDeviceData(),
+                         woop0, woop1, woop2,
+                         geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                         geom->GetColor0Data(),
+                         canvasData,
+                         geom->GetSize());
+                    PRINT_TIMER(timerID, "Brute tracing using Woop");
+
+                }else{
+                    unsigned int blocks, threads;
+                    Calc1DKernelDimensions(rays, blocks, threads, 64);
+                    int smemSize = threads * sizeof(float3) * 3;
+                    START_TIMER(timerID);
+                    //logger.info << "BruteTracing<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
+                    BruteTracing<false><<<blocks, threads, smemSize>>>(origin->GetDeviceData(), direction->GetDeviceData(),
+                                                                       geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), 
+                                                                       geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                                                                       geom->GetColor0Data(),
+                                                                       canvasData,
+                                                                       geom->GetSize());
+                    PRINT_TIMER(timerID, "Brute tracing using Möller-Trumbore");
+                }
                 CHECK_FOR_CUDA_ERROR();
                 
             }
 
-            void BruteTracer::HostTrace(float3 origin, float3 direction, TriangleNode* nodes){
+            void BruteTracer::HostTrace(int x, int y, TriangleNode* nodes){
                 throw Core::Exception("Not implemented");
             }            
 
