@@ -76,78 +76,7 @@ namespace OpenEngine {
                     node = 0 < dir ? right : left;
             }
 
-            __global__ void
-            __launch_bounds__(MAX_THREADS, MIN_BLOCKS)
-            KDRestartWoop(float4* origins, float4* directions,
-                          char* nodeInfo, float* splitPos,
-                          int2* children,
-                          int* nodePrimIndex, KDNode::bitmap* primBitmap,
-                          int *primIndices, 
-                          float4 *woop0, float4 *woop1, float4 *woop2,
-                          float4 *n0s, float4 *n1s, float4 *n2s,
-                          uchar4 *c0s,
-                          uchar4 *canvas,
-                          int screenWidth){
-
-                int id = blockDim.x * blockIdx.x + threadIdx.x;
-                
-                if (id < d_rays){                
-
-                    id = IRayTracer::PacketIndex(id, screenWidth);
-    
-                    float3 origin = make_float3(origins[id]);
-                    float3 direction = make_float3(directions[id]);
-
-                    float3 tHit;
-                    tHit.x = 0.0f;
-
-                    float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-
-                    do {
-                        float tNext = fInfinity;
-                        int node = 0;
-                        char info = nodeInfo[node];
-                        
-                        while((info & 3) != KDNode::LEAF){
-                            // Trace
-                            float splitValue = splitPos[node];
-                            int2 childPair = children[node];
-
-                            TraceNode(origin, direction, info & 3, splitValue, childPair.x, childPair.y, tHit.x,
-                                      node, tNext);
-                                                        
-                            info = nodeInfo[node];
-                        }
-
-                        tHit.x = tNext;
-
-                        int primIndex = nodePrimIndex[node];
-                        KDNode::bitmap triangles = primBitmap[node];
-                        int primHit = -1;
-                        while (triangles){
-                            int i = firstBitSet(triangles) - 1;
-                            int prim = primIndices[primIndex + i];
-
-                            IRayTracer::Woop(woop0, woop1, woop2, prim,
-                                             origin, direction, primHit, tHit);
-                            
-                            triangles -= KDNode::bitmap(1)<<i;
-                        }
-
-                        if (primHit != -1){
-                            float4 newColor = Lighting(tHit, origin, direction, 
-                                                       n0s[primHit], n1s[primHit], n2s[primHit],
-                                                       c0s[primHit]);
-                            color = BlendColor(color, newColor);
-
-                            tHit.x = 0.0f;
-                        }
-                    } while(tHit.x < fInfinity && color.w < 0.97f);
-
-                    canvas[id] = make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
-                }
-            }
-
+            template <bool useWoop>
             __global__ void 
             __launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
                 KDRestart(float4* origins, float4* directions,
@@ -199,9 +128,14 @@ namespace OpenEngine {
                         while (triangles){
                             int i = firstBitSet(triangles) - 1;
                             int prim = primIndices[primIndex + i];
-
-                            IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
-                                                        origin, direction, primHit, tHit);
+                            
+                            if (useWoop){
+                                IRayTracer::Woop(v0, v1, v2, prim,
+                                                 origin, direction, primHit, tHit);
+                            }else{
+                                IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
+                                                            origin, direction, primHit, tHit);
+                            }
                             
                             triangles -= KDNode::bitmap(1)<<i;
                         }
@@ -247,7 +181,7 @@ namespace OpenEngine {
 
                     KernelConf conf = KernelConf1D(rays, 64);
                     START_TIMER(timerID);
-                    KDRestartWoop<<<conf.blocks, conf.threads>>>
+                    KDRestart<true><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
@@ -264,17 +198,18 @@ namespace OpenEngine {
                     unsigned int blocks, threads;
                     Calc1DKernelDimensions(rays, blocks, threads, MAX_THREADS);
                     START_TIMER(timerID);
-                    KDRestart<<<blocks, threads>>>(origin->GetDeviceData(), direction->GetDeviceData(),
-                                                   nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                                                   nodes->GetChildrenData(),
-                                                   nodes->GetPrimitiveIndexData(),
-                                                   nodes->GetPrimitiveBitmapData(),
-                                                   map->GetPrimitiveIndices()->GetDeviceData(),
-                                                   geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
-                                                   geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
-                                                   geom->GetColor0Data(),
-                                                   canvasData,
-                                                   width);
+                    KDRestart<false><<<blocks, threads>>>
+                        (origin->GetDeviceData(), direction->GetDeviceData(),
+                         nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                         nodes->GetChildrenData(),
+                         nodes->GetPrimitiveIndexData(),
+                         nodes->GetPrimitiveBitmapData(),
+                         map->GetPrimitiveIndices()->GetDeviceData(),
+                         geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                         geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                         geom->GetColor0Data(),
+                         canvasData,
+                         width);
                     PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore");
                 }                                
                 CHECK_FOR_CUDA_ERROR();
