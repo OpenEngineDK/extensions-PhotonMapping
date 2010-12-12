@@ -26,8 +26,6 @@ namespace OpenEngine {
 #include <Utils/CUDA/Kernels/ColorKernels.h>
 
             __constant__ int d_rays;
-            __constant__ int d_screenHeight;
-            __constant__ int d_screenWidth;
 
             BruteTracer::BruteTracer(GeometryList* geom)
                 : geom(geom) {
@@ -53,11 +51,11 @@ namespace OpenEngine {
             template <bool useWoop>
             __global__ void 
             BruteTracing(float4* origins, float4* directions,
-                                         float4 *v0s, float4 *v1s, float4 *v2s,
-                                         float4 *n0s, float4 *n1s, float4 *n2s,
-                                         uchar4 *c0s,
-                                         uchar4 *canvas,
-                                         int prims){
+                         float4 *v0s, float4 *v1s, float4 *v2s,
+                         float4 *n0s, float4 *n1s, float4 *n2s,
+                         uchar4 *c0s,
+                         uchar4 *canvas,
+                         int prims){
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
                 if (id < d_rays){
@@ -81,8 +79,8 @@ namespace OpenEngine {
                                 IRayTracer::Woop(v0s, v1s, v2s, prim,
                                                  origin, dir, primHit, tHit);
                             }else{
-                                IRayTracer::MoellerTrumbore(v0s, v1s, v2s, prim,
-                                                            origin, dir, primHit, tHit);
+                                IRayTracer::MoellerTrumbore<false>(v0s, v1s, v2s, prim,
+                                                                   origin, dir, primHit, tHit);
                             }
                         }
                         
@@ -107,8 +105,6 @@ namespace OpenEngine {
                 
                 int rays = height * width;
 
-                cudaMemcpyToSymbol(d_screenWidth, &width, sizeof(int));
-                cudaMemcpyToSymbol(d_screenHeight, &height, sizeof(int));
                 cudaMemcpyToSymbol(d_rays, &rays, sizeof(int));
 
                 if (visualizeRays){
@@ -132,17 +128,16 @@ namespace OpenEngine {
                     PRINT_TIMER(timerID, "Brute tracing using Woop");
 
                 }else{
-                    unsigned int blocks, threads;
-                    Calc1DKernelDimensions(rays, blocks, threads, 64);
-                    int smemSize = threads * sizeof(float3) * 3;
+                    KernelConf conf = KernelConf1D(rays, 64, 0, sizeof(float3) * 3);
                     START_TIMER(timerID);
                     //logger.info << "BruteTracing<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
-                    BruteTracing<false><<<blocks, threads, smemSize>>>(origin->GetDeviceData(), direction->GetDeviceData(),
-                                                                       geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), 
-                                                                       geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
-                                                                       geom->GetColor0Data(),
-                                                                       canvasData,
-                                                                       geom->GetSize());
+                    BruteTracing<false><<<conf.blocks, conf.threads, conf.smem>>>
+                        (origin->GetDeviceData(), direction->GetDeviceData(),
+                         geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), 
+                         geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                         geom->GetColor0Data(),
+                         canvasData,
+                         geom->GetSize());
                     PRINT_TIMER(timerID, "Brute tracing using Möller-Trumbore");
                 }
                 CHECK_FOR_CUDA_ERROR();
