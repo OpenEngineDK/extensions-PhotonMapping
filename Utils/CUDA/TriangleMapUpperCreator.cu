@@ -473,7 +473,9 @@ namespace OpenEngine {
                 TriangleNode* nodes = map->GetNodes();
                 int triangles = aabbMin->GetSize();
 
-                unsigned int blocks = NextPow2(segments.GetSize()), threads = Segments::SEGMENT_SIZE;
+                unsigned int blocks = NextPow2(segments.GetSize());
+                //unsigned int blocks = segments.GetSize();
+                unsigned int threads = Segments::SEGMENT_SIZE;
 
                 splitSide->Extend(triangles * 2, false);
                 splitAddr->Extend(triangles * 2 + 1, false);

@@ -50,6 +50,7 @@ namespace OpenEngine {
 
             __constant__ int d_rays;
 
+            template <bool invDir>
             __device__ __host__ void TraceNode(float3 origin, float3 direction, 
                                                char axis, float splitPos,
                                                int left, int right, float tMin,
@@ -67,7 +68,7 @@ namespace OpenEngine {
                     break;
                 }
                 
-                float tSplit = (splitPos - ori) / dir;
+                float tSplit = invDir ? (splitPos - ori) * dir : (splitPos - ori) / dir;
 
                 if (tMin < tSplit){
                     node = 0 < dir ? left : right;
@@ -76,7 +77,7 @@ namespace OpenEngine {
                     node = 0 < dir ? right : left;
             }
 
-            template <bool useWoop>
+            template <bool useWoop, bool invDir>
             __global__ void 
             __launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
                 KDRestart(float4* origins, float4* directions,
@@ -96,8 +97,9 @@ namespace OpenEngine {
                 
                     id = IRayTracer::PacketIndex(id, screenWidth);
     
-                    float3 origin = make_float3(origins[id]);
-                    float3 direction = make_float3(directions[id]);
+                    float3 origin = make_float3(FetchDeviceData(origins, id));
+                    float3 direction = make_float3(FetchDeviceData(directions, id));
+                    if (invDir) direction = 1.0f / direction;
 
                     float3 tHit;
                     tHit.x = 0.0f;
@@ -107,51 +109,54 @@ namespace OpenEngine {
                     do {
                         float tNext = fInfinity;
                         int node = 0;
-                        char info = nodeInfo[node];
+                        char info = FetchDeviceData(nodeInfo, node);
                         
                         while((info & 3) != KDNode::LEAF){
                             // Trace
-                            float splitValue = splitPos[node];
-                            int2 childPair = children[node];
-
-                            TraceNode(origin, direction, info & 3, splitValue, childPair.x, childPair.y, tHit.x,
-                                      node, tNext);
+                            float splitValue = FetchDeviceData(splitPos, node);
+                            int2 childPair = FetchDeviceData(children, node);
+                            
+                            TraceNode<invDir>(origin, direction, info & 3, 
+                                              splitValue, childPair.x, childPair.y, 
+                                              tHit.x, node, tNext);
                                                         
-                            info = nodeInfo[node];
+                            info = FetchDeviceData(nodeInfo, node);
                         }
 
                         tHit.x = tNext;
 
-                        int primIndex = nodePrimIndex[node];
-                        KDNode::bitmap triangles = primBitmap[node];
+                        int primIndex = FetchDeviceData(nodePrimIndex, node);
+                        KDNode::bitmap triangles = FetchDeviceData(primBitmap, node);
                         int primHit = -1;
                         while (triangles){
                             int i = firstBitSet(triangles) - 1;
-                            int prim = primIndices[primIndex + i];
+                            int prim = FetchDeviceData(primIndices, primIndex + i);
                             
                             if (useWoop){
-                                IRayTracer::Woop(v0, v1, v2, prim,
+                                IRayTracer::Woop<invDir>(v0, v1, v2, prim,
                                                  origin, direction, primHit, tHit);
                             }else{
-                                IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
-                                                            origin, direction, primHit, tHit);
+                                IRayTracer::MoellerTrumbore<invDir>(v0, v1, v2, prim,
+                                                                    origin, direction, primHit, tHit);
                             }
                             
                             triangles -= KDNode::bitmap(1)<<i;
                         }
 
                         if (primHit != -1){
+                            if (invDir) direction = 1.0f / direction;
                             float4 newColor = Lighting(tHit, origin, direction, 
-                                                       n0s[primHit], n1s[primHit], n2s[primHit],
-                                                       c0s[primHit]);
-
+                                                       FetchDeviceData(n0s, primHit), FetchDeviceData(n1s, primHit), FetchDeviceData(n2s, primHit),
+                                                       FetchDeviceData(c0s, primHit));
+                            if (invDir) direction = 1.0f / direction;
+                            
                             color = BlendColor(color, newColor);
-
+                            
                             tHit.x = 0.0f;
                         }
                     } while(tHit.x < fInfinity && color.w < 0.97f);
 
-                    canvas[id] = make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
+                    DumpDeviceData(make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255), canvas, id);
                 }
             }
 
@@ -179,9 +184,9 @@ namespace OpenEngine {
                     float4 *woop0, *woop1, *woop2;
                     geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                    KernelConf conf = KernelConf1D(rays, 64);
+                    KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                     START_TIMER(timerID);
-                    KDRestart<true><<<conf.blocks, conf.threads>>>
+                    KDRestart<true, false><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
@@ -194,11 +199,11 @@ namespace OpenEngine {
                          canvasData,
                          width);
                     PRINT_TIMER(timerID, "KDRestart with Woop intersection");
+
                 }else{               
-                    unsigned int blocks, threads;
-                    Calc1DKernelDimensions(rays, blocks, threads, MAX_THREADS);
+                    KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                     START_TIMER(timerID);
-                    KDRestart<false><<<blocks, threads>>>
+                    KDRestart<false, true><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
@@ -249,7 +254,7 @@ namespace OpenEngine {
                         cudaMemcpy(&children, nodes->GetChildrenData() + node, sizeof(int2), cudaMemcpyDeviceToHost);
                         CHECK_FOR_CUDA_ERROR();
                         
-                        TraceNode(ori, dir, info & 3, splitValue, children.x, children.y, tHit.x,
+                        TraceNode<false>(ori, dir, info & 3, splitValue, children.x, children.y, tHit.x,
                                   node, tNext);
 
                         //logger.info << "tNext " << tNext << logger.end;
@@ -282,12 +287,12 @@ namespace OpenEngine {
                             float4 *woop0, *woop1, *woop2;
                             geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                            IRayTracer::Woop(woop0, woop1, woop2, prim,
+                            IRayTracer::Woop<false>(woop0, woop1, woop2, prim,
                                              ori, dir, primHit, tHit);
 
                         }else{
-                            IRayTracer::MoellerTrumbore(geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), prim,
-                                                        ori, dir, primHit, tHit);
+                            IRayTracer::MoellerTrumbore<false>(geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), prim,
+                                                               ori, dir, primHit, tHit);
                         }
                         
                         triangles -= KDNode::bitmap(1)<<i;

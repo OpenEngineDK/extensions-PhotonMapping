@@ -12,6 +12,7 @@
 
 #include <Resources/CUDA/CUDADataBlock.h>
 #include <Utils/CUDA/IntersectionTests.h>
+#include <Utils/CUDA/Utils.h>
 
 namespace OpenEngine {
     namespace Display {
@@ -56,29 +57,40 @@ namespace OpenEngine {
                     return bx * PW + x + (by * PH + y) * screenWidth;
                 }
 
+                template <bool invDir>
+                static inline __host__ __device__
+                float WoopLambda(const float3 origin, const float3 direction,
+                                 const float4 m2){
+                    if (invDir)
+                        return - (dot(make_float3(m2), origin) - m2.w) * dot(make_float3(m2), direction);
+                    else
+                        return - (dot(make_float3(m2), origin) - m2.w) / dot(make_float3(m2), direction);
+                }
+                
+                template <bool invDir>
+                static inline __host__ __device__
+                float WoopUV(const float3 origin, const float3 direction,
+                             const float lambda, const float4 m0){
+    
+                    if (invDir)
+                        return lambda / dot(make_float3(m0), direction) + dot(make_float3(m0), origin) - m0.w;
+                    else
+                        return lambda * dot(make_float3(m0), direction) + dot(make_float3(m0), origin) - m0.w;
+                }
+
+                template <bool invDir>
                 static inline __device__ __host__ 
                 void Woop(float4* woop0, float4* woop1, float4* woop2, int prim,
                           float3 origin, float3 direction, int &primHit, float3 &tHit){
                     
                     float3 hitCoords;
-#ifdef __CUDA_ARCH__
-                    float4 woop = woop2[prim];
-#else
-                    float4 woop;
-                    cudaMemcpy(&woop, woop0 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
-#endif
-                    hitCoords.x = WoopLambda(origin, direction, woop);
+                    const float4 woop = FetchDeviceData(woop2, prim);
+                    hitCoords.x = WoopLambda<invDir>(origin, direction, woop);
                     if (0.0f <= hitCoords.x && hitCoords.x < tHit.x){
-#ifdef __CUDA_ARCH__
-                        float4 w0 = woop0[prim];
-                        float4 w1 = woop1[prim];
-#else
-                        float4 w0, w1;
-                        cudaMemcpy(&w0, woop0 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&w1, woop1 + prim, sizeof(float4), cudaMemcpyDeviceToHost);
-#endif
-                        hitCoords.y = WoopUV(origin, direction, hitCoords.x, w0);
-                        hitCoords.z = WoopUV(origin, direction, hitCoords.x, w1);
+                        const float4 w0 = FetchDeviceData(woop0, prim);
+                        hitCoords.y = WoopUV<invDir>(origin, direction, hitCoords.x, w0);
+                        const float4 w1 = FetchDeviceData(woop1, prim);
+                        hitCoords.z = WoopUV<invDir>(origin, direction, hitCoords.x, w1);
                         
                         if (hitCoords.y >= 0.0f && hitCoords.z >= 0.0f && hitCoords.y + hitCoords.z <= 1.0f){
                             primHit = prim;
@@ -87,40 +99,28 @@ namespace OpenEngine {
                     }
                 }
                 
+                template <bool invDir>
                 static inline __device__ __host__ 
                 void MoellerTrumbore(float4* v0s, float4* v1s, float4* v2s, int prim,
                                      float3 origin, float3 direction, int &primHit, float3 &tHit){
                     
-                    float3 hitCoords;
-
-#ifdef __CUDA_ARCH__
-                    const float3 v0 = make_float3(v0s[prim]);
-                    const float3 v1 = make_float3(v1s[prim]);
-                    const float3 v2 = make_float3(v2s[prim]);
-#else
-                    float3 v0, v1, v2;
-                    cudaMemcpy(&v0, v0s + prim, sizeof(float3), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(&v1, v1s + prim, sizeof(float3), cudaMemcpyDeviceToHost);
-                    cudaMemcpy(&v2, v2s + prim, sizeof(float3), cudaMemcpyDeviceToHost);
-#endif
+                    const float3 v0 = make_float3(FetchDeviceData(v0s, prim));
+                    const float3 v1 = make_float3(FetchDeviceData(v1s, prim));
+                    const float3 v2 = make_float3(FetchDeviceData(v2s, prim));
 
                     const float3 e1 = v1 - v0;
                     const float3 e2 = v2 - v0;
                     const float3 p = cross(direction, e2);
-                    const float det = dot(p, e1);
                     const float3 t = origin - v0;
                     const float3 q = cross(t, e1);
-                    
-                    // if det is 'equal' to zero, the ray lies in the triangles plane
-                    // and cannot be seen.
-                    //if (det == 0.0f) return false;
-                    
+
 #ifdef __CUDA_ARCH__
-                    const float invDet = __fdividef(1.0f, det);
+                    const float invDet = invDir ? dot(p, e1) : __fdividef(1.0f, dot(p, e1));
 #else
-                    const float invDet = 1.0f / det;
+                    const float invDet = invDir ? dot(p, e1) : 1.0f / dot(p, e1);
 #endif
-                    
+
+                    float3 hitCoords;
                     hitCoords.x = invDet * dot(q, e2);
                     if (0.0f <= hitCoords.x && hitCoords.x < tHit.x){
                         hitCoords.y = invDet * dot(p, t);
@@ -134,7 +134,6 @@ namespace OpenEngine {
                             tHit = hitCoords;
                         }
                     }
-    
                 }
                 
             protected:

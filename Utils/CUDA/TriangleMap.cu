@@ -38,7 +38,6 @@ namespace OpenEngine {
                 leafIDs = new CUDADataBlock<1, int>(1);
 
                 upperCreator = new TriangleMapUpperCreator();
-                //lowerCreator = new TriangleMapBalancedFast();
                 lowerCreator = new TriangleMapBalancedCreator();
                 //lowerCreator = new TriangleMapSAHCreator();
             }
