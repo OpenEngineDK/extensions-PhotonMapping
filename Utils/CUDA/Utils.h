@@ -31,6 +31,28 @@
     logger.info << name << " time: " << cutGetTimerValue(timerID) << "ms" << logger.end; \
     
 
+template <class T>
+inline __host__ __device__
+T FetchDeviceData(const T* a, const int i){
+#ifdef __CUDA_ARCH__
+    return a[i];
+#else
+    T ret;
+    cudaMemcpy(&ret, a + i, sizeof(T), cudaMemcpyDeviceToHost);
+    return ret;
+#endif
+}
+
+template <class T>
+inline __host__ __device__
+void DumpDeviceData(const T d, T* a, const int i){
+#ifdef __CUDA_ARCH__
+    a[i] = d;
+#else
+    cudaMemcpy(a + i, &d, sizeof(T), cudaMemcpyHostToDevice);
+#endif
+}
+
 inline unsigned int NextPow2(unsigned int x) {
     --x;
     x |= x >> 1;
