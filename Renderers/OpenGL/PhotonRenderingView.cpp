@@ -56,8 +56,6 @@ namespace OpenEngine {
                         
                         raytracer->Trace(&arg.canvas, pixels);
 
-                        //raytracer->HostTrace(320, 240, triangleMap->nodes);
-                        
                         cudaGraphicsUnmapResources(1, &pboResource, 0);
                         cudaGraphicsUnregisterResource(pboResource);
                         CHECK_FOR_CUDA_ERROR();

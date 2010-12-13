@@ -22,7 +22,13 @@ using namespace OpenEngine::Resources::CUDA;
 namespace OpenEngine {
     namespace Utils {
         namespace CUDA {
-            
+
+            __constant__ float3 d_camPos;
+            __constant__ int d_rays;
+            __constant__ int d_screenHeight;
+            __constant__ int d_screenWidth;
+            __constant__ float d_ViewProjectionMatrixInverse[16];
+
             IRayTracer::IRayTracer() 
                 : visualizeRays(false), intersectionAlgorithm(WOOP) {
 
@@ -34,12 +40,6 @@ namespace OpenEngine {
                 if (origin) delete origin;
                 if (direction) delete direction;
             }
-
-            __constant__ float3 d_camPos;
-            __constant__ int d_rays;
-            __constant__ int d_screenHeight;
-            __constant__ int d_screenWidth;
-            __constant__ float d_ViewProjectionMatrixInverse[16];
             
             __device__ __host__ float3 Unproject(float2 screenPos, float* vpMatInv, float3 origin){
                 float4 currentPos = make_float4(vpMatInv[0] * screenPos.x + vpMatInv[4] * screenPos.y + vpMatInv[8] + vpMatInv[12],

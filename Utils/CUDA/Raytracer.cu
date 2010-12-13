@@ -16,6 +16,8 @@
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
 
+#include <Utils/CUDA/LoggerExtensions.h>
+
 #define MAX_THREADS 64
 #define MIN_BLOCKS 4
 
@@ -26,9 +28,13 @@ namespace OpenEngine {
     using namespace Scene;
     namespace Utils {
         namespace CUDA {
-
-#include <Utils/CUDA/Kernels/ColorKernels.h>
             
+            __constant__ int d_rays;
+
+            namespace RaytracerKDns{
+#include <Utils/CUDA/Kernels/ColorKernels.h>
+            } using namespace RaytracerKDns;
+
             RayTracer::RayTracer(TriangleMap* map)
                 : map(map) {
                 
@@ -48,8 +54,6 @@ namespace OpenEngine {
 
             RayTracer::~RayTracer() {}
 
-            __constant__ int d_rays;
-
             template <bool invDir>
             __device__ __host__ void TraceNode(float3 origin, float3 direction, 
                                                char axis, float splitPos,
@@ -68,7 +72,11 @@ namespace OpenEngine {
                     break;
                 }
                 
-                float tSplit = invDir ? (splitPos - ori) * dir : (splitPos - ori) / dir;
+#ifdef __CUDA_ARCH__
+                const float tSplit = invDir ? (splitPos - ori) * dir : __fdividef(splitPos - ori, dir);
+#else
+                const float tSplit = invDir ? (splitPos - ori) * dir : (splitPos - ori) / dir;
+#endif
 
                 if (tMin < tSplit){
                     node = 0 < dir ? left : right;
@@ -78,85 +86,121 @@ namespace OpenEngine {
             }
 
             template <bool useWoop, bool invDir>
+            inline __host__ __device__ 
+            uchar4 KDRestart(int id, float4* origins, float4* directions,
+                           char* nodeInfo, float* splitPos,
+                           int2* children,
+                           int* nodePrimIndex, KDNode::bitmap* primBitmap,
+                           int *primIndices, 
+                           float4 *v0, float4 *v1, float4 *v2,
+                           float4 *n0s, float4 *n1s, float4 *n2s,
+                           uchar4 *c0s){
+                    
+                float3 origin = make_float3(FetchDeviceData(origins, id));
+                float3 direction = make_float3(FetchDeviceData(directions, id));
+                
+#ifndef __CUDA_ARCH__
+                logger.info << "=== Ray:  " << origin << " -> " << direction << " ===\n" << logger.end;
+#endif
+
+                //if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
+                
+                float3 tHit;
+                tHit.x = 0.0f;
+                
+                float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+
+                do {
+                    float tNext = fInfinity;
+                    int node = 0;
+                    char info = FetchDeviceData(nodeInfo, node);
+
+                    if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
+                    
+                    while((info & 3) != KDNode::LEAF){
+                        // Trace
+#ifndef __CUDA_ARCH__
+                        logger.info << "Tracing " << node << " with info " << (int)info << logger.end;
+#endif
+                        
+                        float splitValue = FetchDeviceData(splitPos, node);
+                        int2 childPair = FetchDeviceData(children, node);
+                        
+                        TraceNode<invDir>(origin, direction, info & 3, 
+                                          splitValue, childPair.x, childPair.y, 
+                                          tHit.x, node, tNext);
+                                                        
+                        info = FetchDeviceData(nodeInfo, node);
+                    }
+#ifndef __CUDA_ARCH__
+                    logger.info << "Found leaf: " << node << "\n" << logger.end;
+#endif
+                    if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
+                    tHit.x = tNext;
+
+                    int primIndex = FetchDeviceData(nodePrimIndex, node);
+                    KDNode::bitmap triangles = FetchDeviceData(primBitmap, node);
+                    int primHit = -1;
+                    while (triangles){
+                        int i = firstBitSet(triangles) - 1;
+                        int prim = FetchDeviceData(primIndices, primIndex + i);
+                            
+                        if (useWoop){
+                            IRayTracer::Woop(v0, v1, v2, prim,
+                                                     origin, direction, primHit, tHit);
+                        }else{
+                            IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
+                                                                origin, direction, primHit, tHit);
+                        }
+                            
+                        triangles -= KDNode::bitmap(1)<<i;
+                    }
+
+#ifndef __CUDA_ARCH__
+                    logger.info << "THit: " << tHit << "\n" << logger.end;
+#endif
+
+                    if (primHit != -1){
+                        float4 newColor = Lighting(tHit, origin, direction, 
+                                                   FetchDeviceData(n0s, primHit), FetchDeviceData(n1s, primHit), FetchDeviceData(n2s, primHit),
+                                                   FetchDeviceData(c0s, primHit));
+                        
+                        color = BlendColor(color, newColor);
+                        
+                        tHit.x = 0.0f;
+                    }
+
+                } while(tHit.x < fInfinity && color.w < 0.97f);
+                
+                return make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
+            }
+            
+            template <bool useWoop, bool invDir>
             __global__ void 
             __launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
-                KDRestart(float4* origins, float4* directions,
-                          char* nodeInfo, float* splitPos,
-                          int2* children,
-                          int* nodePrimIndex, KDNode::bitmap* primBitmap,
-                          int *primIndices, 
-                          float4 *v0, float4 *v1, float4 *v2,
-                          float4 *n0s, float4 *n1s, float4 *n2s,
-                          uchar4 *c0s,
-                          uchar4 *canvas,
-                          int screenWidth){
-                
+                KDRestartKernel(float4* origins, float4* directions,
+                           char* nodeInfo, float* splitPos,
+                           int2* children,
+                           int* nodePrimIndex, KDNode::bitmap* primBitmap,
+                           int *primIndices, 
+                           float4 *v0, float4 *v1, float4 *v2,
+                           float4 *n0s, float4 *n1s, float4 *n2s,
+                           uchar4 *c0s,
+                           uchar4 *canvas,
+                           int screenWidth){
+
                 int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
                 if (id < d_rays){
-                
+                    
                     id = IRayTracer::PacketIndex(id, screenWidth);
-    
-                    float3 origin = make_float3(FetchDeviceData(origins, id));
-                    float3 direction = make_float3(FetchDeviceData(directions, id));
-                    if (invDir) direction = 1.0f / direction;
 
-                    float3 tHit;
-                    tHit.x = 0.0f;
-
-                    float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-
-                    do {
-                        float tNext = fInfinity;
-                        int node = 0;
-                        char info = FetchDeviceData(nodeInfo, node);
-                        
-                        while((info & 3) != KDNode::LEAF){
-                            // Trace
-                            float splitValue = FetchDeviceData(splitPos, node);
-                            int2 childPair = FetchDeviceData(children, node);
-                            
-                            TraceNode<invDir>(origin, direction, info & 3, 
-                                              splitValue, childPair.x, childPair.y, 
-                                              tHit.x, node, tNext);
-                                                        
-                            info = FetchDeviceData(nodeInfo, node);
-                        }
-
-                        tHit.x = tNext;
-
-                        int primIndex = FetchDeviceData(nodePrimIndex, node);
-                        KDNode::bitmap triangles = FetchDeviceData(primBitmap, node);
-                        int primHit = -1;
-                        while (triangles){
-                            int i = firstBitSet(triangles) - 1;
-                            int prim = FetchDeviceData(primIndices, primIndex + i);
-                            
-                            if (useWoop){
-                                IRayTracer::Woop<invDir>(v0, v1, v2, prim,
-                                                 origin, direction, primHit, tHit);
-                            }else{
-                                IRayTracer::MoellerTrumbore<invDir>(v0, v1, v2, prim,
-                                                                    origin, direction, primHit, tHit);
-                            }
-                            
-                            triangles -= KDNode::bitmap(1)<<i;
-                        }
-
-                        if (primHit != -1){
-                            if (invDir) direction = 1.0f / direction;
-                            float4 newColor = Lighting(tHit, origin, direction, 
-                                                       FetchDeviceData(n0s, primHit), FetchDeviceData(n1s, primHit), FetchDeviceData(n2s, primHit),
-                                                       FetchDeviceData(c0s, primHit));
-                            if (invDir) direction = 1.0f / direction;
-                            
-                            color = BlendColor(color, newColor);
-                            
-                            tHit.x = 0.0f;
-                        }
-                    } while(tHit.x < fInfinity && color.w < 0.97f);
-
-                    DumpDeviceData(make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255), canvas, id);
+                    uchar4 color = KDRestart<useWoop, invDir>(id, origins, directions, 
+                                                              nodeInfo, splitPos, children,
+                                                              nodePrimIndex, primBitmap, primIndices, 
+                                                              v0, v1, v2, n0s, n1s, n2s, c0s);
+                    
+                    DumpDeviceData(color, canvas, id);
                 }
             }
 
@@ -186,7 +230,7 @@ namespace OpenEngine {
 
                     KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                     START_TIMER(timerID);
-                    KDRestart<true, false><<<conf.blocks, conf.threads>>>
+                    KDRestartKernel<true, true><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
@@ -203,7 +247,7 @@ namespace OpenEngine {
                 }else{               
                     KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                     START_TIMER(timerID);
-                    KDRestart<false, true><<<conf.blocks, conf.threads>>>
+                    KDRestartKernel<false, true><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
@@ -216,119 +260,34 @@ namespace OpenEngine {
                          canvasData,
                          width);
                     PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore");
-                }                                
+                }
                 CHECK_FOR_CUDA_ERROR();
+                
+                //HostTrace(320, 240, nodes);
             }
 
             void RayTracer::HostTrace(int x, int y, TriangleNode* nodes){
 
                 int id = x + y * screenWidth;
-                float3 ori, dir;
-                cudaMemcpy(&ori, origin->GetDeviceData() + id, sizeof(float3), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&dir, direction->GetDeviceData() + id, sizeof(float3), cudaMemcpyDeviceToHost);
-
+                
+                //TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
-                float3 tHit;
-                tHit.x = 0.0f;
+                float4 *woop0, *woop1, *woop2;
+                geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+                uchar4 color = KDRestart<true, true>
+                    (id, origin->GetDeviceData(), direction->GetDeviceData(),
+                     nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                     nodes->GetChildrenData(),
+                     nodes->GetPrimitiveIndexData(),
+                     nodes->GetPrimitiveBitmapData(),
+                     map->GetPrimitiveIndices()->GetDeviceData(),
+                     woop0, woop1, woop2,
+                     geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                     geom->GetColor0Data());
 
-                do {
-                    logger.info << "=== Ray:  " << Convert::ToString(ori) << " -> " << Convert::ToString(dir) << " ===\n" << logger.end;
-                
-                    float tNext = fInfinity;
-                    int node = 0;
-                    char info;
-                    cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
-                    CHECK_FOR_CUDA_ERROR();
-
-                    while ((info & 3) != KDNode::LEAF){
-                        logger.info << "Tracing " << node << " with info " << (int)info << logger.end;
-                        
-                        float splitValue;
-                        cudaMemcpy(&splitValue, nodes->GetSplitPositionData() + node, sizeof(float), cudaMemcpyDeviceToHost);
-                        CHECK_FOR_CUDA_ERROR();
-
-                        int2 children;
-                        cudaMemcpy(&children, nodes->GetChildrenData() + node, sizeof(int2), cudaMemcpyDeviceToHost);
-                        CHECK_FOR_CUDA_ERROR();
-                        
-                        TraceNode<false>(ori, dir, info & 3, splitValue, children.x, children.y, tHit.x,
-                                  node, tNext);
-
-                        //logger.info << "tNext " << tNext << logger.end;
-
-                        cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
-                    }
-
-                    logger.info << "Found leaf: " << node << "\n" << logger.end;
-                    
-                    tHit.x = tNext;
-                    
-                    int primIndex;
-                    cudaMemcpy(&primIndex, nodes->GetPrimitiveIndexData() + node, sizeof(int), cudaMemcpyDeviceToHost);
-                    CHECK_FOR_CUDA_ERROR();
-                    int primHit = -1;
-                    KDNode::bitmap triangles;
-                    cudaMemcpy(&triangles, nodes->GetPrimitiveBitmapData() + node, sizeof(KDNode::bitmap), cudaMemcpyDeviceToHost);
-                    while (triangles){
-                        int i = ffs(triangles) - 1;
-
-                        //logger.info << "Testing indice " << primInfo.x << " + " << i << " = " << primInfo.x + i << logger.end;
-
-                        int prim;
-                        cudaMemcpy(&prim, map->GetPrimitiveIndices()->GetDeviceData() + primIndex + i, sizeof(int), cudaMemcpyDeviceToHost);
-                        CHECK_FOR_CUDA_ERROR();
-                        
-                        //logger.info << "Testing primitive " << prim << logger.end;
-
-                        if (intersectionAlgorithm == WOOP){
-                            float4 *woop0, *woop1, *woop2;
-                            geom->GetWoopValues(&woop0, &woop1, &woop2);
-
-                            IRayTracer::Woop<false>(woop0, woop1, woop2, prim,
-                                             ori, dir, primHit, tHit);
-
-                        }else{
-                            IRayTracer::MoellerTrumbore<false>(geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), prim,
-                                                               ori, dir, primHit, tHit);
-                        }
-                        
-                        triangles -= KDNode::bitmap(1)<<i;
-                    }
-                    
-                    //logger.info << "\n" << logger.end;
-                    
-                    if (primHit != -1){
-                        float4 n0, n1, n2;
-                        cudaMemcpy(&n0, geom->GetNormal0Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&n1, geom->GetNormal1Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&n2, geom->GetNormal2Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
-                        CHECK_FOR_CUDA_ERROR();
-
-                        uchar4 c0;
-                        cudaMemcpy(&c0, geom->GetColor0Data() + primHit, sizeof(uchar4), cudaMemcpyDeviceToHost);                        
-
-                        logger.info << "Prim color: " << Convert::ToString(c0) << logger.end;
-
-                        float4 newColor = Lighting(tHit, ori, dir, 
-                                                   n0, n1, n2,
-                                                   c0);
-
-                        logger.info << "New color: " << Convert::ToString(newColor) << logger.end;
-                        
-                        color = BlendColor(color, newColor);
-
-                        logger.info << "Color: " << Convert::ToString(color) << "\n" << logger.end;
-
-                        tHit.x = 0.0f;
-                    }
-
-                } while(tHit.x < fInfinity && color.w < 0.97f);
-
-                logger.info << "Final color: " << Convert::ToString(color) << logger.end;
-                //exit(0);
+                logger.info << "Final color: " << make_int4(color.x, color.y, color.z, color.w) << logger.end;
             }
 
         }

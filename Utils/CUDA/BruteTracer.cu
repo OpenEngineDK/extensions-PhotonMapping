@@ -79,8 +79,8 @@ namespace OpenEngine {
                                 IRayTracer::Woop(v0s, v1s, v2s, prim,
                                                  origin, dir, primHit, tHit);
                             }else{
-                                IRayTracer::MoellerTrumbore<false>(v0s, v1s, v2s, prim,
-                                                                   origin, dir, primHit, tHit);
+                                IRayTracer::MoellerTrumbore(v0s, v1s, v2s, prim,
+                                                            origin, dir, primHit, tHit);
                             }
                         }
                         

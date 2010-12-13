@@ -19,7 +19,7 @@
 #include <Utils/CUDA/IntersectionTests.h>
 
 #define MAX_THREADS 64
-#define MIN_BLOCKS 3
+#define MIN_BLOCKS 4
 #define SHORT_STACK_SIZE 4
 
 namespace OpenEngine {
@@ -157,8 +157,8 @@ namespace OpenEngine {
                                 IRayTracer::Woop(v0, v1, v2, prim,
                                                  origin, direction, primHit, tHit);
                             }else{
-                                IRayTracer::MoellerTrumbore<false>(v0, v1, v2, prim,
-                                                                   origin, direction, primHit, tHit);
+                                IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
+                                                            origin, direction, primHit, tHit);
                             }
                             
                             triangles -= 1<<i;
@@ -347,8 +347,8 @@ namespace OpenEngine {
 
                         }else{
 
-                            IRayTracer::MoellerTrumbore<false>(geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), prim,
-                                                               ori, dir, primHit, tHit);
+                            IRayTracer::MoellerTrumbore(geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), prim,
+                                                        ori, dir, primHit, tHit);
                         }
                         
                         triangles -= KDNode::bitmap(1)<<i;

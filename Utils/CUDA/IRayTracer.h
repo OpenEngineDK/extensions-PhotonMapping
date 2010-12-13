@@ -57,40 +57,31 @@ namespace OpenEngine {
                     return bx * PW + x + (by * PH + y) * screenWidth;
                 }
 
-                template <bool invDir>
                 static inline __host__ __device__
                 float WoopLambda(const float3 origin, const float3 direction,
                                  const float4 m2){
-                    if (invDir)
-                        return - (dot(make_float3(m2), origin) - m2.w) * dot(make_float3(m2), direction);
-                    else
-                        return - (dot(make_float3(m2), origin) - m2.w) / dot(make_float3(m2), direction);
+                    return - (dot(make_float3(m2), origin) - m2.w) / dot(make_float3(m2), direction);
                 }
                 
-                template <bool invDir>
                 static inline __host__ __device__
                 float WoopUV(const float3 origin, const float3 direction,
                              const float lambda, const float4 m0){
     
-                    if (invDir)
-                        return lambda / dot(make_float3(m0), direction) + dot(make_float3(m0), origin) - m0.w;
-                    else
                         return lambda * dot(make_float3(m0), direction) + dot(make_float3(m0), origin) - m0.w;
                 }
 
-                template <bool invDir>
                 static inline __device__ __host__ 
                 void Woop(float4* woop0, float4* woop1, float4* woop2, int prim,
                           float3 origin, float3 direction, int &primHit, float3 &tHit){
                     
                     float3 hitCoords;
                     const float4 woop = FetchDeviceData(woop2, prim);
-                    hitCoords.x = WoopLambda<invDir>(origin, direction, woop);
+                    hitCoords.x = WoopLambda(origin, direction, woop);
                     if (0.0f <= hitCoords.x && hitCoords.x < tHit.x){
                         const float4 w0 = FetchDeviceData(woop0, prim);
-                        hitCoords.y = WoopUV<invDir>(origin, direction, hitCoords.x, w0);
+                        hitCoords.y = WoopUV(origin, direction, hitCoords.x, w0);
                         const float4 w1 = FetchDeviceData(woop1, prim);
-                        hitCoords.z = WoopUV<invDir>(origin, direction, hitCoords.x, w1);
+                        hitCoords.z = WoopUV(origin, direction, hitCoords.x, w1);
                         
                         if (hitCoords.y >= 0.0f && hitCoords.z >= 0.0f && hitCoords.y + hitCoords.z <= 1.0f){
                             primHit = prim;
@@ -99,7 +90,6 @@ namespace OpenEngine {
                     }
                 }
                 
-                template <bool invDir>
                 static inline __device__ __host__ 
                 void MoellerTrumbore(float4* v0s, float4* v1s, float4* v2s, int prim,
                                      float3 origin, float3 direction, int &primHit, float3 &tHit){
@@ -115,9 +105,9 @@ namespace OpenEngine {
                     const float3 q = cross(t, e1);
 
 #ifdef __CUDA_ARCH__
-                    const float invDet = invDir ? dot(p, e1) : __fdividef(1.0f, dot(p, e1));
+                    const float invDet = __fdividef(1.0f, dot(p, e1));
 #else
-                    const float invDet = invDir ? dot(p, e1) : 1.0f / dot(p, e1);
+                    const float invDet = 1.0f / dot(p, e1);
 #endif
 
                     float3 hitCoords;

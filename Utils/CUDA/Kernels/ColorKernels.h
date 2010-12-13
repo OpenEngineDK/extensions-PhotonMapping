@@ -86,4 +86,3 @@ inline __device__ __host__ float4 BlendColor(float4 orig, float4 newColor){
                 
     return orig + (1.0f - orig.w) * newAlpha * newColor;                
 }
-            
