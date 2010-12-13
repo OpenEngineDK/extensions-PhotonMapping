@@ -145,10 +145,10 @@ namespace OpenEngine {
                             
                         if (useWoop){
                             IRayTracer::Woop(v0, v1, v2, prim,
-                                                     origin, direction, primHit, tHit);
+                                             origin, direction, primHit, tHit);
                         }else{
                             IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
-                                                                origin, direction, primHit, tHit);
+                                                        origin, direction, primHit, tHit);
                         }
                             
                         triangles -= KDNode::bitmap(1)<<i;
