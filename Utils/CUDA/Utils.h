@@ -25,12 +25,13 @@
 
 // easy timer defs
 #define START_TIMER(timerID) cutResetTimer(timerID);cutStartTimer(timerID);
-#define PRINT_TIMER(timerID, name)              \
-    cudaThreadSynchronize();                    \
-    cutStopTimer(timerID);                      \
-    logger.info << name << " time: " << cutGetTimerValue(timerID) << "ms" << logger.end; \
+#define PRINT_TIMER(timerID, name)                                      \
+    do{                                                                 \
+        cudaThreadSynchronize();                                        \
+        cutStopTimer(timerID);                                          \
+        logger.info << name << " time: " << cutGetTimerValue(timerID) << "ms" << logger.end; \
+    }while(false)                                                       \
     
-
 template <class T>
 inline __host__ __device__
 T FetchDeviceData(const T* a, const int i){
