@@ -18,6 +18,8 @@
 #include <Utils/CUDA/Utils.h>
 #include <Utils/CUDA/IntersectionTests.h>
 
+#include <Utils/CUDA/LoggerExtensions.h>
+
 #define MAX_THREADS 64
 #define MIN_BLOCKS 4
 #define SHORT_STACK_SIZE 4
@@ -53,6 +55,7 @@ namespace OpenEngine {
 
             __constant__ int d_rays;
 
+            template <bool invDir>
             __device__ __host__ void TraceNode(float3 origin, float3 direction, 
                                                char axis, float splitPos,
                                                int left, int right, float tMin,
@@ -71,8 +74,12 @@ namespace OpenEngine {
                     ori = origin.z; dir = direction.z;
                     break;
                 }
-                        
-                float tSplit = (splitPos - ori) / dir;
+
+#ifdef __CUDA_ARCH__
+                const float tSplit = invDir ? (splitPos - ori) * dir : __fdividef(splitPos - ori, dir);
+#else
+                const float tSplit = invDir ? (splitPos - ori) * dir : (splitPos - ori) / dir;
+#endif
                 int lowerChild = 0 < dir ? left : right;
                 int upperChild = 0 < dir ? right : left;
                         
@@ -86,20 +93,118 @@ namespace OpenEngine {
 
             }
 
-            template <bool useWoop>
+            template <bool useWoop, bool invDir>
+            inline __host__ __device__ 
+            uchar4 ShortStackTrace(int id, float4* origins, float4* directions,
+                                   ShortStack::Element* elms,
+                                   char* nodeInfo, float* splitPos,
+                                   int2* children,
+                                   int *nodePrimIndex, KDNode::bitmap *primBitmap, 
+                                   int *primIndices, 
+                                   float4 *v0, float4 *v1, float4 *v2,
+                                   float4 *n0s, float4 *n1s, float4 *n2s,
+                                   uchar4 *c0s){
+                
+                int nxt = 0, cnt = 0;
+                
+                float3 origin = make_float3(FetchDeviceData(origins, id));
+                float3 direction = make_float3(FetchDeviceData(directions, id));
+
+#ifndef __CUDA_ARCH__
+                logger.info << "=== Ray:  " << origin << " -> " << direction << " ===\n" << logger.end;
+#endif
+                
+                float3 tHit;
+                tHit.x = 0.0f;
+                
+                float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+                
+                do {
+                    int node; float tNext;
+                    if (cnt == 0){
+                        node = 0;
+                        tNext = fInfinity;
+                    }else{
+                        ShortStack::Element e = ShortStack::Stack<SHORT_STACK_SIZE>::Pop(elms, nxt, cnt);
+                        node = e.node;
+                        tNext = e.tMax;
+                    }
+                    char info = FetchDeviceData(nodeInfo, node);
+                    
+                    if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
+                    
+                    while ((info & 3) != KDNode::LEAF){
+                        
+#ifndef __CUDA_ARCH__
+                        logger.info << "Tracing " << node << " with info " << (int)info << logger.end;
+#endif
+
+                        float splitValue = splitPos[node];
+                        int2 childPair = children[node];
+
+                        TraceNode<invDir>(origin, direction, info & 3, splitValue, childPair.x, childPair.y, tHit.x,
+                                          node, tNext, elms, nxt, cnt);
+
+                        info = nodeInfo[node];
+                    }
+
+                    if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
+                    tHit.x = tNext;
+                        
+                    int primIndex = FetchDeviceData(nodePrimIndex, node);
+                    int primHit = -1;
+                    KDNode::bitmap triangles = FetchDeviceData(primBitmap, node);
+                    while (triangles){
+                        int i = firstBitSet(triangles) - 1;
+                            
+                        int prim = FetchDeviceData(primIndices, primIndex + i);
+
+                        if (useWoop){
+                            IRayTracer::Woop(v0, v1, v2, prim,
+                                             origin, direction, primHit, tHit);
+                        }else{
+                            IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
+                                                        origin, direction, primHit, tHit);
+                        }
+                            
+                        triangles -= 1<<i;
+                    }
+
+#ifndef __CUDA_ARCH__
+                    logger.info << "THit: " << tHit << "\n" << logger.end;
+#endif
+
+                    if (primHit != -1){
+                        float4 newColor = Lighting(tHit, origin, direction, 
+                                                   FetchDeviceData(n0s, primHit), FetchDeviceData(n1s, primHit), FetchDeviceData(n2s, primHit),
+                                                   FetchDeviceData(c0s, primHit));
+                            
+                        color = BlendColor(color, newColor);
+
+                        // Invalidate the short stack as a new ray has been spawned.
+                        ShortStack::Stack<SHORT_STACK_SIZE>::Erase(elms, nxt, cnt);
+                        tHit.x = 0.0f;
+                    }
+                        
+                } while(tHit.x < fInfinity && color.w < 0.97f);
+
+                return make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
+            }
+
+            template <bool useWoop, bool invDir>
             __global__ void 
             __launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
-                ShortStackTrace(float4* origins, float4* directions,
-                                char* nodeInfo, float* splitPos,
-                                int2* children,
-                                int *nodePrimIndex, KDNode::bitmap *primBitmap, 
-                                int *primIndices, 
-                                float4 *v0, float4 *v1, float4 *v2,
-                                float4 *n0s, float4 *n1s, float4 *n2s,
-                                uchar4 *c0s,
-                                uchar4 *canvas,
-                                int screenWidth){
-                
+                ShortStackKernel(float4* origins, float4* directions,
+                                 char* nodeInfo, float* splitPos,
+                                 int2* children,
+                                 int* nodePrimIndex, KDNode::bitmap* primBitmap,
+                                 int *primIndices, 
+                                 float4 *v0, float4 *v1, float4 *v2,
+                                 float4 *n0s, float4 *n1s, float4 *n2s,
+                                 uchar4 *c0s,
+                                 uchar4 *canvas,
+                                 int screenWidth){
+                            
                 int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
                 if (id < d_rays){
@@ -109,79 +214,16 @@ namespace OpenEngine {
                     ShortStack::Element* elms = SharedMemory<ShortStack::Element>();
                     elms += threadIdx.x * SHORT_STACK_SIZE;
                     //ShortStack::Element elms[SHORT_STACK_SIZE];
-                    int nxt = 0, cnt = 0;
 
-                    float3 origin = make_float3(origins[id]);
-                    float3 direction = make_float3(directions[id]);
-
-                    float3 tHit;
-                    tHit.x = 0.0f;
-
-                    float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-
-                    do {
-                        int node; float tNext;
-                        if (cnt == 0){
-                            node = 0;
-                            tNext = fInfinity;
-                        }else{
-                            ShortStack::Element e = ShortStack::Stack<SHORT_STACK_SIZE>::Pop(elms, nxt, cnt);
-                            node = e.node;
-                            tNext = e.tMax;
-                        }
-                        
-                        char info = nodeInfo[node];
-
-                        while ((info & 3) != KDNode::LEAF){
-                            
-                            float splitValue = splitPos[node];
-                            int2 childPair = children[node];
-
-                            TraceNode(origin, direction, info & 3, splitValue, childPair.x, childPair.y, tHit.x,
-                                      node, tNext, elms, nxt, cnt);
-
-                            info = nodeInfo[node];
-                        }
-                 
-                        tHit.x = tNext;
-                        
-                        int primIndex = nodePrimIndex[node];
-                        int primHit = -1;
-                        KDNode::bitmap triangles = primBitmap[node];
-                        while (triangles){
-                            int i = __ffs(triangles) - 1;
-                            
-                            int prim = primIndices[primIndex + i];
-
-                            if (useWoop){
-                                IRayTracer::Woop(v0, v1, v2, prim,
-                                                 origin, direction, primHit, tHit);
-                            }else{
-                                IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
-                                                            origin, direction, primHit, tHit);
-                            }
-                            
-                            triangles -= 1<<i;
-                        }
-
-                        if (primHit != -1){
-                            float4 newColor = Lighting(tHit, origin, direction, 
-                                                       n0s[primHit], n1s[primHit], n2s[primHit],
-                                                       c0s[primHit]);
-                            
-                            color = BlendColor(color, newColor);
-
-                            // Invalidate the short stack as a new ray has been spawned.
-                            ShortStack::Stack<SHORT_STACK_SIZE>::Erase(elms, nxt, cnt);
-                            tHit.x = 0.0f;
-                        }
-                        
-                    } while(tHit.x < fInfinity && color.w < 0.97f);
-
-                    canvas[id] = make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
+                    uchar4 color = ShortStackTrace<useWoop, invDir>(id, origins, directions, 
+                                                                    elms, nodeInfo, splitPos, children,
+                                                                    nodePrimIndex, primBitmap, primIndices, 
+                                                                    v0, v1, v2, n0s, n1s, n2s, c0s);
+                    
+                    DumpDeviceData(color, canvas, id);
                 }
             }
-
+            
             void ShortStack::Trace(IRenderCanvas* canvas, uchar4* canvasData){
                 CreateInitialRays(canvas);
 
@@ -206,7 +248,7 @@ namespace OpenEngine {
 
                     KernelConf conf = KernelConf1D(rays, MAX_THREADS, 0, sizeof(Element) * SHORT_STACK_SIZE);
                     START_TIMER(timerID); 
-                    ShortStackTrace<true><<<conf.blocks, conf.threads, conf.smem>>>
+                    ShortStackKernel<true, true><<<conf.blocks, conf.threads, conf.smem>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
@@ -224,7 +266,7 @@ namespace OpenEngine {
                     unsigned int smemPrThread = sizeof(Element) * SHORT_STACK_SIZE;
                     Calc1DKernelDimensionsWithSmem(rays, smemPrThread, blocks, threads, smemSize, MAX_THREADS);
                     START_TIMER(timerID); 
-                    ShortStackTrace<false><<<blocks, threads, smemSize>>>
+                    ShortStackKernel<false, true><<<blocks, threads, smemSize>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
@@ -243,145 +285,27 @@ namespace OpenEngine {
             void ShortStack::HostTrace(int x, int y, TriangleNode* nodes){
 
                 int id = x + y * screenWidth;
-                float3 ori, dir;
-                cudaMemcpy(&ori, origin->GetDeviceData() + id, sizeof(float3), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&dir, direction->GetDeviceData() + id, sizeof(float3), cudaMemcpyDeviceToHost);
-
+                
+                //TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
+                float4 *woop0, *woop1, *woop2;
+                geom->GetWoopValues(&woop0, &woop1, &woop2);
+
                 Element elms[SHORT_STACK_SIZE];
-                int next = 0, count = 0;
-                
-                float3 tHit;
-                tHit.x = 0.0f;
 
-                float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+                uchar4 color = ShortStackTrace<true, true>
+                    (id, origin->GetDeviceData(), direction->GetDeviceData(), elms,
+                     nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                     nodes->GetChildrenData(),
+                     nodes->GetPrimitiveIndexData(),
+                     nodes->GetPrimitiveBitmapData(),
+                     map->GetPrimitiveIndices()->GetDeviceData(),
+                     woop0, woop1, woop2,
+                     geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                     geom->GetColor0Data());
 
-                do {
-                    logger.info << "=== Ray:  " << Utils::CUDA::Convert::ToString(ori) << " -> " << Convert::ToString(dir) << " ===" << logger.end;
-                    logger.info << Stack<SHORT_STACK_SIZE>::ToString(elms, next, count) << logger.end;
-                    
-                    int node; float tNext;
-                    if (count == 0){
-                        node = 0;
-                        tNext = fInfinity;
-                    }else{
-                        Element e = Stack<SHORT_STACK_SIZE>::Pop(elms, next, count);
-                        node = e.node;
-                        tNext = e.tMax;
-                    }
-
-                    char info;
-                    cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
-                    CHECK_FOR_CUDA_ERROR();
-
-                    while ((info & 3) != KDNode::LEAF){
-                        logger.info << "Tracing " << node << " with info " << (int)info << logger.end;
-                        
-                        float splitValue;
-                        cudaMemcpy(&splitValue, nodes->GetSplitPositionData() + node, sizeof(float), cudaMemcpyDeviceToHost);
-                        CHECK_FOR_CUDA_ERROR();
-                        
-                        int2 childPair;
-                        cudaMemcpy(&childPair, nodes->GetChildrenData() + node, sizeof(int2), cudaMemcpyDeviceToHost);
-                        CHECK_FOR_CUDA_ERROR();
-
-                        // Trace
-                        float origin, direction;
-                        switch(info & 3){
-                        case KDNode::X:
-                            origin = ori.x; direction = dir.x;
-                            break;
-                        case KDNode::Y:
-                            origin = ori.y; direction = dir.y;
-                            break;
-                        case KDNode::Z:
-                            origin = ori.z; direction = dir.z;
-                            break;
-                        }
-                        
-                        float tSplit = (splitValue - origin) / direction;
-                        int lowerChild = 0 < direction ? childPair.x : childPair.y;
-                        int upperChild = 0 < direction ? childPair.y : childPair.x;
-
-                        if (tHit.x < tSplit){
-                            node = lowerChild;
-                            if (tSplit < tNext)
-                                Stack<SHORT_STACK_SIZE>::Push(Element(upperChild, tNext), elms, next, count);
-                            tNext = min(tSplit, tNext);
-                        }else
-                            node = upperChild;
-                        
-                        // New nodes info
-                        cudaMemcpy(&info, nodes->GetInfoData() + node, sizeof(char), cudaMemcpyDeviceToHost);
-                    }
-
-                    logger.info << "Found leaf: " << node << "\n" << logger.end;
-
-                    tHit.x = tNext;
-
-                    int primIndex;
-                    cudaMemcpy(&primIndex, nodes->GetPrimitiveIndexData() + node, sizeof(int), cudaMemcpyDeviceToHost);
-                    CHECK_FOR_CUDA_ERROR();
-                    int primHit = -1;
-                    KDNode::bitmap triangles;
-                    cudaMemcpy(&triangles, nodes->GetPrimitiveBitmapData() + node, sizeof(KDNode::bitmap), cudaMemcpyDeviceToHost);
-                    while (triangles){
-                        int i = ffs(triangles) - 1;
-
-                        //logger.info << "Testing indice " << primInfo.x << " + " << i << " = " << primInfo.x + i << logger.end;
-
-                        int prim;
-                        cudaMemcpy(&prim, map->GetPrimitiveIndices()->GetDeviceData() + primIndex + i, sizeof(int), cudaMemcpyDeviceToHost);
-                        CHECK_FOR_CUDA_ERROR();
-                        
-                        //logger.info << "Testing primitive " << prim << logger.end;
-
-                        if (intersectionAlgorithm == WOOP){
-                            
-                            float4 *woop0, *woop1, *woop2;
-                            geom->GetWoopValues(&woop0, &woop1, &woop2);
-
-                            IRayTracer::Woop(woop0, woop1, woop2, prim,
-                                             ori, dir, primHit, tHit);
-
-                        }else{
-
-                            IRayTracer::MoellerTrumbore(geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), prim,
-                                                        ori, dir, primHit, tHit);
-                        }
-                        
-                        triangles -= KDNode::bitmap(1)<<i;
-                    }
-                    
-                    //logger.info << "\n" << logger.end;
-
-                    if (primHit != -1){
-                        float4 n0, n1, n2;
-                        cudaMemcpy(&n0, geom->GetNormal0Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&n1, geom->GetNormal1Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
-                        cudaMemcpy(&n2, geom->GetNormal2Data() + primHit, sizeof(float4), cudaMemcpyDeviceToHost);
-                        CHECK_FOR_CUDA_ERROR();
-                        
-                        uchar4 c0;
-                        cudaMemcpy(&c0, geom->GetColor0Data() + primHit, sizeof(uchar4), cudaMemcpyDeviceToHost);                        
-                        
-                        logger.info << "Prim color: " << Convert::ToString(c0) << logger.end;
-                        
-                        float4 newColor = Lighting(tHit, ori, dir, n0, n1, n2, c0);
-
-                        logger.info << "New color: " << Convert::ToString(newColor) << logger.end;
-                        
-                        color = BlendColor(color, newColor);
-
-                        logger.info << "Color: " << Convert::ToString(color) << "\n" << logger.end;
-
-                        // Invalidate the shortstack as we're now tracing a new ray.
-                        Stack<SHORT_STACK_SIZE>::Erase(elms, next, count);
-                        tHit.x = 0.0f;
-                    }
-
-                } while(tHit.x < fInfinity && color.w < 0.97f);
+                logger.info << "Final color: " << make_int4(color.x, color.y, color.z, color.w) << logger.end;
 
             }
 

@@ -103,8 +103,6 @@ namespace OpenEngine {
                 logger.info << "=== Ray:  " << origin << " -> " << direction << " ===\n" << logger.end;
 #endif
 
-                //if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
-                
                 float3 tHit;
                 tHit.x = 0.0f;
                 
