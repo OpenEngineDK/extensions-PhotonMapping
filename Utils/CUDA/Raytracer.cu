@@ -173,7 +173,7 @@ namespace OpenEngine {
                 return 1.0;
             }
                 
-            template <bool useWoop, bool invDir>
+            template <bool useWoop, bool invDir, bool rayBoxIntersect>
             inline __host__ __device__ 
             uchar4 KDRestart(int id, float4* origins, float4* directions,
                              char* nodeInfo, float* splitPos,
@@ -203,9 +203,10 @@ namespace OpenEngine {
                                       splitPos, children, 
                                       tHit.x, node);
                     
-                    if (IRayTracer::RayBoxIntersection<true>(origin, make_float3(1.0f) / direction,
-                                                              make_float3(FetchGlobalData(nodeMin, node)), 
-                                                              make_float3(FetchGlobalData(nodeMax, node)))){
+                    if (!rayBoxIntersect || 
+                        IRayTracer::RayBoxIntersection<true>(origin, make_float3(1.0f) / direction,
+                                                             make_float3(FetchGlobalData(nodeMin, node)), 
+                                                             make_float3(FetchGlobalData(nodeMax, node)))){
                         
                         int primIndex = FetchGlobalData(nodePrimIndex, node);
                         KDNode::bitmap triangles = FetchGlobalData(primBitmap, node);
@@ -257,7 +258,7 @@ namespace OpenEngine {
                 return make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
             }
             
-            template <bool useWoop, bool invDir>
+            template <bool useWoop, bool invDir, bool rayBoxIntersect>
             __global__ void 
             __launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
                 KDRestartKernel(float4* origins, float4* directions,
@@ -278,10 +279,11 @@ namespace OpenEngine {
                     
                     id = IRayTracer::PacketIndex(id, screenWidth);
 
-                    uchar4 color = KDRestart<useWoop, invDir>(id, origins, directions, nodeInfo, 
-                                                              splitPos, children, nodePrimIndex, primBitmap, 
-                                                              nodeMin, nodeMax, primIndices, 
-                                                              v0, v1, v2, n0s, n1s, n2s, c0s);
+                    uchar4 color = KDRestart<useWoop, invDir, rayBoxIntersect>
+                        (id, origins, directions, nodeInfo, 
+                         splitPos, children, nodePrimIndex, primBitmap, 
+                         nodeMin, nodeMax, primIndices, 
+                         v0, v1, v2, n0s, n1s, n2s, c0s);
                     
                     DumpGlobalData(color, canvas, id);
                 }
@@ -313,7 +315,7 @@ namespace OpenEngine {
 
                     KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                     START_TIMER(timerID);
-                    KDRestartKernel<true, true><<<conf.blocks, conf.threads>>>
+                    KDRestartKernel<true, true, true><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
@@ -331,7 +333,7 @@ namespace OpenEngine {
                 }else{               
                     KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                     START_TIMER(timerID);
-                    KDRestartKernel<false, true><<<conf.blocks, conf.threads>>>
+                    KDRestartKernel<false, true, true><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
@@ -361,7 +363,7 @@ namespace OpenEngine {
                 float4 *woop0, *woop1, *woop2;
                 geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                uchar4 color = KDRestart<true, true>
+                uchar4 color = KDRestart<true, true, true>
                     (id, origin->GetDeviceData(), direction->GetDeviceData(),
                      nodes->GetInfoData(), nodes->GetSplitPositionData(),
                      nodes->GetChildrenData(),
