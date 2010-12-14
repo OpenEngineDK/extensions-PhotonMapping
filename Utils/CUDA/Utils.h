@@ -32,11 +32,17 @@
         logger.info << name << " time: " << cutGetTimerValue(timerID) << "ms" << logger.end; \
     }while(false)                                                       \
 
-/*
 template <class T>
 inline __host__ __device__
-T FetchDeviceData(const T* a, const int i){
-*/
+T FetchDeviceData(T &symbol){
+#ifdef __CUDA_ARCH__
+    return symbol;
+#else
+    T ret;
+    cudaMemcpyFromSymbol(&ret, symbol, sizeof(T));
+    return ret;
+#endif
+}
   
 template <class T>
 inline __host__ __device__

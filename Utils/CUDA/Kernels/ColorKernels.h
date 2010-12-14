@@ -13,16 +13,12 @@ __constant__ float3 d_lightDiffuse;
 __constant__ float3 d_lightSpecular;
 
 inline __device__ __host__ float4 PhongLighting(const float4 color, const float3 normal, const float3 point, const float3 origin, 
-                                                bool shadow){
-    
-#ifdef __CUDA_ARCH__
-    float3 lightDir = normalize(d_lightPosition - point);
-#else
-    float3 lightDir = normalize(make_float3(0.0f, 4.0f, 0.0f) - point);
-#endif
+                                                float shadow){
+
+    float3 lightDir = normalize(FetchDeviceData(d_lightPosition) - point);
                 
     // Diffuse
-    float ndotl = dot(lightDir, normal);
+    float ndotl = dot(lightDir, normal) * shadow;
     float diffuse = ndotl < 0.0f ? 0.0f : ndotl;
 
     // Calculate specular
@@ -33,17 +29,13 @@ inline __device__ __host__ float4 PhongLighting(const float4 color, const float3
     float specProp = 1.0f - color.w;
 #ifdef __CUDA_ARCH__
     float specular = specProp * __powf(stemp, 128.0f * specProp);
-
-    float3 light = make_float3(color) * (d_lightAmbient +
-                                         d_lightDiffuse * diffuse) +
-                                         d_lightSpecular * specular * 10.0f;
 #else
     float specular = specProp * powf(stemp, 128.0f * specProp);
-    const float3 lightColor = make_float3(1.0f, 0.92f, 0.8f);
-    float3 light = make_float3(color) * (lightColor * 0.3f +
-                                         lightColor * 0.7f * diffuse) +
-        lightColor * 0.3f * specular;
 #endif
+    
+    float3 light = make_float3(color) * (FetchDeviceData(d_lightAmbient) +
+                                         FetchDeviceData(d_lightDiffuse) * diffuse) +
+        FetchDeviceData(d_lightSpecular) * specular * 10.0f * shadow;
                 
     float alpha = color.w < specular ? specular : color.w;
 
@@ -53,7 +45,7 @@ inline __device__ __host__ float4 PhongLighting(const float4 color, const float3
 inline __device__ __host__ float4 Lighting(const float3 hitCoords, 
                                            float3 &origin, float3 &direction,
                                            const float4 n0, const float4 n1, const float4 n2,
-                                           const uchar4 c0, bool shadow = false){
+                                           const uchar4 c0, float shadow = 1.0f){
 
     float3 point = origin + hitCoords.x * direction;
 
