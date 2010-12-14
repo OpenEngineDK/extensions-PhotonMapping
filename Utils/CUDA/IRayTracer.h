@@ -125,6 +125,31 @@ namespace OpenEngine {
                         }
                     }
                 }
+
+                template <bool invDir>
+                static inline __device__ __host__ 
+                bool RayBoxIntersection(const float3 ori, const float3 dir,
+                                        const float3 boxMin, const float3 boxMax){
+                    
+#ifndef __CUDA_ARCH__
+                    logger.info << "box: " << boxMin << " -> " << boxMax << logger.end;
+#endif
+                    
+                    const float3 minInters = invDir ? (boxMin - ori) * dir : (boxMin - ori) / dir;
+                    const float3 maxInters = invDir ? (boxMax - ori) * dir : (boxMax - ori) / dir;
+                    
+                    const float3 minAlphas = min(minInters, maxInters);
+                    const float3 maxAlphas = max(minInters, maxInters);
+                    
+                    const float nearAlpha = max(minAlphas.x, max(minAlphas.y, minAlphas.z));
+                    const float farAlpha = min(maxAlphas.x, min(maxAlphas.y, maxAlphas.z));
+
+#ifndef __CUDA_ARCH__
+                    logger.info << "near: " << nearAlpha << ", far: " << farAlpha << logger.end;
+#endif
+
+                    return nearAlpha < farAlpha;
+                }
                 
             protected:
                 void CreateInitialRays(Display::IRenderCanvas* canvas);
