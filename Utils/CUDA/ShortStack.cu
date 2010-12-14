@@ -107,8 +107,8 @@ namespace OpenEngine {
                 
                 int nxt = 0, cnt = 0;
                 
-                float3 origin = make_float3(FetchDeviceData(origins, id));
-                float3 direction = make_float3(FetchDeviceData(directions, id));
+                float3 origin = make_float3(FetchGlobalData(origins, id));
+                float3 direction = make_float3(FetchGlobalData(directions, id));
 
 #ifndef __CUDA_ARCH__
                 logger.info << "=== Ray:  " << origin << " -> " << direction << " ===\n" << logger.end;
@@ -129,7 +129,7 @@ namespace OpenEngine {
                         node = e.node;
                         tNext = e.tMax;
                     }
-                    char info = FetchDeviceData(nodeInfo, node);
+                    char info = FetchGlobalData(nodeInfo, node);
                     
                     if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
                     
@@ -151,13 +151,13 @@ namespace OpenEngine {
                     if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
                     tHit.x = tNext;
                         
-                    int primIndex = FetchDeviceData(nodePrimIndex, node);
+                    int primIndex = FetchGlobalData(nodePrimIndex, node);
                     int primHit = -1;
-                    KDNode::bitmap triangles = FetchDeviceData(primBitmap, node);
+                    KDNode::bitmap triangles = FetchGlobalData(primBitmap, node);
                     while (triangles){
                         int i = firstBitSet(triangles) - 1;
                             
-                        int prim = FetchDeviceData(primIndices, primIndex + i);
+                        int prim = FetchGlobalData(primIndices, primIndex + i);
 
                         if (useWoop){
                             IRayTracer::Woop(v0, v1, v2, prim,
@@ -176,8 +176,8 @@ namespace OpenEngine {
 
                     if (primHit != -1){
                         float4 newColor = Lighting(tHit, origin, direction, 
-                                                   FetchDeviceData(n0s, primHit), FetchDeviceData(n1s, primHit), FetchDeviceData(n2s, primHit),
-                                                   FetchDeviceData(c0s, primHit));
+                                                   FetchGlobalData(n0s, primHit), FetchGlobalData(n1s, primHit), FetchGlobalData(n2s, primHit),
+                                                   FetchGlobalData(c0s, primHit));
                             
                         color = BlendColor(color, newColor);
 
@@ -220,7 +220,7 @@ namespace OpenEngine {
                                                                     nodePrimIndex, primBitmap, primIndices, 
                                                                     v0, v1, v2, n0s, n1s, n2s, c0s);
                     
-                    DumpDeviceData(color, canvas, id);
+                    DumpGlobalData(color, canvas, id);
                 }
             }
             

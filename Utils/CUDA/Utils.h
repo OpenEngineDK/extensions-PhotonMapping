@@ -31,10 +31,16 @@
         cutStopTimer(timerID);                                          \
         logger.info << name << " time: " << cutGetTimerValue(timerID) << "ms" << logger.end; \
     }while(false)                                                       \
-    
+
+/*
 template <class T>
 inline __host__ __device__
 T FetchDeviceData(const T* a, const int i){
+*/
+  
+template <class T>
+inline __host__ __device__
+T FetchGlobalData(const T* a, const int i){
 #ifdef __CUDA_ARCH__
     return a[i];
 #else
@@ -46,7 +52,7 @@ T FetchDeviceData(const T* a, const int i){
 
 template <class T>
 inline __host__ __device__
-void DumpDeviceData(const T d, T* a, const int i){
+void DumpGlobalData(const T d, T* a, const int i){
 #ifdef __CUDA_ARCH__
     a[i] = d;
 #else

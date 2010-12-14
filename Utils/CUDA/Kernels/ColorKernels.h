@@ -12,7 +12,8 @@ __constant__ float3 d_lightAmbient;
 __constant__ float3 d_lightDiffuse;
 __constant__ float3 d_lightSpecular;
 
-inline __device__ __host__ float4 PhongLighting(const float4 color, const float3 normal, const float3 point, const float3 origin){
+inline __device__ __host__ float4 PhongLighting(const float4 color, const float3 normal, const float3 point, const float3 origin, 
+                                                bool shadow){
     
 #ifdef __CUDA_ARCH__
     float3 lightDir = normalize(d_lightPosition - point);
@@ -52,7 +53,7 @@ inline __device__ __host__ float4 PhongLighting(const float4 color, const float3
 inline __device__ __host__ float4 Lighting(const float3 hitCoords, 
                                            float3 &origin, float3 &direction,
                                            const float4 n0, const float4 n1, const float4 n2,
-                                           const uchar4 c0){
+                                           const uchar4 c0, bool shadow = false){
 
     float3 point = origin + hitCoords.x * direction;
 
@@ -72,7 +73,7 @@ inline __device__ __host__ float4 Lighting(const float3 hitCoords,
     direction = normalize(direction);
 
     color.w = 1.0f - abs(1.0f - color.w);
-    color = PhongLighting(color, normal, point, origin);
+    color = PhongLighting(color, normal, point, origin, shadow);
 
     // Set the origin to the intersection point and change the ray's direction.
     origin = point + 0.00001f * direction;

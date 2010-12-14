@@ -56,35 +56,104 @@ namespace OpenEngine {
 
             template <bool invDir>
             __device__ __host__ void TraceNode(float3 origin, float3 direction, 
-                                               char axis, float splitPos,
-                                               int left, int right, float tMin,
-                                               int &node, float &tNext){
-                float ori, dir;
-                switch(axis){
-                case KDNode::X:
-                    ori = origin.x; dir = direction.x;
-                    break;
-                case KDNode::Y:
-                    ori = origin.y; dir = direction.y;
-                    break;
-                case KDNode::Z:
-                    ori = origin.z; dir = direction.z;
-                    break;
-                }
+                                               char* nodeInfo, float* splitPos,
+                                               int2* children, float &tMin,
+                                               int &node){
+                float tNext = fInfinity;
+                node = 0;
+                char axis = FetchGlobalData(nodeInfo, node);
                 
-#ifdef __CUDA_ARCH__
-                const float tSplit = invDir ? (splitPos - ori) * dir : __fdividef(splitPos - ori, dir);
-#else
-                const float tSplit = invDir ? (splitPos - ori) * dir : (splitPos - ori) / dir;
-#endif
+                if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
 
-                if (tMin < tSplit){
-                    node = 0 < dir ? left : right;
-                    tNext = min(tSplit, tNext);
-                }else
-                    node = 0 < dir ? right : left;
+                while((axis & 3) != KDNode::LEAF){
+                    // Trace
+#ifndef __CUDA_ARCH__
+                    logger.info << "Tracing " << node << " with info " << (int)axis << logger.end;
+#endif
+                    
+                    float splitValue = FetchGlobalData(splitPos, node);
+                    int2 childPair = FetchGlobalData(children, node);
+                    
+                    float ori, dir;
+                    switch(axis){
+                    case KDNode::X:
+                        ori = origin.x; dir = direction.x;
+                        break;
+                    case KDNode::Y:
+                        ori = origin.y; dir = direction.y;
+                        break;
+                    case KDNode::Z:
+                        ori = origin.z; dir = direction.z;
+                        break;
+                    }
+                    
+#ifdef __CUDA_ARCH__
+                    const float tSplit = invDir ? (splitValue - ori) * dir : __fdividef(splitValue - ori, dir);
+#else
+                    const float tSplit = invDir ? (splitValue - ori) * dir : (splitValue - ori) / dir;
+#endif
+                    
+                    if (tMin < tSplit){
+                        node = 0 < dir ? childPair.x : childPair.y;
+                        tNext = min(tSplit, tNext);
+                    }else
+                        node = 0 < dir ? childPair.y : childPair.x;
+
+                    axis = FetchGlobalData(nodeInfo, node);
+                }
+
+                tMin = tNext;
+#ifndef __CUDA_ARCH__
+                    logger.info << "Found leaf: " << node << "\n" << logger.end;
+#endif
             }
 
+            template <bool useWoop, bool invDir>
+            inline __host__ __device__
+            bool ShadowRay(float3 point, float3 lightPos,
+                           char *nodeInfo, float* splitPos,
+                           int* nodePrimIndex, KDNode::bitmap* primBitmap, 
+                           int2 *children,
+                           int* primIndices,
+                           float4* v0, float4* v1, float4* v2){
+                
+                float3 direction = lightPos - point;
+
+                float tMin = 0.00001f;
+                do {
+                    int node;
+                    TraceNode<invDir>(point, direction, nodeInfo, 
+                                      splitPos, children, 
+                                      tMin, node, tMin);
+                    
+                    float3 tHit;
+                    tHit.x = tMin;
+
+                    int primIndex = FetchGlobalData(nodePrimIndex, node);
+                    KDNode::bitmap triangles = FetchGlobalData(primBitmap, node);
+                    int primHit = -1;
+                    while (triangles){
+                        int i = firstBitSet(triangles) - 1;
+                        int prim = FetchGlobalData(primIndices, primIndex + i);
+                        
+                        if (useWoop){
+                            IRayTracer::Woop(v0, v1, v2, prim,
+                                             point, direction, primHit, tHit);
+                        }else{
+                            IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
+                                                        point, direction, primHit, tHit);
+                        }
+                        
+                        triangles -= KDNode::bitmap(1)<<i;
+                    }                    
+
+                    if (primHit != -1) return false;
+
+                } while (tMin < 1.0f);
+
+                return true;
+            }
+                
             template <bool useWoop, bool invDir>
             inline __host__ __device__ 
             uchar4 KDRestart(int id, float4* origins, float4* directions,
@@ -96,8 +165,8 @@ namespace OpenEngine {
                            float4 *n0s, float4 *n1s, float4 *n2s,
                            uchar4 *c0s){
                     
-                float3 origin = make_float3(FetchDeviceData(origins, id));
-                float3 direction = make_float3(FetchDeviceData(directions, id));
+                float3 origin = make_float3(FetchGlobalData(origins, id));
+                float3 direction = make_float3(FetchGlobalData(directions, id));
                 
 #ifndef __CUDA_ARCH__
                 logger.info << "=== Ray:  " << origin << " -> " << direction << " ===\n" << logger.end;
@@ -109,39 +178,17 @@ namespace OpenEngine {
                 float4 color = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
                 do {
-                    float tNext = fInfinity;
-                    int node = 0;
-                    char info = FetchDeviceData(nodeInfo, node);
+                    int node;
+                    TraceNode<invDir>(origin, direction, nodeInfo, 
+                                      splitPos, children, 
+                                      tHit.x, node);
 
-                    if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
-                    
-                    while((info & 3) != KDNode::LEAF){
-                        // Trace
-#ifndef __CUDA_ARCH__
-                        logger.info << "Tracing " << node << " with info " << (int)info << logger.end;
-#endif
-                        
-                        float splitValue = FetchDeviceData(splitPos, node);
-                        int2 childPair = FetchDeviceData(children, node);
-                        
-                        TraceNode<invDir>(origin, direction, info & 3, 
-                                          splitValue, childPair.x, childPair.y, 
-                                          tHit.x, node, tNext);
-                                                        
-                        info = FetchDeviceData(nodeInfo, node);
-                    }
-#ifndef __CUDA_ARCH__
-                    logger.info << "Found leaf: " << node << "\n" << logger.end;
-#endif
-                    if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
-                    tHit.x = tNext;
-
-                    int primIndex = FetchDeviceData(nodePrimIndex, node);
-                    KDNode::bitmap triangles = FetchDeviceData(primBitmap, node);
+                    int primIndex = FetchGlobalData(nodePrimIndex, node);
+                    KDNode::bitmap triangles = FetchGlobalData(primBitmap, node);
                     int primHit = -1;
                     while (triangles){
                         int i = firstBitSet(triangles) - 1;
-                        int prim = FetchDeviceData(primIndices, primIndex + i);
+                        int prim = FetchGlobalData(primIndices, primIndex + i);
                             
                         if (useWoop){
                             IRayTracer::Woop(v0, v1, v2, prim,
@@ -160,8 +207,8 @@ namespace OpenEngine {
 
                     if (primHit != -1){
                         float4 newColor = Lighting(tHit, origin, direction, 
-                                                   FetchDeviceData(n0s, primHit), FetchDeviceData(n1s, primHit), FetchDeviceData(n2s, primHit),
-                                                   FetchDeviceData(c0s, primHit));
+                                                   FetchGlobalData(n0s, primHit), FetchGlobalData(n1s, primHit), FetchGlobalData(n2s, primHit),
+                                                   FetchGlobalData(c0s, primHit));
                         
                         color = BlendColor(color, newColor);
                         
@@ -198,7 +245,7 @@ namespace OpenEngine {
                                                               nodePrimIndex, primBitmap, primIndices, 
                                                               v0, v1, v2, n0s, n1s, n2s, c0s);
                     
-                    DumpDeviceData(color, canvas, id);
+                    DumpGlobalData(color, canvas, id);
                 }
             }
 

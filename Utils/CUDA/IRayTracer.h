@@ -75,12 +75,12 @@ namespace OpenEngine {
                           float3 origin, float3 direction, int &primHit, float3 &tHit){
                     
                     float3 hitCoords;
-                    const float4 woop = FetchDeviceData(woop2, prim);
+                    const float4 woop = FetchGlobalData(woop2, prim);
                     hitCoords.x = WoopLambda(origin, direction, woop);
                     if (0.0f <= hitCoords.x && hitCoords.x < tHit.x){
-                        const float4 w0 = FetchDeviceData(woop0, prim);
+                        const float4 w0 = FetchGlobalData(woop0, prim);
                         hitCoords.y = WoopUV(origin, direction, hitCoords.x, w0);
-                        const float4 w1 = FetchDeviceData(woop1, prim);
+                        const float4 w1 = FetchGlobalData(woop1, prim);
                         hitCoords.z = WoopUV(origin, direction, hitCoords.x, w1);
                         
                         if (hitCoords.y >= 0.0f && hitCoords.z >= 0.0f && hitCoords.y + hitCoords.z <= 1.0f){
@@ -94,9 +94,9 @@ namespace OpenEngine {
                 void MoellerTrumbore(float4* v0s, float4* v1s, float4* v2s, int prim,
                                      float3 origin, float3 direction, int &primHit, float3 &tHit){
                     
-                    const float3 v0 = make_float3(FetchDeviceData(v0s, prim));
-                    const float3 v1 = make_float3(FetchDeviceData(v1s, prim));
-                    const float3 v2 = make_float3(FetchDeviceData(v2s, prim));
+                    const float3 v0 = make_float3(FetchGlobalData(v0s, prim));
+                    const float3 v1 = make_float3(FetchGlobalData(v1s, prim));
+                    const float3 v2 = make_float3(FetchGlobalData(v2s, prim));
 
                     const float3 e1 = v1 - v0;
                     const float3 e2 = v2 - v0;
