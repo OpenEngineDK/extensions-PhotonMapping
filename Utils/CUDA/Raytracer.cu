@@ -110,22 +110,28 @@ namespace OpenEngine {
 
             template <bool useWoop, bool invDir>
             inline __host__ __device__
-            bool ShadowRay(float3 point, float3 lightPos,
+            float ShadowRay(const float3 point, const float3 lightPos,
                            char *nodeInfo, float* splitPos,
-                           int* nodePrimIndex, KDNode::bitmap* primBitmap, 
+                           int* nodePrimIndex, KDNode::bitmap* primBitmap,
                            int2 *children,
                            int* primIndices,
                            float4* v0, float4* v1, float4* v2){
                 
-                float3 direction = lightPos - point;
+                float3 direction = point - lightPos;
 
-                float tMin = 0.00001f;
+#ifndef __CUDA_ARCH__
+                logger.info << "=== Shadow Ray:  " << point << " -> " << direction << " ===\n" << logger.end;
+#endif
+
+                float tMin = 0.0f;
                 do {
                     int node;
-                    TraceNode<invDir>(point, direction, nodeInfo, 
+                    TraceNode<invDir>(lightPos, direction, nodeInfo, 
                                       splitPos, children, 
-                                      tMin, node, tMin);
-                    
+                                      tMin, node);
+
+                    if (tMin >= 0.999f) return 1.0f;
+
                     float3 tHit;
                     tHit.x = tMin;
 
@@ -135,35 +141,49 @@ namespace OpenEngine {
                     while (triangles){
                         int i = firstBitSet(triangles) - 1;
                         int prim = FetchGlobalData(primIndices, primIndex + i);
+
+#ifndef __CUDA_ARCH__
+                        logger.info << "tHit " << tHit << logger.end;
+#endif
                         
                         if (useWoop){
                             IRayTracer::Woop(v0, v1, v2, prim,
-                                             point, direction, primHit, tHit);
+                                             lightPos, direction, primHit, tHit);
                         }else{
                             IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
-                                                        point, direction, primHit, tHit);
+                                                        lightPos, direction, primHit, tHit);
                         }
                         
                         triangles -= KDNode::bitmap(1)<<i;
                     }                    
 
-                    if (primHit != -1) return false;
+                    if (primHit != -1){
+#ifndef __CUDA_ARCH__
+                        logger.info << "Shadow ray intersected " << primHit << " with tHit " << tHit << logger.end;
+#endif
+                        return 0.0f;
+                    }
 
-                } while (tMin < 1.0f);
+                } while (tMin < 0.999f);
 
-                return true;
+#ifndef __CUDA_ARCH__
+                logger.info << "No shadow" << logger.end;
+#endif
+
+                return 1.0;
             }
                 
             template <bool useWoop, bool invDir>
             inline __host__ __device__ 
             uchar4 KDRestart(int id, float4* origins, float4* directions,
-                           char* nodeInfo, float* splitPos,
-                           int2* children,
-                           int* nodePrimIndex, KDNode::bitmap* primBitmap,
-                           int *primIndices, 
-                           float4 *v0, float4 *v1, float4 *v2,
-                           float4 *n0s, float4 *n1s, float4 *n2s,
-                           uchar4 *c0s){
+                             char* nodeInfo, float* splitPos,
+                             int2* children,
+                             int* nodePrimIndex, KDNode::bitmap* primBitmap,
+                             float4* nodeMin, float4* nodeMax,
+                             int *primIndices, 
+                             float4 *v0, float4 *v1, float4 *v2,
+                             float4 *n0s, float4 *n1s, float4 *n2s,
+                             uchar4 *c0s){
                     
                 float3 origin = make_float3(FetchGlobalData(origins, id));
                 float3 direction = make_float3(FetchGlobalData(directions, id));
@@ -182,37 +202,54 @@ namespace OpenEngine {
                     TraceNode<invDir>(origin, direction, nodeInfo, 
                                       splitPos, children, 
                                       tHit.x, node);
-
-                    int primIndex = FetchGlobalData(nodePrimIndex, node);
-                    KDNode::bitmap triangles = FetchGlobalData(primBitmap, node);
-                    int primHit = -1;
-                    while (triangles){
-                        int i = firstBitSet(triangles) - 1;
-                        int prim = FetchGlobalData(primIndices, primIndex + i);
+                    
+                    if (IRayTracer::RayBoxIntersection<true>(origin, make_float3(1.0f) / direction,
+                                                              make_float3(FetchGlobalData(nodeMin, node)), 
+                                                              make_float3(FetchGlobalData(nodeMax, node)))){
+                        
+                        int primIndex = FetchGlobalData(nodePrimIndex, node);
+                        KDNode::bitmap triangles = FetchGlobalData(primBitmap, node);
+                        int primHit = -1;
+                        while (triangles){
+                            int i = firstBitSet(triangles) - 1;
+                            int prim = FetchGlobalData(primIndices, primIndex + i);
                             
-                        if (useWoop){
-                            IRayTracer::Woop(v0, v1, v2, prim,
+                            if (useWoop){
+                                IRayTracer::Woop(v0, v1, v2, prim,
                                              origin, direction, primHit, tHit);
-                        }else{
-                            IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
-                                                        origin, direction, primHit, tHit);
-                        }
+                            }else{
+                                IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
+                                                            origin, direction, primHit, tHit);
+                            }
                             
-                        triangles -= KDNode::bitmap(1)<<i;
-                    }
-
+                            triangles -= KDNode::bitmap(1)<<i;
+                        }
+                        
 #ifndef __CUDA_ARCH__
-                    logger.info << "THit: " << tHit << "\n" << logger.end;
+                        logger.info << "THit: " << tHit << "\n" << logger.end;
 #endif
-
-                    if (primHit != -1){
-                        float4 newColor = Lighting(tHit, origin, direction, 
-                                                   FetchGlobalData(n0s, primHit), FetchGlobalData(n1s, primHit), FetchGlobalData(n2s, primHit),
-                                                   FetchGlobalData(c0s, primHit));
                         
-                        color = BlendColor(color, newColor);
-                        
-                        tHit.x = 0.0f;
+                        if (primHit != -1){
+#ifndef __CUDA_ARCH__
+                            logger.info << "Primary ray intersected " << primHit << logger.end;
+#endif
+                            /*
+                              const float3 point = origin + tHit.x * direction;
+                              const float shadow = ShadowRay<useWoop, invDir>(point, FetchDeviceData(d_lightPosition),
+                              nodeInfo, splitPos, nodePrimIndex,
+                                                                  primBitmap, children, primIndices,
+                                                                  v0, v1, v2);
+                            */
+                            const float shadow = 1.0f;
+                            
+                            float4 newColor = Lighting(tHit, origin, direction, 
+                                                       FetchGlobalData(n0s, primHit), FetchGlobalData(n1s, primHit), FetchGlobalData(n2s, primHit),
+                                                       FetchGlobalData(c0s, primHit), shadow);
+                            
+                            color = BlendColor(color, newColor);
+                            
+                            tHit.x = 0.0f;
+                        }
                     }
 
                 } while(tHit.x < fInfinity && color.w < 0.97f);
@@ -224,15 +261,16 @@ namespace OpenEngine {
             __global__ void 
             __launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
                 KDRestartKernel(float4* origins, float4* directions,
-                           char* nodeInfo, float* splitPos,
-                           int2* children,
-                           int* nodePrimIndex, KDNode::bitmap* primBitmap,
-                           int *primIndices, 
-                           float4 *v0, float4 *v1, float4 *v2,
-                           float4 *n0s, float4 *n1s, float4 *n2s,
-                           uchar4 *c0s,
-                           uchar4 *canvas,
-                           int screenWidth){
+                                char* nodeInfo, float* splitPos,
+                                int2* children,
+                                int* nodePrimIndex, KDNode::bitmap* primBitmap,
+                                float4* nodeMin, float4* nodeMax,
+                                int *primIndices, 
+                                float4 *v0, float4 *v1, float4 *v2,
+                                float4 *n0s, float4 *n1s, float4 *n2s,
+                                uchar4 *c0s,
+                                uchar4 *canvas,
+                                int screenWidth){
 
                 int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
@@ -240,9 +278,9 @@ namespace OpenEngine {
                     
                     id = IRayTracer::PacketIndex(id, screenWidth);
 
-                    uchar4 color = KDRestart<useWoop, invDir>(id, origins, directions, 
-                                                              nodeInfo, splitPos, children,
-                                                              nodePrimIndex, primBitmap, primIndices, 
+                    uchar4 color = KDRestart<useWoop, invDir>(id, origins, directions, nodeInfo, 
+                                                              splitPos, children, nodePrimIndex, primBitmap, 
+                                                              nodeMin, nodeMax, primIndices, 
                                                               v0, v1, v2, n0s, n1s, n2s, c0s);
                     
                     DumpGlobalData(color, canvas, id);
@@ -281,6 +319,7 @@ namespace OpenEngine {
                          nodes->GetChildrenData(),
                          nodes->GetPrimitiveIndexData(),
                          nodes->GetPrimitiveBitmapData(),
+                         nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
                          map->GetPrimitiveIndices()->GetDeviceData(),
                          woop0, woop1, woop2,
                          geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
@@ -298,6 +337,7 @@ namespace OpenEngine {
                          nodes->GetChildrenData(),
                          nodes->GetPrimitiveIndexData(),
                          nodes->GetPrimitiveBitmapData(),
+                         nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
                          map->GetPrimitiveIndices()->GetDeviceData(),
                          geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
                          geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
@@ -327,12 +367,14 @@ namespace OpenEngine {
                      nodes->GetChildrenData(),
                      nodes->GetPrimitiveIndexData(),
                      nodes->GetPrimitiveBitmapData(),
+                     nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
                      map->GetPrimitiveIndices()->GetDeviceData(),
                      woop0, woop1, woop2,
                      geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                      geom->GetColor0Data());
 
                 logger.info << "Final color: " << make_int4(color.x, color.y, color.z, color.w) << logger.end;
+                //exit(0);
             }
 
         }
