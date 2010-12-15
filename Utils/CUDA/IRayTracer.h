@@ -129,24 +129,18 @@ namespace OpenEngine {
                 template <bool invDir>
                 static inline __device__ __host__ 
                 bool RayBoxIntersection(const float3 ori, const float3 dir,
-                                        const float3 boxMin, const float3 boxMax){
+                                        float3 boxMin, float3 boxMax){
                     
-#ifndef __CUDA_ARCH__
-                    logger.info << "box: " << boxMin << " -> " << boxMax << logger.end;
-#endif
+                    boxMin = invDir ? (boxMin - ori) * dir : (boxMin - ori) / dir;
+                    boxMax = invDir ? (boxMax - ori) * dir : (boxMax - ori) / dir;
                     
-                    const float3 minInters = invDir ? (boxMin - ori) * dir : (boxMin - ori) / dir;
-                    const float3 maxInters = invDir ? (boxMax - ori) * dir : (boxMax - ori) / dir;
+                    float nearAlpha = min(boxMin.x, boxMax.x);
+                    nearAlpha = max(nearAlpha, min(boxMin.y, boxMax.y));
+                    nearAlpha = max(nearAlpha, min(boxMin.z, boxMax.z));
                     
-                    const float3 minAlphas = min(minInters, maxInters);
-                    const float3 maxAlphas = max(minInters, maxInters);
-                    
-                    const float nearAlpha = max(minAlphas.x, max(minAlphas.y, minAlphas.z));
-                    const float farAlpha = min(maxAlphas.x, min(maxAlphas.y, maxAlphas.z));
-
-#ifndef __CUDA_ARCH__
-                    logger.info << "near: " << nearAlpha << ", far: " << farAlpha << logger.end;
-#endif
+                    float farAlpha = max(boxMax.x, boxMin.x);
+                    farAlpha = min(farAlpha, max(boxMin.y, boxMax.y));
+                    farAlpha = min(farAlpha, max(boxMin.z, boxMax.z));
 
                     return nearAlpha < farAlpha;
                 }

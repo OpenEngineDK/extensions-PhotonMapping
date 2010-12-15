@@ -273,8 +273,6 @@ namespace OpenEngine {
             }
 
             void RayTracer::Trace(IRenderCanvas* canvas, uchar4* canvasData){
-                //logger.info << "Trace!" << logger.end;
-
                 CreateInitialRays(canvas);
 
                 int height = canvas->GetHeight();

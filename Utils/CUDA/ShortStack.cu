@@ -93,13 +93,14 @@ namespace OpenEngine {
 
             }
 
-            template <bool useWoop, bool invDir>
+            template <bool useWoop, bool invDir, bool rayBoxIntersect>
             inline __host__ __device__ 
             uchar4 ShortStackTrace(int id, float4* origins, float4* directions,
                                    ShortStack::Element* elms,
                                    char* nodeInfo, float* splitPos,
                                    int2* children,
                                    int *nodePrimIndex, KDNode::bitmap *primBitmap, 
+                                   float4* nodeMin, float4* nodeMax,
                                    int *primIndices, 
                                    float4 *v0, float4 *v1, float4 *v2,
                                    float4 *n0s, float4 *n1s, float4 *n2s,
@@ -110,9 +111,8 @@ namespace OpenEngine {
                 float3 origin = make_float3(FetchGlobalData(origins, id));
                 float3 direction = make_float3(FetchGlobalData(directions, id));
 
-#ifndef __CUDA_ARCH__
-                logger.info << "=== Ray:  " << origin << " -> " << direction << " ===\n" << logger.end;
-#endif
+
+                CUDALogger("=== Ray:  " << origin << " -> " << direction << " ===\n");
                 
                 float3 tHit;
                 tHit.x = 0.0f;
@@ -134,10 +134,7 @@ namespace OpenEngine {
                     if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
                     
                     while ((info & 3) != KDNode::LEAF){
-                        
-#ifndef __CUDA_ARCH__
-                        logger.info << "Tracing " << node << " with info " << (int)info << logger.end;
-#endif
+                        CUDALogger("Tracing " << node << " with info " << (int)info);
 
                         float splitValue = splitPos[node];
                         int2 childPair = children[node];
@@ -151,39 +148,43 @@ namespace OpenEngine {
                     if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
                     tHit.x = tNext;
                         
-                    int primIndex = FetchGlobalData(nodePrimIndex, node);
-                    int primHit = -1;
-                    KDNode::bitmap triangles = FetchGlobalData(primBitmap, node);
-                    while (triangles){
-                        int i = firstBitSet(triangles) - 1;
+                    if (!rayBoxIntersect || 
+                        IRayTracer::RayBoxIntersection<true>(origin, make_float3(1.0f) / direction,
+                                                             make_float3(FetchGlobalData(nodeMin, node)), 
+                                                             make_float3(FetchGlobalData(nodeMax, node)))){
+                        
+                        int primIndex = FetchGlobalData(nodePrimIndex, node);
+                        int primHit = -1;
+                        KDNode::bitmap triangles = FetchGlobalData(primBitmap, node);
+                        while (triangles){
+                            int i = firstBitSet(triangles) - 1;
                             
-                        int prim = FetchGlobalData(primIndices, primIndex + i);
-
-                        if (useWoop){
-                            IRayTracer::Woop(v0, v1, v2, prim,
-                                             origin, direction, primHit, tHit);
-                        }else{
-                            IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
-                                                        origin, direction, primHit, tHit);
+                            int prim = FetchGlobalData(primIndices, primIndex + i);
+                            
+                            if (useWoop){
+                                IRayTracer::Woop(v0, v1, v2, prim,
+                                                 origin, direction, primHit, tHit);
+                            }else{
+                                IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
+                                                            origin, direction, primHit, tHit);
+                            }
+                            
+                            triangles -= 1<<i;
                         }
+                        
+                        CUDALogger("THit: " << tHit << "\n");
+                        
+                        if (primHit != -1){
+                            float4 newColor = Lighting(tHit, origin, direction, 
+                                                       FetchGlobalData(n0s, primHit), FetchGlobalData(n1s, primHit), FetchGlobalData(n2s, primHit),
+                                                       FetchGlobalData(c0s, primHit));
                             
-                        triangles -= 1<<i;
-                    }
-
-#ifndef __CUDA_ARCH__
-                    logger.info << "THit: " << tHit << "\n" << logger.end;
-#endif
-
-                    if (primHit != -1){
-                        float4 newColor = Lighting(tHit, origin, direction, 
-                                                   FetchGlobalData(n0s, primHit), FetchGlobalData(n1s, primHit), FetchGlobalData(n2s, primHit),
-                                                   FetchGlobalData(c0s, primHit));
+                            color = BlendColor(color, newColor);
                             
-                        color = BlendColor(color, newColor);
-
-                        // Invalidate the short stack as a new ray has been spawned.
-                        ShortStack::Stack<SHORT_STACK_SIZE>::Erase(elms, nxt, cnt);
-                        tHit.x = 0.0f;
+                            // Invalidate the short stack as a new ray has been spawned.
+                            ShortStack::Stack<SHORT_STACK_SIZE>::Erase(elms, nxt, cnt);
+                            tHit.x = 0.0f;
+                        }
                     }
                         
                 } while(tHit.x < fInfinity && color.w < 0.97f);
@@ -191,13 +192,14 @@ namespace OpenEngine {
                 return make_uchar4(color.x * 255, color.y * 255, color.z * 255, color.w * 255);
             }
 
-            template <bool useWoop, bool invDir>
+            template <bool useWoop, bool invDir, bool rayBoxIntersect>
             __global__ void 
             __launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
                 ShortStackKernel(float4* origins, float4* directions,
                                  char* nodeInfo, float* splitPos,
                                  int2* children,
                                  int* nodePrimIndex, KDNode::bitmap* primBitmap,
+                                 float4* nodeMin, float4* nodeMax,
                                  int *primIndices, 
                                  float4 *v0, float4 *v1, float4 *v2,
                                  float4 *n0s, float4 *n1s, float4 *n2s,
@@ -215,10 +217,11 @@ namespace OpenEngine {
                     elms += threadIdx.x * SHORT_STACK_SIZE;
                     //ShortStack::Element elms[SHORT_STACK_SIZE];
 
-                    uchar4 color = ShortStackTrace<useWoop, invDir>(id, origins, directions, 
-                                                                    elms, nodeInfo, splitPos, children,
-                                                                    nodePrimIndex, primBitmap, primIndices, 
-                                                                    v0, v1, v2, n0s, n1s, n2s, c0s);
+                    uchar4 color = ShortStackTrace<useWoop, invDir, rayBoxIntersect>
+                        (id, origins, directions, 
+                         elms, nodeInfo, splitPos, children,
+                         nodePrimIndex, primBitmap, nodeMin, nodeMax, primIndices, 
+                         v0, v1, v2, n0s, n1s, n2s, c0s);
                     
                     DumpGlobalData(color, canvas, id);
                 }
@@ -248,11 +251,12 @@ namespace OpenEngine {
 
                     KernelConf conf = KernelConf1D(rays, MAX_THREADS, 0, sizeof(Element) * SHORT_STACK_SIZE);
                     START_TIMER(timerID); 
-                    ShortStackKernel<true, true><<<conf.blocks, conf.threads, conf.smem>>>
+                    ShortStackKernel<true, true, true><<<conf.blocks, conf.threads, conf.smem>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
                          nodes->GetPrimitiveIndexData(), nodes->GetPrimitiveBitmapData(),
+                         nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
                          map->GetPrimitiveIndices()->GetDeviceData(),
                          woop0, woop1, woop2,
                          geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
@@ -266,11 +270,12 @@ namespace OpenEngine {
                     unsigned int smemPrThread = sizeof(Element) * SHORT_STACK_SIZE;
                     Calc1DKernelDimensionsWithSmem(rays, smemPrThread, blocks, threads, smemSize, MAX_THREADS);
                     START_TIMER(timerID); 
-                    ShortStackKernel<false, true><<<blocks, threads, smemSize>>>
+                    ShortStackKernel<false, true, true><<<blocks, threads, smemSize>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),
                          nodes->GetPrimitiveIndexData(), nodes->GetPrimitiveBitmapData(),
+                         nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
                          map->GetPrimitiveIndices()->GetDeviceData(),
                          geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
                          geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
@@ -294,12 +299,13 @@ namespace OpenEngine {
 
                 Element elms[SHORT_STACK_SIZE];
 
-                uchar4 color = ShortStackTrace<true, true>
+                uchar4 color = ShortStackTrace<true, true, true>
                     (id, origin->GetDeviceData(), direction->GetDeviceData(), elms,
                      nodes->GetInfoData(), nodes->GetSplitPositionData(),
                      nodes->GetChildrenData(),
                      nodes->GetPrimitiveIndexData(),
                      nodes->GetPrimitiveBitmapData(),
+                     nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
                      map->GetPrimitiveIndices()->GetDeviceData(),
                      woop0, woop1, woop2,
                      geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
