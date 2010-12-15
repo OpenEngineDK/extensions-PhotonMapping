@@ -67,9 +67,7 @@ namespace OpenEngine {
 
                 while((axis & 3) != KDNode::LEAF){
                     // Trace
-#ifndef __CUDA_ARCH__
-                    logger.info << "Tracing " << node << " with info " << (int)axis << logger.end;
-#endif
+                    CUDALogger("Tracing " << node << " with info " << (int)axis);
                     
                     float splitValue = FetchGlobalData(splitPos, node);
                     int2 childPair = FetchGlobalData(children, node);
@@ -103,9 +101,8 @@ namespace OpenEngine {
                 }
 
                 tMin = tNext;
-#ifndef __CUDA_ARCH__
-                    logger.info << "Found leaf: " << node << "\n" << logger.end;
-#endif
+
+                CUDALogger("Found leaf: " << node << "\n");
             }
 
             template <bool useWoop, bool invDir>
@@ -119,9 +116,7 @@ namespace OpenEngine {
                 
                 float3 direction = point - lightPos;
 
-#ifndef __CUDA_ARCH__
-                logger.info << "=== Shadow Ray:  " << point << " -> " << direction << " ===\n" << logger.end;
-#endif
+                CUDALogger("=== Shadow Ray:  " << point << " -> " << direction << " ===\n");
 
                 float tMin = 0.0f;
                 do {
@@ -142,9 +137,7 @@ namespace OpenEngine {
                         int i = firstBitSet(triangles) - 1;
                         int prim = FetchGlobalData(primIndices, primIndex + i);
 
-#ifndef __CUDA_ARCH__
-                        logger.info << "tHit " << tHit << logger.end;
-#endif
+                        CUDALogger("tHit " << tHit);
                         
                         if (useWoop){
                             IRayTracer::Woop(v0, v1, v2, prim,
@@ -158,17 +151,13 @@ namespace OpenEngine {
                     }                    
 
                     if (primHit != -1){
-#ifndef __CUDA_ARCH__
-                        logger.info << "Shadow ray intersected " << primHit << " with tHit " << tHit << logger.end;
-#endif
+                        CUDALogger("Shadow ray intersected " << primHit << " with tHit " << tHit);
                         return 0.0f;
                     }
 
                 } while (tMin < 0.999f);
 
-#ifndef __CUDA_ARCH__
-                logger.info << "No shadow" << logger.end;
-#endif
+                CUDALogger("No shadow");
 
                 return 1.0;
             }
@@ -188,9 +177,7 @@ namespace OpenEngine {
                 float3 origin = make_float3(FetchGlobalData(origins, id));
                 float3 direction = make_float3(FetchGlobalData(directions, id));
                 
-#ifndef __CUDA_ARCH__
-                logger.info << "=== Ray:  " << origin << " -> " << direction << " ===\n" << logger.end;
-#endif
+                CUDALogger("=== Ray:  " << origin << " -> " << direction << " ===\n");
 
                 float3 tHit;
                 tHit.x = 0.0f;
@@ -226,14 +213,10 @@ namespace OpenEngine {
                             triangles -= KDNode::bitmap(1)<<i;
                         }
                         
-#ifndef __CUDA_ARCH__
-                        logger.info << "THit: " << tHit << "\n" << logger.end;
-#endif
+                        CUDALogger("THit: " << tHit << "\n");
                         
                         if (primHit != -1){
-#ifndef __CUDA_ARCH__
-                            logger.info << "Primary ray intersected " << primHit << logger.end;
-#endif
+                            CUDALogger("Primary ray intersected " << primHit);
                             /*
                               const float3 point = origin + tHit.x * direction;
                               const float shadow = ShadowRay<useWoop, invDir>(point, FetchDeviceData(d_lightPosition),

@@ -32,6 +32,12 @@
         logger.info << name << " time: " << cutGetTimerValue(timerID) << "ms" << logger.end; \
     }while(false)                                                       \
 
+#ifdef __CUDA_ARCH__
+#define CUDALogger(string)
+#else
+#define CUDALogger(string) logger.info << string << logger.end
+#endif
+
 template <class T>
 inline __host__ __device__
 T FetchDeviceData(T &symbol){
