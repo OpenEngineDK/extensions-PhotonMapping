@@ -23,7 +23,8 @@ namespace OpenEngine {
 
             class Segments {
             public:                
-                static const int SEGMENT_SIZE = 256;
+#define D_SEGMENT_SIZE 256
+                static const int SEGMENT_SIZE = D_SEGMENT_SIZE;
 
                 CUDADataBlock<1, int> *nodeIDs;
                 CUDADataBlock<1, int2> *primitiveInfo;

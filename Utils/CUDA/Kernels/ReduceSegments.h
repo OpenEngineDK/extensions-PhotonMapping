@@ -27,13 +27,13 @@ namespace Kernels {
  * Optimizations yield ~50%
  *
  * Remove unnecessary syncthreads.
- * Use local memory to avoid a shared memory lookup.
+ * Use register to avoid a shared memory lookup.
  * Unroll final reduction into the output step.
  * Explicitly kill threads that will no longer do anything useful.
  *
  * PENDING
  * Do a complete unroll, since the freaking compiler can't!!
- * use float3 in shared mem
+ * use float3 in shared mem and register variable
  */
 __global__ void 
 __launch_bounds__(Segments::SEGMENT_SIZE) 
@@ -75,20 +75,36 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
     }
 }
 
-__device__ void fminf4(volatile float *v, volatile float *u, volatile float *ret){
+__device__ void fminf3(volatile float *v, volatile float *u, volatile float *ret){
     ret[0] = min(v[0], u[0]);
     ret[1] = min(v[1], u[1]);
     ret[2] = min(v[2], u[2]);
-    ret[3] = min(v[3], u[3]);
 }
 
-__device__ void fmaxf4(volatile float *v, volatile float *u, volatile float *ret){
+__device__ void fmaxf3(volatile float *v, volatile float *u, volatile float *ret){
     ret[0] = max(v[0], u[0]);
     ret[1] = max(v[1], u[1]);
     ret[2] = max(v[2], u[2]);
-    ret[3] = max(v[3], u[3]);
 }
-    
+
+__device__ void reduceFminf3(volatile float *v, volatile float *u, volatile float *ret){
+    ret[0] = v[0] = min(v[0], u[0]);
+    ret[1] = v[1] = min(v[1], u[1]);
+    ret[2] = v[2] = min(v[2], u[2]);
+}
+
+__device__ void reduceFmaxf3(volatile float *v, volatile float *u, volatile float *ret){
+    ret[0] = v[0] = max(v[0], u[0]);
+    ret[1] = v[1] = max(v[1], u[1]);
+    ret[2] = v[2] = max(v[2], u[2]);
+}
+
+/**
+ * Switch to 3 floats, last one is useless.
+ * Bank conflics? None as far as I can see in the profiler
+ * Unroll. Decresed branching and instructions.
+ * Do first
+ */    
 __global__ void
 __launch_bounds__(Segments::SEGMENT_SIZE) 
     ReduceSegmentsShared(int2 *primInfo,
@@ -101,76 +117,83 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
         const int2 primitiveInfo = primInfo[segmentID];
 
         volatile float* sharedMin = SharedMemory<float>();
-        volatile float* sharedMax = sharedMin + Segments::SEGMENT_SIZE * 4;
+        volatile float* sharedMax = sharedMin + Segments::SEGMENT_SIZE * 3;
 
-        volatile float localMin[4];
-        volatile float localMax[4];
+        volatile float localMin[3];
+        volatile float localMax[3];
         float4 global = threadIdx.x < primitiveInfo.y ? aabbMin[threadIdx.x + primitiveInfo.x] : make_float4(fInfinity);
-        localMin[0] = sharedMin[threadIdx.x * 4] = global.x;
-        localMin[1] = sharedMin[threadIdx.x * 4 + 1] = global.y;
-        localMin[2] = sharedMin[threadIdx.x * 4 + 2] = global.z;
-        localMin[3] = sharedMin[threadIdx.x * 4 + 3] = global.w;
+        localMin[0] = sharedMin[threadIdx.x * 3] = global.x;
+        localMin[1] = sharedMin[threadIdx.x * 3 + 1] = global.y;
+        localMin[2] = sharedMin[threadIdx.x * 3 + 2] = global.z;
 
         global = threadIdx.x < primitiveInfo.y ? aabbMax[threadIdx.x + primitiveInfo.x] : make_float4(-1.0f * fInfinity);
-        localMax[0] = sharedMax[threadIdx.x * 4] = global.x;
-        localMax[1] = sharedMax[threadIdx.x * 4 + 1] = global.y;
-        localMax[2] = sharedMax[threadIdx.x * 4 + 2] = global.z;
-        localMax[3] = sharedMax[threadIdx.x * 4 + 3] = global.w;
+        localMax[0] = sharedMax[threadIdx.x * 3] = global.x;
+        localMax[1] = sharedMax[threadIdx.x * 3 + 1] = global.y;
+        localMax[2] = sharedMax[threadIdx.x * 3 + 2] = global.z;
 
         __syncthreads();
 
         // Reduce!
+        /*
         for (int offset = Segments::SEGMENT_SIZE/2; offset > warpSize; offset /= 2){
             if (threadIdx.x < offset){
-                //sharedMin[threadIdx.x] = localMin = min(localMin, sharedMin[threadIdx.x + offset]);
-                fminf4(localMin, sharedMin + (threadIdx.x + offset) * 4, localMin);
-                sharedMin[threadIdx.x * 4] = localMin[0];
-                sharedMin[threadIdx.x * 4 + 1] = localMin[1];
-                sharedMin[threadIdx.x * 4 + 2] = localMin[2];
-                sharedMin[threadIdx.x * 4 + 3] = localMin[3];
-
-                //sharedMax[threadIdx.x] = localMax = max(localMax, sharedMax[threadIdx.x + offset]);
-                fmaxf4(localMax, sharedMax + (threadIdx.x + offset) * 4, localMax);
-                sharedMax[threadIdx.x * 4] = localMax[0];
-                sharedMax[threadIdx.x * 4 + 1] = localMax[1];
-                sharedMax[threadIdx.x * 4 + 2] = localMax[2];
-                sharedMax[threadIdx.x * 4 + 3] = localMax[3];
+                reduceFminf3(localMin, sharedMin + (threadIdx.x + offset) * 3, sharedMin + threadIdx.x * 3);
+                reduceFmaxf3(localMax, sharedMax + (threadIdx.x + offset) * 3, sharedMax + threadIdx.x * 3);
+            }else
+                return;
+            __syncthreads();
+        }
+        */
+        if (256 <= Segments::SEGMENT_SIZE){
+            if (threadIdx.x < 128){
+                reduceFminf3(localMin, sharedMin + (threadIdx.x + 128) * 3, sharedMin + threadIdx.x * 3);
+                reduceFmaxf3(localMax, sharedMax + (threadIdx.x + 128) * 3, sharedMax + threadIdx.x * 3);
             }else
                 return;
             __syncthreads();
         }
 
-        for (int offset = warpSize; offset > 1; offset /= 2){
-            //sharedMin[threadIdx.x] = localMin = min(localMin, sharedMin[threadIdx.x + offset]);
-            fminf4(localMin, sharedMin + (threadIdx.x + offset) * 4, localMin);
-            sharedMin[threadIdx.x * 4] = localMin[0];
-            sharedMin[threadIdx.x * 4 + 1] = localMin[1];
-            sharedMin[threadIdx.x * 4 + 2] = localMin[2];
-            sharedMin[threadIdx.x * 4 + 3] = localMin[3];
-                
-            //sharedMax[threadIdx.x] = localMax = max(localMax, sharedMax[threadIdx.x + offset]);
-            fmaxf4(localMax, sharedMax + (threadIdx.x + offset) * 4, localMax);
-            sharedMax[threadIdx.x * 4] = localMax[0];
-            sharedMax[threadIdx.x * 4 + 1] = localMax[1];
-            sharedMax[threadIdx.x * 4 + 2] = localMax[2];
-            sharedMax[threadIdx.x * 4 + 3] = localMax[3];
+        if (128 <= Segments::SEGMENT_SIZE){
+            if (threadIdx.x < 64){
+                reduceFminf3(localMin, sharedMin + (threadIdx.x + 64) * 3, sharedMin + threadIdx.x * 3);
+                reduceFmaxf3(localMax, sharedMax + (threadIdx.x + 64) * 3, sharedMax + threadIdx.x * 3);
+            }else
+                return;
             __syncthreads();
         }
 
+        /*        
+        for (int offset = warpSize; offset > 1; offset /= 2){
+            reduceFminf3(localMin, sharedMin + (threadIdx.x + offset) * 3, sharedMin + threadIdx.x * 3);
+            reduceFmaxf3(localMax, sharedMax + (threadIdx.x + offset) * 3, sharedMax + threadIdx.x * 3);
+        }
+        */
+
+        reduceFminf3(localMin, sharedMin + (threadIdx.x + 32) * 3, sharedMin + threadIdx.x * 3);
+        reduceFmaxf3(localMax, sharedMax + (threadIdx.x + 32) * 3, sharedMax + threadIdx.x * 3);
+
+        reduceFminf3(localMin, sharedMin + (threadIdx.x + 16) * 3, sharedMin + threadIdx.x * 3);
+        reduceFmaxf3(localMax, sharedMax + (threadIdx.x + 16) * 3, sharedMax + threadIdx.x * 3);
+
+        reduceFminf3(localMin, sharedMin + (threadIdx.x + 8) * 3, sharedMin + threadIdx.x * 3);
+        reduceFmaxf3(localMax, sharedMax + (threadIdx.x + 8) * 3, sharedMax + threadIdx.x * 3);
+
+        reduceFminf3(localMin, sharedMin + (threadIdx.x + 4) * 3, sharedMin + threadIdx.x * 3);
+        reduceFmaxf3(localMax, sharedMax + (threadIdx.x + 4) * 3, sharedMax + threadIdx.x * 3);
+
+        reduceFminf3(localMin, sharedMin + (threadIdx.x + 2) * 3, sharedMin + threadIdx.x * 3);
+        reduceFmaxf3(localMax, sharedMax + (threadIdx.x + 2) * 3, sharedMax + threadIdx.x * 3);
+
         if (threadIdx.x == 0){
-            //minResult[segmentID] = min(make_float4(localMin), make_float4(sharedMin+4));
             float4 res;
-            res.x = min(localMin[0], sharedMin[4]);
-            res.y = min(localMin[1], sharedMin[5]);
-            res.z = min(localMin[2], sharedMin[6]);
-            res.w = min(localMin[3], sharedMin[7]);
+            res.x = min(localMin[0], sharedMin[3]);
+            res.y = min(localMin[1], sharedMin[4]);
+            res.z = min(localMin[2], sharedMin[5]);
             minResult[segmentID] = res;
 
-            //maxResult[segmentID] = max(make_float4(localMax), make_float4(sharedMax+4));
-            res.x = max(localMax[0], sharedMax[4]);
-            res.y = max(localMax[1], sharedMax[5]);
-            res.z = max(localMax[2], sharedMax[6]);
-            res.w = max(localMax[3], sharedMax[7]);
+            res.x = max(localMax[0], sharedMax[3]);
+            res.y = max(localMax[1], sharedMax[4]);
+            res.z = max(localMax[2], sharedMax[5]);
             maxResult[segmentID] = res;
         }
     }
