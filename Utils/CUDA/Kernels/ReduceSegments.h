@@ -117,16 +117,19 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
         const int2 primitiveInfo = primInfo[segmentID];
 
         volatile float* sharedMin = SharedMemory<float>();
-        volatile float* sharedMax = sharedMin + Segments::SEGMENT_SIZE * 3;
+        volatile float* sharedMax = sharedMin + Segments::SEGMENT_SIZE/2 * 3;
 
+        int offset = threadIdx.x + Segments::SEGMENT_SIZE / 2;
         volatile float localMin[3];
-        volatile float localMax[3];
-        float4 global = threadIdx.x < primitiveInfo.y ? aabbMin[threadIdx.x + primitiveInfo.x] : make_float4(fInfinity);
+        float3 global = threadIdx.x < primitiveInfo.y ? make_float3(aabbMin[threadIdx.x + primitiveInfo.x]) : make_float3(fInfinity);
+        global = min(global, offset < primitiveInfo.y ? make_float3(aabbMin[offset + primitiveInfo.x]) : make_float3(fInfinity));
         localMin[0] = sharedMin[threadIdx.x * 3] = global.x;
         localMin[1] = sharedMin[threadIdx.x * 3 + 1] = global.y;
         localMin[2] = sharedMin[threadIdx.x * 3 + 2] = global.z;
 
-        global = threadIdx.x < primitiveInfo.y ? aabbMax[threadIdx.x + primitiveInfo.x] : make_float4(-1.0f * fInfinity);
+        volatile float localMax[3];
+        global = threadIdx.x < primitiveInfo.y ? make_float3(aabbMax[threadIdx.x + primitiveInfo.x]) : make_float3(-1.0f * fInfinity);
+        global = max(global, offset < primitiveInfo.y ? make_float3(aabbMax[offset + primitiveInfo.x]) : make_float3(-1.0f * fInfinity));
         localMax[0] = sharedMax[threadIdx.x * 3] = global.x;
         localMax[1] = sharedMax[threadIdx.x * 3 + 1] = global.y;
         localMax[2] = sharedMax[threadIdx.x * 3 + 2] = global.z;
@@ -144,7 +147,7 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
             __syncthreads();
         }
         */
-        if (256 <= Segments::SEGMENT_SIZE){
+        if (256 <= Segments::SEGMENT_SIZE/2){
             if (threadIdx.x < 128){
                 reduceFminf3(localMin, sharedMin + (threadIdx.x + 128) * 3, sharedMin + threadIdx.x * 3);
                 reduceFmaxf3(localMax, sharedMax + (threadIdx.x + 128) * 3, sharedMax + threadIdx.x * 3);
@@ -153,7 +156,7 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
             __syncthreads();
         }
 
-        if (128 <= Segments::SEGMENT_SIZE){
+        if (128 <= Segments::SEGMENT_SIZE/2){
             if (threadIdx.x < 64){
                 reduceFminf3(localMin, sharedMin + (threadIdx.x + 64) * 3, sharedMin + threadIdx.x * 3);
                 reduceFmaxf3(localMax, sharedMax + (threadIdx.x + 64) * 3, sharedMax + threadIdx.x * 3);

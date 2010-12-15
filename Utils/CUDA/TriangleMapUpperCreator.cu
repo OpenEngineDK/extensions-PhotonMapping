@@ -228,8 +228,8 @@ namespace OpenEngine {
             void TriangleMapUpperCreator::ReduceAabb(int &activeIndex, int activeRange){
                 // Reduce aabb pr segment
                 unsigned int blocks = segments.size;
-                unsigned int threads = Segments::SEGMENT_SIZE;
-                unsigned int smemSize = 2 * 3 * sizeof(float) * segments.SEGMENT_SIZE;
+                unsigned int threads = Segments::SEGMENT_SIZE/2;
+                unsigned int smemSize = 2 * 3 * sizeof(float) * segments.SEGMENT_SIZE/2;
 
                 ReduceSegmentsShared<<<blocks, threads, smemSize>>>(segments.GetPrimitiveInfoData(),
                                                                    aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
