@@ -27,10 +27,10 @@ namespace OpenEngine {
 #define KDNODE_MAX_LOWER_SIZE 32
             static const int MAX_LOWER_SIZE = KDNODE_MAX_LOWER_SIZE;
 
-#if KDNODE_MAX_LOWER_SIZE == 64
-            typedef long long int bitmap;
-#else
+#if KDNODE_MAX_LOWER_SIZE <= 32
             typedef int bitmap;
+#else KDNODE_MAX_LOWER_SIZE <= 64
+            typedef long long int bitmap;
 #endif
 
 
