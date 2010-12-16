@@ -257,13 +257,6 @@ __global__ void FinalSegmentedReduce(float4 *segmentAabbMin,
                                      float4 *nodeAabbMax){
     
     const unsigned int segmentID = threadIdx.x;
-    /*
-    if (threadIdx.x < d_activeNodeRange){
-        nodeAabbMin[threadIdx.x + d_activeNodeIndex] = make_float4(fInfinity);
-        nodeAabbMax[threadIdx.x + d_activeNodeIndex] = make_float4(-1.0 * fInfinity);
-    }
-    __syncthreads();
-    */
 
     int index0 = segmentID * 2;
     int index1 = index0 + 1;
@@ -299,8 +292,8 @@ __global__ void CalcUpperNodeSplitInfo(float4 *aabbMin, float4* aabbMax,
         
     if (id < d_activeNodeRange){
             
-        float4 bbSize = aabbMax[id] - aabbMin[id];
-        float4 median = bbSize * 0.5 + aabbMin[id];
+        float3 bbSize = make_float3(aabbMax[id]) - make_float3(aabbMin[id]);
+        float3 median = bbSize * 0.5 + make_float3(aabbMin[id]);
 
         // Calculate splitting plane
         bool yAboveX = bbSize.x < bbSize.y;

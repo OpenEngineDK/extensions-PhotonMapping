@@ -96,14 +96,14 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
             }
             
-            if (!isLeaf){
+            //if (!isLeaf){
                 point h_aabbmin, h_aabbmax;
                 cudaMemcpy(&h_aabbmin, aabbMin->GetDeviceData() + i, sizeof(point), cudaMemcpyDeviceToHost);
                 cudaMemcpy(&h_aabbmax, aabbMax->GetDeviceData() + i, sizeof(point), cudaMemcpyDeviceToHost);
                 CHECK_FOR_CUDA_ERROR();
                 out << "Axis aligned bounding box: " << Utils::CUDA::Convert::ToString(h_aabbmin);
                 out << " -> " << Utils::CUDA::Convert::ToString(h_aabbmax) << "\n";
-            }
+                //}
 
 
             int2 h_children;

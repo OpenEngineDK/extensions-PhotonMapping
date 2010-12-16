@@ -153,7 +153,10 @@ namespace OpenEngine {
             void TriangleMapSAHCreator::ProcessLowerNodes(int activeIndex, int activeRange, 
                                                           TriangleMap* map, CUDADataBlock<1, int>* upperLeafIDs, 
                                                           int &childrenCreated) {
-                logger.info << "=== Process " << activeRange << " Lower Nodes Starting at " << activeIndex << " ===" << logger.end;
+                if (upperLeafIDs)
+                    logger.info << "=== Process " << activeRange << " Lower Nodes from Indices ===" << logger.end;
+                else
+                    logger.info << "=== Process " << activeRange << " Lower Nodes Starting at " << activeIndex << " ===" << logger.end;
 
                 TriangleNode* nodes = map->nodes;
                 
@@ -205,7 +208,7 @@ namespace OpenEngine {
 
                 int splits;
                 cudaMemcpy(&splits, splitAddr->GetDeviceData() + activeRange, sizeof(int), cudaMemcpyDeviceToHost);
-                nodes->Extend(activeIndex + activeRange + 2 * splits);
+                nodes->Extend(nodes->GetSize() + 2 * splits);
 
                 Calc1DKernelDimensions(activeRange, blocks, threads);
                 if (upperLeafIDs)

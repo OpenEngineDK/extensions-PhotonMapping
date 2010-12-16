@@ -218,11 +218,11 @@ namespace OpenEngine {
                         if (primHit != -1){
                             CUDALogger("Primary ray intersected " << primHit);
                             /*
-                              const float3 point = origin + tHit.x * direction;
-                              const float shadow = ShadowRay<useWoop, invDir>(point, FetchDeviceData(d_lightPosition),
-                              nodeInfo, splitPos, nodePrimIndex,
-                                                                  primBitmap, children, primIndices,
-                                                                  v0, v1, v2);
+                            const float3 point = origin + tHit.x * direction;
+                            const float shadow = ShadowRay<useWoop, invDir>(point, FetchDeviceData(d_lightPosition),
+                                                                            nodeInfo, splitPos, nodePrimIndex,
+                                                                            primBitmap, children, primIndices,
+                                                                            v0, v1, v2);
                             */
                             const float shadow = 1.0f;
                             
