@@ -216,3 +216,39 @@ __global__ void PropagateAabbToChildren(int *indices,
     }    
 }
 
+template <bool useIndices>
+__global__ void PropagateParentAabb(int *indices,
+                                    char *nodeInfo, float *splitPoss,
+                                    float4 *nodeMins, float4 *nodeMaxs,
+                                    int *parentIDs,
+                                    int2 *childIDs,
+                                    int children){
+    
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (id < children){
+        const int childID = useIndices ? indices[id] : d_activeNodeIndex + id;
+        const int parentID = parentIDs[childID];
+
+        const float3 parentMin = make_float3(nodeMins[parentID]);
+        const float3 parentMax = make_float3(nodeMaxs[parentID]);
+        
+        const char parentAxis = nodeInfo[parentID] & 3;
+        const float parentSplit = splitPoss[parentID];
+        const int leftChild = childIDs[parentID].x;
+
+        if (leftChild == childID){
+            nodeMins[childID] = make_float4(parentMin);
+            nodeMaxs[childID] = make_float4(parentAxis == KDNode::X ? parentSplit : parentMax.x,
+                                            parentAxis == KDNode::Y ? parentSplit : parentMax.y,
+                                            parentAxis == KDNode::Z ? parentSplit : parentMax.z,
+                                            0.0f);
+        }else{
+            nodeMins[childID] = make_float4(parentAxis == KDNode::X ? parentSplit : parentMin.x,
+                                            parentAxis == KDNode::Y ? parentSplit : parentMin.y,
+                                            parentAxis == KDNode::Z ? parentSplit : parentMin.z,
+                                            0.0f);
+            nodeMaxs[childID] = make_float4(parentMax);            
+        }
+    }
+}

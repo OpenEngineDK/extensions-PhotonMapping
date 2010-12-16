@@ -167,6 +167,19 @@ namespace OpenEngine {
                                                           primIndices->GetDeviceData(),
                                                           primMin->GetSize());
                 CHECK_FOR_CUDA_ERROR();
+
+                // If empty space splitting doesn't propagate the
+                // aabbs, then we need to do it here.
+                if (!emptySpaceSplitting){
+                    KernelConf conf = KernelConf1D(leafIDs->GetSize(), 128);
+                    PropagateParentAabb<true><<<conf.blocks, conf.threads>>>
+                        (leafIDs->GetDeviceData(),
+                         map->nodes->GetInfoData(), map->nodes->GetSplitPositionData(), 
+                         map->nodes->GetAabbMinData(), map->nodes->GetAabbMaxData(), 
+                         map->nodes->GetParentData(), map->nodes->GetChildrenData(),
+                         leafIDs->GetSize());
+                    CHECK_FOR_CUDA_ERROR();
+                }
             }
             
             void TriangleMapUpperCreator::ProcessNodes(int activeIndex, int activeRange, 
@@ -276,12 +289,12 @@ namespace OpenEngine {
                                activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
 
                 }else{
-
                     Calc1DKernelDimensions(activeRange, blocks, threads);
                     AabbMemset<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
                                                     map->nodes->GetAabbMaxData() + activeIndex);
                     CHECK_FOR_CUDA_ERROR();
 
+                    Calc1DKernelDimensions(segments.GetSize(), blocks, threads);
                     for (int i = 0; i < blocks; ++i){
                         int segs = segments.GetSize() - i * threads;
                         cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
@@ -453,12 +466,12 @@ namespace OpenEngine {
 
                 for (int i = 0; i < activeRange; ++i){
                     if (finalMin[i].x != gpuMin[i].x || finalMin[i].y != gpuMin[i].y || finalMin[i].z != gpuMin[i].z)
-                        throw Core::Exception("aabbMin error at node " + Utils::Convert::ToString(i + activeIndex) +
+                        throw Core::Exception("Final aabbMin error at node " + Utils::Convert::ToString(i + activeIndex) +
                                               ": CPU min " + Utils::CUDA::Convert::ToString(finalMin[i])
                                               + ", GPU min " + Utils::CUDA::Convert::ToString(gpuMin[i]));
 
                     if (finalMax[i].x != gpuMax[i].x || finalMax[i].y != gpuMax[i].y || finalMax[i].z != gpuMax[i].z)
-                        throw Core::Exception("aabbMax error at node " + Utils::Convert::ToString(i + activeIndex) +
+                        throw Core::Exception("Final aabbMax error at node " + Utils::Convert::ToString(i + activeIndex) +
                                               ": CPU max " + Utils::CUDA::Convert::ToString(finalMax[i])
                                               + ", GPU max " + Utils::CUDA::Convert::ToString(gpuMax[i]));
                 }
