@@ -61,6 +61,7 @@ namespace OpenEngine {
                 for (int i = 0; i < nodes->GetSize(); ++i)
                     logger.info << nodes->ToString(i) << logger.end;
                 */
+                //exit(0);
             }
 
             void TriangleMap::Setup(){

@@ -267,4 +267,11 @@ inline std::string BitmapToString(long long int n){
     return out.str();
 }
 
+inline __host__ __device__ 
+float4 make_float4(float x, float y, float z){
+    float4 r;
+    r.x = x; r.y = y; r.z = z;
+    return r;
+}
+
 #endif // _CUDA_PHOTON_UTILS_H_

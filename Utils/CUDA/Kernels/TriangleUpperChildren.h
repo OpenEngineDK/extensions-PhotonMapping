@@ -207,14 +207,15 @@ __global__ void CreateUpperChildren(int *indices,
                                     int2 *childSize,
                                     int *splitAddrs,
                                     int2 *children,
-                                    int *parent){
+                                    int *parent,
+                                    int childStartAddr){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
 
     if (id < d_activeNodeRange){
         const int parentID = useIndices ? indices[id] : d_activeNodeIndex + id;
 
-        const int leftID = d_activeNodeIndex + id + d_activeNodeRange;
+        const int leftID = childStartAddr + id;
         const int rightID = leftID + d_activeNodeRange;
 
         const int primIndex = primitiveIndex[parentID];
@@ -242,7 +243,8 @@ __global__ void CreateUpperChildren(int* indices,
                                     int *leafNodeAddrs,
                                     int2 *children,
                                     int *parent,
-                                    int upperLeafPrimitives){
+                                    int upperLeafPrimitives,
+                                    int childStartAddr){
 
     int id = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -257,7 +259,7 @@ __global__ void CreateUpperChildren(int* indices,
         bool isLeaf = size.x < TriangleNode::MAX_LOWER_SIZE;
         int leafAddr = leafNodeAddrs[id];
         int nonLeafAddr = id - leafAddr + d_leafNodes;
-        const int leftID = (isLeaf ? leafAddr : nonLeafAddr) + d_activeNodeRange + d_activeNodeIndex;
+        const int leftID = (isLeaf ? leafAddr : nonLeafAddr) + childStartAddr;
 
         primitiveIndex[leftID] = isLeaf ? leafAddrs[primIndex] + upperLeafPrimitives : splitAddrs[primIndex] - leafAddrs[primIndex];
         primitiveAmount[leftID] = size.x;
@@ -268,7 +270,7 @@ __global__ void CreateUpperChildren(int* indices,
         isLeaf = size.y < TriangleNode::MAX_LOWER_SIZE;
         leafAddr = leafNodeAddrs[id];
         nonLeafAddr = id - leafAddr + d_leafNodes;
-        const int rightID = (isLeaf ? leafAddr : nonLeafAddr) + d_activeNodeRange + d_activeNodeIndex;
+        const int rightID = (isLeaf ? leafAddr : nonLeafAddr) + childStartAddr;
 
         primitiveIndex[rightID] = isLeaf ? leafAddrs[primIndex + d_triangles] + upperLeafPrimitives : splitAddrs[primIndex + d_triangles] - leafAddrs[primIndex + d_triangles];
         primitiveAmount[rightID] = size.y;

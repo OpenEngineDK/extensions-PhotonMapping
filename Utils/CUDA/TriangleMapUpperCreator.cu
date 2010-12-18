@@ -348,12 +348,16 @@ namespace OpenEngine {
                     int emptyNodes;
                     cudaMemcpy(&emptyNodes, emptySpaceAddrs->GetDeviceData() + emptySpaceAddrs->GetSize()-1, sizeof(int), cudaMemcpyDeviceToHost);
                     CHECK_FOR_CUDA_ERROR();
-                    //logger.info << "Empty space " << emptyNodes << logger.end;
+
+                    map->nodes->Resize(map->nodes->GetSize() + emptyNodes);
+
+                    logger.info << "Empty space " << emptyNodes << "and nodesize " << map->nodes->GetSize() <<  logger.end;
 
                     // Move nodes to make room for empty space nodes.
                     // That means moving primitiveInfo, using childSize as temp storage
                     // And moving parents, using splitSide as temp storage
 
+                    /*
                     splitSide->Resize(activeRange);
                     tempNodeAmount->Resize(activeRange);
                     
@@ -362,7 +366,6 @@ namespace OpenEngine {
 
                     activeIndex += emptyNodes;
                     cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
-                    map->nodes->Resize(map->nodes->GetSize() + emptyNodes);
 
                     cudaMemcpy(map->nodes->GetPrimitiveIndexData() + activeIndex, splitSide->GetDeviceData(), activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
                     cudaMemcpy(map->nodes->GetPrimitiveAmountData() + activeIndex, tempNodeAmount->GetDeviceData(), activeRange * sizeof(KDNode::amount), cudaMemcpyDeviceToDevice);
@@ -380,6 +383,7 @@ namespace OpenEngine {
                                                              tempAabbMax->GetDeviceData(),
                                                              emptyNodes);
                     CHECK_FOR_CUDA_ERROR();
+                    */
                 }
             }
 
@@ -486,8 +490,7 @@ namespace OpenEngine {
                 TriangleNode* nodes = map->GetNodes();
                 int triangles = aabbMin->GetSize();
 
-                unsigned int blocks = NextPow2(segments.GetSize());
-                //unsigned int blocks = segments.GetSize();
+                unsigned int blocks = segments.GetSize();
                 unsigned int threads = Segments::SEGMENT_SIZE;
 
                 splitSide->Extend(triangles * 2, false);
@@ -495,6 +498,7 @@ namespace OpenEngine {
                 leafSide->Extend(triangles * 2, false);
                 leafAddr->Extend(triangles * 2 + 1, false);
                 childSize->Extend(activeRange, false);
+                int childStartAddr = nodes->GetSize();
                 nodes->Extend(nodes->GetSize() + activeRange * 2);
                 
                 switch(splitAlg){
@@ -647,7 +651,8 @@ namespace OpenEngine {
                                             splitSide->GetDeviceData(),
                                             nodes->GetChildrenData(),
                                             nodes->GetParentData(),
-                                            upperLeafPrimitives);
+                                            upperLeafPrimitives,
+                                            childStartAddr);
                     CHECK_FOR_CUDA_ERROR();
 
                     childrenCreated = activeRange * 2 - leafNodes;
@@ -673,7 +678,8 @@ namespace OpenEngine {
                                             childSize->GetDeviceData(),
                                             splitAddr->GetDeviceData(),
                                             nodes->GetChildrenData(),
-                                            nodes->GetParentData());
+                                            nodes->GetParentData(),
+                                            childStartAddr);
                     CHECK_FOR_CUDA_ERROR();
 
                     SplitTriangles<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
@@ -705,6 +711,11 @@ namespace OpenEngine {
                 }
                 
 #if CPU_VERIFY
+                /*
+                for (int i = activeIndex; i < map->nodes->GetSize() - childrenCreated; ++i)
+                    logger.info << map->nodes->ToString(i) << logger.end;
+                */
+
                 // Check that all primitive bounding boxes are tight or inside the primitive
                 CheckPrimAabb(aabbMin, aabbMax);
                 
