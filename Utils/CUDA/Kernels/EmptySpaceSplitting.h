@@ -69,6 +69,120 @@ __global__ void CalcEmptySpaceSplits(float4 *propagatedAabbMin,
     }
 }
 
+// @TODO Set empty node bounding box. Or not. Depends on how much
+// extra time it takes.
+__global__ void EmptySpaceSplitting2(char* nodeInfo, float* splitPos,
+                                    KDNode::amount* primitiveAmount,
+                                    int* parents, int2* children, 
+                                    char* emptySpacePlanes, int* emptySpaceAddrs,
+                                    float4 *minPlanes, float4 *maxPlanes,
+                                    int emptyNodes){
+
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (id < d_activeNodeRange){    
+        // Empty space planes in a bitmap [low: [x, y, z], high: [x, y, z]]
+        char planes = emptySpacePlanes[id];
+
+        // Early out
+        if (planes == 0) return;
+
+        const int leafID = d_activeNodeIndex + id;
+        int parentID = parents[leafID];
+        const int2 childIDs = children[parentID];
+        const int emptyStartAddr = d_activeNodeIndex + d_activeNodeRange + emptySpaceAddrs[id];
+
+        // Set the parent to point to the emptySpace node or new child
+        // address
+        if (childIDs.x == leafID/* - d_activeNodeIndex*/)
+            children[parentID].x = emptyStartAddr;
+        else 
+            children[parentID].y = emptyStartAddr;
+
+        const float3 minPlane = make_float3(minPlanes[id]);
+
+        parentID = emptyStartAddr;
+        if (planes & 1){ // min.x splits, ie the right child holds primitives
+            planes -= 1;
+            nodeInfo[parentID] = KDNode::X;
+            splitPos[parentID] = minPlane.x;
+            int leftID = parentID+1;
+            int rightID = planes ? leftID+1 : leafID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[leftID] = KDNode::LEAF;
+            primitiveAmount[leftID] = 0;
+            
+            parentID = rightID;
+        }
+
+        if (planes & 2){ // min.y splits, ie the right child holds primitives
+            planes -= 2;
+            nodeInfo[parentID] = KDNode::Y;
+            splitPos[parentID] = minPlane.y;
+            int leftID = parentID+1;
+            int rightID = planes ? leftID+1 : leafID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[leftID] = KDNode::LEAF;
+            primitiveAmount[leftID] = 0;
+
+            parentID = rightID;
+        }
+
+        if (planes & 4){ // min.z splits, ie the right child holds primitives
+            planes -= 4;
+            nodeInfo[parentID] = KDNode::Z;
+            splitPos[parentID] = minPlane.z;
+            int leftID = parentID+1;
+            int rightID = planes ? leftID+1 : leafID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[leftID] = KDNode::LEAF;
+            primitiveAmount[leftID] = 0;
+
+            parentID = rightID;
+        }
+
+        const float3 maxPlane = make_float3(maxPlanes[id]);
+
+        if (planes & 8){ // max.x splits, ie the right child holds primitives
+            planes -= 8;
+            nodeInfo[parentID] = KDNode::X;
+            splitPos[parentID] = maxPlane.x;
+            int rightID = parentID+1;
+            int leftID = planes ? rightID+1 : leafID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[rightID] = KDNode::LEAF;
+            primitiveAmount[rightID] = 0;
+
+            parentID = leftID;
+        }
+
+        if (planes & 16){ // max.y splits, ie the right child holds primitives
+            planes -= 16;
+            nodeInfo[parentID] = KDNode::Y;
+            splitPos[parentID] = maxPlane.y;
+            int rightID = parentID+1;
+            int leftID = planes ? rightID+1 : leafID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[rightID] = KDNode::LEAF;
+            primitiveAmount[rightID] = 0;
+
+            parentID = leftID;
+        }
+
+        if (planes & 32){ // max.y splits, ie the right child holds primitives
+            planes -= 32;
+            nodeInfo[parentID] = KDNode::X;
+            splitPos[parentID] = maxPlane.x;
+            int rightID = parentID+1;
+            int leftID = leafID;
+            children[parentID] = make_int2(leftID, rightID);
+            nodeInfo[rightID] = KDNode::LEAF;
+            primitiveAmount[rightID] = 0;
+        }
+
+    }
+}
+
 __global__ void EmptySpaceSplitting(char* nodeInfo, float* splitPoss,
                                     KDNode::amount* primitiveAmount,
                                     int* parents, int2* children, 

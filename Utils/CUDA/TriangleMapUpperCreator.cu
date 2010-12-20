@@ -157,6 +157,8 @@ namespace OpenEngine {
 
                     activeIndex = map->nodes->GetSize() - childrenCreated;
                     activeRange = childrenCreated;
+
+                    //logger.info << "activeIndex = " << map->nodes->GetSize() << " - " << childrenCreated << " = " << activeIndex << logger.end;
                 }
                 PRINT_TIMER(timerID, "triangle upper map");
 
@@ -243,6 +245,8 @@ namespace OpenEngine {
                 unsigned int blocks = segments.size;
                 unsigned int threads = Segments::SEGMENT_SIZE/2;
                 unsigned int smemSize = 2 * 3 * sizeof(float) * segments.SEGMENT_SIZE/2;
+
+                //logger.info << "ReduceSegmentsShared<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
 
                 ReduceSegmentsShared<<<blocks, threads, smemSize>>>(segments.GetPrimitiveInfoData(),
                                                                    aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
@@ -351,13 +355,27 @@ namespace OpenEngine {
 
                     map->nodes->Resize(map->nodes->GetSize() + emptyNodes);
 
-                    logger.info << "Empty space " << emptyNodes << "and nodesize " << map->nodes->GetSize() <<  logger.end;
+                    //logger.info << "Empty space " << emptyNodes << " and nodesize " << map->nodes->GetSize() <<  logger.end;
 
+                    EmptySpaceSplitting2<<<blocks, threads>>>(map->nodes->GetInfoData(), 
+                                                             map->nodes->GetSplitPositionData(),
+                                                             map->nodes->GetPrimitiveAmountData(), 
+                                                             map->nodes->GetParentData(), 
+                                                             map->nodes->GetChildrenData(),
+                                                             emptySpacePlanes->GetDeviceData(),
+                                                             emptySpaceAddrs->GetDeviceData(),
+                                                             tempAabbMin->GetDeviceData(),
+                                                             tempAabbMax->GetDeviceData(),
+                                                             emptyNodes);
+                    CHECK_FOR_CUDA_ERROR();
+
+                    /*
+                    for (int i = 0; i < emptyNodes; ++i)
+                        logger.info << map->nodes->ToString(i + activeIndex + activeRange) << logger.end;
                     // Move nodes to make room for empty space nodes.
                     // That means moving primitiveInfo, using childSize as temp storage
                     // And moving parents, using splitSide as temp storage
 
-                    /*
                     splitSide->Resize(activeRange);
                     tempNodeAmount->Resize(activeRange);
                     
@@ -383,6 +401,11 @@ namespace OpenEngine {
                                                              tempAabbMax->GetDeviceData(),
                                                              emptyNodes);
                     CHECK_FOR_CUDA_ERROR();
+                    */
+
+                    /*
+                    for (int i = 0; i < emptyNodes; ++i)
+                        logger.info << map->nodes->ToString(i + activeIndex - emptyNodes) << logger.end;
                     */
                 }
             }
