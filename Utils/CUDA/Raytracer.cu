@@ -290,11 +290,11 @@ namespace OpenEngine {
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
+                KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                 if (this->intersectionAlgorithm == WOOP){
                     float4 *woop0, *woop1, *woop2;
                     geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                    KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                     START_TIMER(timerID);
                     KDRestartKernel<true, true, true><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
@@ -312,7 +312,6 @@ namespace OpenEngine {
                     PRINT_TIMER(timerID, "KDRestart with Woop intersection");
 
                 }else{               
-                    KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                     START_TIMER(timerID);
                     KDRestartKernel<false, true, true><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),

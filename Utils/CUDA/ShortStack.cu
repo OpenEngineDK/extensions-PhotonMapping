@@ -245,11 +245,11 @@ namespace OpenEngine {
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
+                KernelConf conf = KernelConf1D(rays, MAX_THREADS, 0, sizeof(Element) * SHORT_STACK_SIZE);
                 if (intersectionAlgorithm == WOOP){
                     float4 *woop0, *woop1, *woop2;
                     geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                    KernelConf conf = KernelConf1D(rays, MAX_THREADS, 0, sizeof(Element) * SHORT_STACK_SIZE);
                     START_TIMER(timerID); 
                     ShortStackKernel<true, true, true><<<conf.blocks, conf.threads, conf.smem>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
@@ -266,11 +266,8 @@ namespace OpenEngine {
                     PRINT_TIMER(timerID, "Short stack using Woop");
 
                 }else{
-                    unsigned int blocks, threads, smemSize;
-                    unsigned int smemPrThread = sizeof(Element) * SHORT_STACK_SIZE;
-                    Calc1DKernelDimensionsWithSmem(rays, smemPrThread, blocks, threads, smemSize, MAX_THREADS);
                     START_TIMER(timerID); 
-                    ShortStackKernel<false, true, true><<<blocks, threads, smemSize>>>
+                    ShortStackKernel<false, true, true><<<conf.blocks, conf.threads, conf.smem>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
                          nodes->GetChildrenData(),

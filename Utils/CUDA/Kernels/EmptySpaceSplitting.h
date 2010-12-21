@@ -94,7 +94,7 @@ __global__ void EmptySpaceSplitting2(char* nodeInfo, float* splitPos,
 
         // Set the parent to point to the emptySpace node or new child
         // address
-        if (childIDs.x == leafID/* - d_activeNodeIndex*/)
+        if (childIDs.x == leafID)
             children[parentID].x = emptyStartAddr;
         else 
             children[parentID].y = emptyStartAddr;
