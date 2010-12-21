@@ -38,6 +38,15 @@
 #define CUDALogger(string) logger.info << string << logger.end
 #endif
 
+inline __host__ __device__
+float saturatef(float v){
+#ifdef __CUDA_ARCH__
+    return saturate(v);
+#else
+    return min(max(v, 0.0f), 1.0f);
+#endif
+}
+
 template <class T>
 inline __host__ __device__
 T FetchDeviceData(T &symbol){
