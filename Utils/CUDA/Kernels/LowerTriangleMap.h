@@ -84,16 +84,16 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
                                       int *primitiveIndex, KDNode::bitmap *primBitmap,
                                       float4* aabbMins, float4* aabbMaxs,
                                       KDNode::bitmap4 *splitTriangleSet,
-                                      int activeIndex, int activeRange){
+                                      int activeRange){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
-    int nodeID = id / TriangleNode::MAX_LOWER_SIZE;
+    int nodeID = id / KDNode::MAX_LOWER_SIZE;
 
     if (nodeID < activeRange){
     
         nodeID = upperLeafIDs[nodeID];
         
-        const int primID = id % TriangleNode::MAX_LOWER_SIZE;
+        const int primID = id % KDNode::MAX_LOWER_SIZE;
         const int primIndex = primitiveIndex[nodeID] + primID;
         const KDNode::bitmap primBmp = primBitmap[nodeID];
 
@@ -108,7 +108,7 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
 
         // Is automatically optimized away by the compiler. nvcc
         // actually works sometimes.
-        if (TriangleNode::MAX_LOWER_SIZE > warpSize)
+        if (KDNode::MAX_LOWER_SIZE > warpSize)
             __syncthreads();
 
         KDNode::bitmap4 splitX = KDNode::make_bitmap4(0, 0, 0, 0); // {lowLeft, lowRight, highLeft, highRight}
@@ -195,13 +195,13 @@ __device__ __host__ void CalcRelationForSets(KDNode::bitmap4 splittingSet, KDNod
 template <bool useIndices>
 __global__ void 
 CalcSplit(int *upperLeafIDs,
-                          char *info,
-                          float *splitPoss,
-                          int *primitiveIndex, KDNode::bitmap *primitiveBitmap,
-                          float4 *aabbMin, float4 *aabbMax,
-                          KDNode::bitmap4 *splitTriangleSet,
-                          KDNode::bitmap2 *childSets,
-                          int *splitSides){
+          char *info,
+          float *splitPoss,
+          int *primitiveIndex, KDNode::bitmap *primitiveBitmap,
+          float4 *aabbMin, float4 *aabbMax,
+          KDNode::bitmap4 *splitTriangleSet,
+          KDNode::bitmap2 *childSets,
+          int *splitSides){
     
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
         

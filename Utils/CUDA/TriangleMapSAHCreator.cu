@@ -141,7 +141,7 @@ namespace OpenEngine {
                      nodes->GetPrimitiveBitmapData(),
                      primMin->GetDeviceData(), primMax->GetDeviceData(),
                      splitTriangleSet->GetDeviceData(), 
-                     activeIndex, activeRange);
+                     activeRange);
                 CHECK_FOR_CUDA_ERROR();
 
 #if CPU_VERIFY
