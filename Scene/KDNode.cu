@@ -22,6 +22,8 @@ namespace OpenEngine {
 
         KDNode::KDNode(int i)
             : maxSize(i), size(0) {
+
+            logger.info << "Bitmap size: " << sizeof(bitmap) << "bytes" << logger.end;
             
             info = new CUDADataBlock<1, char>(maxSize);
             splitPos = new CUDADataBlock<1, float>(maxSize);

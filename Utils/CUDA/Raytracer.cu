@@ -289,6 +289,8 @@ namespace OpenEngine {
 
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
+                
+                //HostTrace(320, 240, nodes);
 
                 KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                 if (this->intersectionAlgorithm == WOOP){
@@ -311,7 +313,7 @@ namespace OpenEngine {
                          width);
                     PRINT_TIMER(timerID, "KDRestart with Woop intersection");
 
-                }else{               
+                }else{
                     START_TIMER(timerID);
                     KDRestartKernel<false, true, true><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
@@ -329,8 +331,6 @@ namespace OpenEngine {
                     PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore");
                 }
                 CHECK_FOR_CUDA_ERROR();
-                
-                //HostTrace(320, 240, nodes);
             }
 
             void RayTracer::HostTrace(int x, int y, TriangleNode* nodes){
