@@ -227,8 +227,8 @@ namespace OpenEngine {
                             const float shadow = 1.0f;
                             
                             float4 newColor = Lighting(tHit, origin, direction, 
-                                                       FetchGlobalData(n0s, primHit), FetchGlobalData(n1s, primHit), FetchGlobalData(n2s, primHit),
-                                                       FetchGlobalData(c0s, primHit), shadow);
+                                                       n0s, n1s, n2s,
+                                                       c0s, primHit, shadow);
                             
                             color = BlendColor(color, newColor);
                             

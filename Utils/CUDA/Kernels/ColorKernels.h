@@ -42,16 +42,18 @@ inline __device__ __host__ float4 PhongLighting(const float4 color, const float3
 
 inline __device__ __host__ float4 Lighting(const float3 hitCoords, 
                                            float3 &origin, float3 &direction,
-                                           const float4 n0, const float4 n1, const float4 n2,
-                                           const uchar4 c0, float shadow = 1.0f){
+                                           const float4 *n0, const float4 *n1, const float4* n2,
+                                           const uchar4* c0s, int index, 
+                                           float shadow = 1.0f){
 
     float3 point = origin + hitCoords.x * direction;
 
-    float3 normal = (1 - hitCoords.y - hitCoords.z) * make_float3(n0) + 
-                    hitCoords.y * make_float3(n1) + 
-                    hitCoords.z * make_float3(n2);
+    float3 normal = (1 - hitCoords.y - hitCoords.z) * make_float3(FetchGlobalData(n0, index)) + 
+        hitCoords.y * make_float3(FetchGlobalData(n1, index)) + 
+        hitCoords.z * make_float3(FetchGlobalData(n2, index));
     normal = normalize(normal);
 
+    const uchar4 c0 = FetchGlobalData(c0s, index);
     float4 color = make_float4(c0.x / 255.0f, c0.y / 255.0f, c0.z / 255.0f, c0.w / 255.0f);
 
     if (color.w < 1.0f - 0.00001f){

@@ -86,8 +86,8 @@ namespace OpenEngine {
                         
                         if (tHit.x < fInfinity){
                             float4 newColor = Lighting(tHit, origin, dir, 
-                                                       n0s[primHit], n1s[primHit], n2s[primHit],
-                                                       c0s[primHit]);
+                                                       n0s, n1s, n2s,
+                                                       c0s, primHit);
                             
                             color = BlendColor(color, newColor);
                         }

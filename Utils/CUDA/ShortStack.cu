@@ -176,8 +176,8 @@ namespace OpenEngine {
                         
                         if (primHit != -1){
                             float4 newColor = Lighting(tHit, origin, direction, 
-                                                       FetchGlobalData(n0s, primHit), FetchGlobalData(n1s, primHit), FetchGlobalData(n2s, primHit),
-                                                       FetchGlobalData(c0s, primHit));
+                                                       n0s, n1s, n2s,
+                                                       c0s, primHit);
                             
                             color = BlendColor(color, newColor);
                             
