@@ -21,6 +21,8 @@
 #include <Utils/CUDA/IntersectionTests.h>
 #include <Utils/CUDA/Convert.h>
 
+#include <Utils/CUDA/LoggerExtensions.h>
+
 #include <sstream>
 
 using namespace OpenEngine::Geometry;
@@ -121,19 +123,19 @@ namespace OpenEngine {
                 cudaMemcpy(&h_p0, p0->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
                 cudaMemcpy(&h_p1, p1->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
                 cudaMemcpy(&h_p2, p2->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                out << "Points: " << Utils::CUDA::Convert::ToString(h_p0) << ", " << Utils::CUDA::Convert::ToString(h_p1) << " & " << Utils::CUDA::Convert::ToString(h_p2) << "\n";
+                out << "Points: " << h_p0 << ", " << h_p1 << " & " << h_p2 << "\n";
 
                 float4 h_n0, h_n1, h_n2;
                 cudaMemcpy(&h_n0, n0->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
                 cudaMemcpy(&h_n1, n1->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
                 cudaMemcpy(&h_n2, n2->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                out << "Normals: " << Utils::CUDA::Convert::ToString(h_n0) << ", " << Utils::CUDA::Convert::ToString(h_n1) << " & " << Utils::CUDA::Convert::ToString(h_n2) << "\n";
+                out << "Normals: " << h_n0 << ", " << h_n1 << " & " << h_n2 << "\n";
 
                 uchar4 h_c0, h_c1, h_c2;
                 cudaMemcpy(&h_c0, c0->GetDeviceData() + i, sizeof(uchar4), cudaMemcpyDeviceToHost);
                 cudaMemcpy(&h_c1, c1->GetDeviceData() + i, sizeof(uchar4), cudaMemcpyDeviceToHost);
                 cudaMemcpy(&h_c2, c2->GetDeviceData() + i, sizeof(uchar4), cudaMemcpyDeviceToHost);
-                out << "Colors: " << Utils::CUDA::Convert::ToString(h_c0) << ", " << Utils::CUDA::Convert::ToString(h_c1) << " & " << Utils::CUDA::Convert::ToString(h_c2) << "\n";
+                out << "Colors: " << h_c0 << ", " << h_c1 << " & " << h_c2 << "\n";
                 
                 return out.str();
             }
