@@ -69,6 +69,8 @@ namespace OpenEngine {
                     return (T*) this->data;
                 }
 
+                inline void* GetVoidData() { return (void*)GetData(); }
+
                 void Resize(unsigned int i, bool dataPersistent = true){
                     if (maxSize < i){
                         if (hostData)
@@ -102,67 +104,7 @@ namespace OpenEngine {
                     Resize(i, dataPersistent);
                 }
 
-                void GetElement(unsigned int i, Math::Vector<4, unsigned char> &element) {throw Exception("Not implemented");}
-                void GetElement(unsigned int i, Math::Vector<2, float> &element) {throw Exception("Not implemented");}
-                void GetElement(unsigned int i, Math::Vector<3, float> &element) {throw Exception("Not implemented");}
-                void GetElement(unsigned int i, Math::Vector<4, float> &element) {throw Exception("Not implemented");}
-                void GetElement(unsigned int i, Math::Vector<2, double> &element) {throw Exception("Not implemented");}
-                void GetElement(unsigned int i, Math::Vector<3, double> &element) {throw Exception("Not implemented");}
-                void GetElement(unsigned int i, Math::Vector<4, double> &element) {throw Exception("Not implemented");}
-                
-                void SetElement(unsigned int i, const Math::Vector<4, unsigned char> value) {throw Exception("Not implemented");}
-                void SetElement(unsigned int i, const Math::Vector<2, float> value) {throw Exception("Not implemented");}
-                void SetElement(unsigned int i, const Math::Vector<3, float> value) {throw Exception("Not implemented");}
-                void SetElement(unsigned int i, const Math::Vector<4, float> value) {throw Exception("Not implemented");}
-                void SetElement(unsigned int i, const Math::Vector<2, double> value) {throw Exception("Not implemented");}
-                void SetElement(unsigned int i, const Math::Vector<3, double> value) {throw Exception("Not implemented");}
-                void SetElement(unsigned int i, const Math::Vector<4, double> value) {throw Exception("Not implemented");}
-
                 void Unload() {throw Exception("Not implemented");}
-
-                virtual void operator+=(const Math::Vector<4, unsigned char> value) {throw Exception("Not implemented");}
-                virtual void operator+=(const Math::Vector<1, unsigned int> value) {throw Exception("Not implemented");}
-                virtual void operator+=(const Math::Vector<2, float> value) {throw Exception("Not implemented");}
-                virtual void operator+=(const Math::Vector<3, float> value) {throw Exception("Not implemented");}
-                virtual void operator+=(const Math::Vector<4, float> value) {throw Exception("Not implemented");}
-                virtual void operator+=(const Math::Vector<2, double> value) {throw Exception("Not implemented");}
-                virtual void operator+=(const Math::Vector<3, double> value) {throw Exception("Not implemented");}
-                virtual void operator+=(const Math::Vector<4, double> value) {throw Exception("Not implemented");}
-                
-                virtual IDataBlockPtr operator+(const Math::Vector<4, unsigned char> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator+(const Math::Vector<1, unsigned int> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator+(const Math::Vector<2, float> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator+(const Math::Vector<3, float> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator+(const Math::Vector<4, float> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator+(const Math::Vector<2, double> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator+(const Math::Vector<3, double> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator+(const Math::Vector<4, double> value) {throw Exception("Not implemented");}
-                
-                virtual void operator-=(const Math::Vector<4, unsigned char> value) {throw Exception("Not implemented");}
-                virtual void operator-=(const Math::Vector<1, unsigned int> value) {throw Exception("Not implemented");}
-                virtual void operator-=(const Math::Vector<2, float> value) {throw Exception("Not implemented");}
-                virtual void operator-=(const Math::Vector<3, float> value) {throw Exception("Not implemented");}
-                virtual void operator-=(const Math::Vector<4, float> value) {throw Exception("Not implemented");}
-                virtual void operator-=(const Math::Vector<2, double> value) {throw Exception("Not implemented");}
-                virtual void operator-=(const Math::Vector<3, double> value) {throw Exception("Not implemented");}
-                virtual void operator-=(const Math::Vector<4, double> value) {throw Exception("Not implemented");}
-                    
-                virtual IDataBlockPtr operator-(const Math::Vector<4, unsigned char> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator-(const Math::Vector<1, unsigned int> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator-(const Math::Vector<2, float> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator-(const Math::Vector<3, float> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator-(const Math::Vector<4, float> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator-(const Math::Vector<2, double> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator-(const Math::Vector<3, double> value) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator-(const Math::Vector<4, double> value) {throw Exception("Not implemented");}
-
-                virtual void operator*=(const float s) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator*(const float s) {throw Exception("Not implemented");}
-                
-                virtual void operator/=(const float s) {throw Exception("Not implemented");}
-                virtual IDataBlockPtr operator/(const float s) {throw Exception("Not implemented");}
-
-                virtual void Normalize() {throw Exception("Not implemented");}
 
                 virtual std::string ToString() {throw Exception("Not implemented");}
             };
