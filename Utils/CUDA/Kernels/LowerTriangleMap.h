@@ -242,6 +242,9 @@ CalcSplit(int *upperLeafIDs,
             triangles -= KDNode::bitmap(1)<<i;
         }
 
+        // Weird stuff, how about stopping if largestSetSize ==
+        // nodeSize or nodeSize < minLeafTriangles?
+
         bool split = minLeafTriangles < largestSetSize * relation;
         if (split){
             // Dump stuff and move on

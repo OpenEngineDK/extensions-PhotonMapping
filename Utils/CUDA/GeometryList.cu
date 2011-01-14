@@ -77,9 +77,11 @@ namespace OpenEngine {
                     Resize(i);
             }
 
-            __global__ void CreateWoopValues(float4* p0s, float4* p1s, float4* p2s, 
-                                             float4* m0s, float4* m1s, float4* m2s,
-                                             int primitives){
+            __global__ void 
+            __launch_bounds__(MAX_THREADS) 
+                CreateWoopValues(float4* p0s, float4* p1s, float4* p2s, 
+                                 float4* m0s, float4* m1s, float4* m2s,
+                                 int primitives){
                 
                 const int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
@@ -102,7 +104,7 @@ namespace OpenEngine {
                 int i = p0->GetSize();
                 woop0->Resize(i); woop1->Resize(i); woop2->Resize(i);
                 
-                KernelConf conf = KernelConf1D(i);
+                KernelConf conf = KernelConf1D(i, MAX_THREADS);
                 CreateWoopValues<<<conf.blocks, conf.threads>>>
                     (p0->GetDeviceData(), p1->GetDeviceData(), p2->GetDeviceData(),
                      woop0->GetDeviceData(), woop1->GetDeviceData(), woop2->GetDeviceData(),
@@ -309,7 +311,7 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
                 
                 unsigned int blocks, threads;
-                Calc1DKernelDimensions(mesh->GetSize(), blocks, threads, 128);
+                Calc1DKernelDimensions(mesh->GetSize(), blocks, threads, MAX_THREADS);
                 AddMeshKernel<<<blocks, threads>>>(mesh->GetIndexData(), mesh->GetVertexData(), mesh->GetNormalData(), mesh->GetColorData(),
                                                    mat, normMat,
                                                    p0->GetDeviceData() + size, p1->GetDeviceData() + size, p2->GetDeviceData() + size,
