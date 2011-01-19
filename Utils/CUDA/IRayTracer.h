@@ -31,6 +31,7 @@ namespace OpenEngine {
             protected:
                 bool visualizeRays;
                 IntersectionAlgorithm intersectionAlgorithm;
+                bool leafSkipping;
                 
                 Resources::CUDA::CUDADataBlock<1, float4> *origin;
                 Resources::CUDA::CUDADataBlock<1, float4> *direction;
@@ -44,7 +45,11 @@ namespace OpenEngine {
                 virtual void HostTrace(int x, int y, Scene::TriangleNode* nodes) = 0;
 
                 void SetVisualizeRays(const bool v) {visualizeRays = v;}
+                bool GetVisualizeRays() const { return visualizeRays; }
                 void SetIntersectionAlgorithm(const IntersectionAlgorithm a) { intersectionAlgorithm = a;}
+                IntersectionAlgorithm GetIntersectionAlgorithm() const { return intersectionAlgorithm; }
+                void SetLeafSkipping(const bool s) {leafSkipping = s;}
+                bool GetLeafSkipping() const { return leafSkipping; }
 
 #define PW 4
 #define PH 8

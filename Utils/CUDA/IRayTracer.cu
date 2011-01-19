@@ -30,7 +30,7 @@ namespace OpenEngine {
             __constant__ float d_ViewProjectionMatrixInverse[16];
 
             IRayTracer::IRayTracer() 
-                : visualizeRays(false), intersectionAlgorithm(WOOP) {
+                : visualizeRays(false), intersectionAlgorithm(WOOP), leafSkipping(true) {
 
                 origin = new CUDADataBlock<1, float4>(1);
                 direction = new CUDADataBlock<1, float4>(1);

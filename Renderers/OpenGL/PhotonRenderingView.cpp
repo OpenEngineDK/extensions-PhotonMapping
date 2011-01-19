@@ -27,7 +27,8 @@ namespace OpenEngine {
         namespace OpenGL {
             
             PhotonRenderingView::PhotonRenderingView()
-                : RenderingView(), triangleMap(NULL), 
+                : RenderingView(), triangleMap(NULL),
+                  updateTree(false),
                   renderTree(false), raytrace(true){
             }
             
@@ -42,6 +43,8 @@ namespace OpenEngine {
                     //if (renderTree)
                     //RenderTree(arg);
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PROCESS){
+                    if (updateTree)
+                        UpdateGeometry();
                     if (raytrace){
                         cudaGraphicsResource *pboResource;
                         cudaGraphicsGLRegisterBuffer(&pboResource, pbo->GetID(), cudaGraphicsMapFlagsWriteDiscard);
@@ -99,7 +102,7 @@ namespace OpenEngine {
             void PhotonRenderingView::UpdateGeometry(){
                 logger.info << "Pew pew, triangles everywhere" << logger.end;
                 triangleMap->Create();
-                triangleMap->Create();
+                //triangleMap->Create();
                 CHECK_FOR_CUDA_ERROR();
             }
 

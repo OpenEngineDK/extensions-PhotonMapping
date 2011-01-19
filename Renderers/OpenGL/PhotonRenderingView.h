@@ -39,6 +39,8 @@ namespace OpenEngine {
                 TriangleMap* triangleMap;
                 IRayTracer* raytracer;
 
+                bool updateTree;
+
                 IDataBlockPtr pbo;
                 
                 bool renderTree, raytrace;
@@ -53,6 +55,11 @@ namespace OpenEngine {
                 void Initialize(RenderingEventArg arg);
                 void UpdateGeometry();
 
+                TriangleMap* GetTriangleMap() const { return triangleMap; }
+                IRayTracer* GetRayTracer() const { return raytracer; }
+
+                void SetTreeUpdate(bool u) { updateTree = u; }
+                bool GetTreeUpdate() { return updateTree; }
                 //void RenderTree(RenderingEventArg arg);
             };
 

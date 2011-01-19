@@ -298,36 +298,68 @@ namespace OpenEngine {
                     geom->GetWoopValues(&woop0, &woop1, &woop2);
 
                     START_TIMER(timerID);
-                    KDRestartKernel<true, true, true><<<conf.blocks, conf.threads>>>
-                        (origin->GetDeviceData(), direction->GetDeviceData(),
-                         nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                         nodes->GetChildrenData(),
-                         nodes->GetPrimitiveIndexData(),
-                         nodes->GetPrimitiveBitmapData(),
-                         nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
-                         map->GetPrimitiveIndices()->GetDeviceData(),
-                         woop0, woop1, woop2,
-                         geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
-                         geom->GetColor0Data(),
-                         canvasData,
-                         width);
+                    if (leafSkipping){
+                        KDRestartKernel<true, true, true><<<conf.blocks, conf.threads>>>
+                            (origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(),
+                             nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             woop0, woop1, woop2,
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data(),
+                             canvasData,
+                             width);
+                    }else{
+                        KDRestartKernel<true, true, false><<<conf.blocks, conf.threads>>>
+                            (origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(),
+                             nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             woop0, woop1, woop2,
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data(),
+                             canvasData,
+                             width);
+                    }
                     PRINT_TIMER(timerID, "KDRestart with Woop intersection");
 
                 }else{
                     START_TIMER(timerID);
-                    KDRestartKernel<false, true, true><<<conf.blocks, conf.threads>>>
-                        (origin->GetDeviceData(), direction->GetDeviceData(),
-                         nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                         nodes->GetChildrenData(),
-                         nodes->GetPrimitiveIndexData(),
-                         nodes->GetPrimitiveBitmapData(),
-                         nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
-                         map->GetPrimitiveIndices()->GetDeviceData(),
-                         geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
-                         geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
-                         geom->GetColor0Data(),
-                         canvasData,
-                         width);
+                    if (leafSkipping){
+                        KDRestartKernel<false, true, true><<<conf.blocks, conf.threads>>>
+                            (origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(),
+                             nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data(),
+                             canvasData,
+                             width);
+                    }else{
+                        KDRestartKernel<false, true, false><<<conf.blocks, conf.threads>>>
+                            (origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(),
+                             nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data(),
+                             canvasData,
+                             width);
+                    }
                     PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore");
                 }
                 CHECK_FOR_CUDA_ERROR();
