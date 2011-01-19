@@ -27,7 +27,7 @@ namespace OpenEngine {
 
             TriangleMapUpperCreator::TriangleMapUpperCreator()
                 : ITriangleMapCreator(), emptySpaceSplitting(true),
-                  emptySpaceThreshold(0.25f), splitAlg(DIVIDE) {
+                  emptySpaceThreshold(0.25f), splitAlg(BOX) {
                 
                 cutCreateTimer(&timerID);
 

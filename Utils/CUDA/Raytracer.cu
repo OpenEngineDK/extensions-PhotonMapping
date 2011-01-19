@@ -312,6 +312,7 @@ namespace OpenEngine {
                              geom->GetColor0Data(),
                              canvasData,
                              width);
+                        PRINT_TIMER(timerID, "KDRestart with Woop intersection and leaf skipping");
                     }else{
                         KDRestartKernel<true, true, false><<<conf.blocks, conf.threads>>>
                             (origin->GetDeviceData(), direction->GetDeviceData(),
@@ -326,8 +327,8 @@ namespace OpenEngine {
                              geom->GetColor0Data(),
                              canvasData,
                              width);
+                        PRINT_TIMER(timerID, "KDRestart with Woop intersection");
                     }
-                    PRINT_TIMER(timerID, "KDRestart with Woop intersection");
 
                 }else{
                     START_TIMER(timerID);
@@ -345,6 +346,7 @@ namespace OpenEngine {
                              geom->GetColor0Data(),
                              canvasData,
                              width);
+                        PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore and leaf skipping");
                     }else{
                         KDRestartKernel<false, true, false><<<conf.blocks, conf.threads>>>
                             (origin->GetDeviceData(), direction->GetDeviceData(),
@@ -359,8 +361,8 @@ namespace OpenEngine {
                              geom->GetColor0Data(),
                              canvasData,
                              width);
+                        PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore");
                     }
-                    PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore");
                 }
                 CHECK_FOR_CUDA_ERROR();
             }
@@ -372,20 +374,63 @@ namespace OpenEngine {
                 //TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
-                float4 *woop0, *woop1, *woop2;
-                geom->GetWoopValues(&woop0, &woop1, &woop2);
+                uchar4 color;
+                if (this->intersectionAlgorithm == WOOP){                
+                    float4 *woop0, *woop1, *woop2;
+                    geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                uchar4 color = KDRestart<true, true, true>
-                    (id, origin->GetDeviceData(), direction->GetDeviceData(),
-                     nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                     nodes->GetChildrenData(),
-                     nodes->GetPrimitiveIndexData(),
-                     nodes->GetPrimitiveBitmapData(),
-                     nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
-                     map->GetPrimitiveIndices()->GetDeviceData(),
-                     woop0, woop1, woop2,
-                     geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
-                     geom->GetColor0Data());
+                    if (leafSkipping){                    
+                        color = KDRestart<true, true, true>
+                            (id, origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(),
+                             nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             woop0, woop1, woop2,
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data());
+                    }else{
+                        color = KDRestart<true, true, false>
+                            (id, origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(),
+                             nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             woop0, woop1, woop2,
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data());
+                    }
+                }else{
+                    if (leafSkipping){
+                        color = KDRestart<false, true, true>
+                            (id, origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(),
+                             nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data());
+                    }else{
+                        color = KDRestart<false, true, false>
+                            (id, origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(),
+                             nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data());
+                    }
+                }
 
                 logger.info << "Final color: " << make_int4(color.x, color.y, color.z, color.w) << logger.end;
                 //exit(0);
