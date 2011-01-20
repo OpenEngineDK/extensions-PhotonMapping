@@ -64,10 +64,55 @@ namespace OpenEngine {
                     logger.info << nodes->ToString(i) << logger.end;
                 */
                 //exit(0);
+
+                PrintTree();
             }
 
             void TriangleMap::Setup(){
                 geom->CollectGeometry(scene);
+            }
+            
+            void TriangleMap::PrintTree(){
+                PrintNode(0);
+            }
+            
+            void TriangleMap::PrintNode(int node, int offset){
+                for (int i = 0; i < offset; ++i)
+                    logger.info << " ";
+
+                char info = FetchGlobalData(nodes->GetInfoData(), node);
+                if (info == KDNode::LEAF){
+                    int index = FetchGlobalData(nodes->GetPrimitiveIndexData(), node);
+                    KDNode::bitmap bmp = FetchGlobalData(nodes->GetPrimitiveBitmapData(), node);
+                    logger.info << "leaf " << node << " has index " << index << " and bitmap " << BitmapToString(bmp) << logger.end;
+                    
+                    while (bmp){
+                        int i = firstBitSet(bmp) - 1;
+                      
+                        int prim = FetchGlobalData(primIndices->GetDeviceData(), index + i);
+                        logger.info << prim << ", ";
+                        
+                        bmp -= KDNode::bitmap(1)<<i;
+                    }
+                    logger.info << logger.end;
+                }else{
+                    logger.info << "node " << node << " splits along ";
+                    switch(info & 3){
+                    case KDNode::X:
+                        logger.info << "x:";
+                        break;
+                    case KDNode::Y:
+                        logger.info << "y:";
+                        break;
+                    case KDNode::Z:
+                        logger.info << "z:";
+                        break;
+                    }
+                    logger.info << FetchGlobalData(nodes->GetSplitPositionData(), node) << logger.end;
+                    int2 children = FetchGlobalData(nodes->GetChildrenData(), node);
+                    PrintNode(children.x, offset+1);
+                    PrintNode(children.y, offset+1);
+                }
             }
             
         }

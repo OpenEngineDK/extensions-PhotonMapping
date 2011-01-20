@@ -52,6 +52,9 @@ namespace OpenEngine {
                 GeometryList* GetGeometry() const { return geom; }
                 Scene::TriangleNode* GetNodes() const { return nodes; }
                 Resources::CUDA::CUDADataBlock<1, int>* GetPrimitiveIndices() const { return primIndices; }
+
+                void PrintTree();
+                void PrintNode(int node, int offset = 0);
             };
 
         }
