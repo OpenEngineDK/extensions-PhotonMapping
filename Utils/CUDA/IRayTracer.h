@@ -121,7 +121,7 @@ namespace OpenEngine {
 
                     float3 hitCoords;
                     hitCoords.x = invDet * dot(q, e2);
-                    if (0.0f <= hitCoords.x && hitCoords.x < tHit.x){
+                    if (0.0f <= hitCoords.x && hitCoords.x <= tHit.x){
                         hitCoords.y = invDet * dot(p, t);
                         hitCoords.z = invDet * dot(q, direction);
                         
