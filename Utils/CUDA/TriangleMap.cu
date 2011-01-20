@@ -84,15 +84,15 @@ namespace OpenEngine {
                 if (info == KDNode::LEAF){
                     int index = FetchGlobalData(nodes->GetPrimitiveIndexData(), node);
                     KDNode::bitmap bmp = FetchGlobalData(nodes->GetPrimitiveBitmapData(), node);
-                    logger.info << "leaf " << node << " has index " << index << " and bitmap " << BitmapToString(bmp) << logger.end;
+                    logger.info << "leaf " << node << " with primitives ";
                     
                     while (bmp){
                         int i = firstBitSet(bmp) - 1;
+                        bmp -= KDNode::bitmap(1)<<i;
                       
                         int prim = FetchGlobalData(primIndices->GetDeviceData(), index + i);
-                        logger.info << prim << ", ";
-                        
-                        bmp -= KDNode::bitmap(1)<<i;
+                        logger.info << prim;
+                        if (bmp) logger.info << ", ";
                     }
                     logger.info << logger.end;
                 }else{

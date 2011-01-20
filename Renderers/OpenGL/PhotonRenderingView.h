@@ -12,6 +12,7 @@
 
 #include <Renderers/OpenGL/RenderingView.h>
 
+#include <string>
 #include <boost/shared_ptr.hpp>
 
 namespace OpenEngine {
@@ -40,6 +41,7 @@ namespace OpenEngine {
                 IRayTracer* raytracer;
 
                 bool updateTree;
+                string rayTracerName;
 
                 IDataBlockPtr pbo;
                 
@@ -60,6 +62,9 @@ namespace OpenEngine {
 
                 void SetTreeUpdate(bool u) { updateTree = u; }
                 bool GetTreeUpdate() { return updateTree; }
+
+                void SetRayTracerName(string name) { rayTracerName = name; }
+                string GetRayTracerName() { return rayTracerName; }
                 //void RenderTree(RenderingEventArg arg);
             };
 
