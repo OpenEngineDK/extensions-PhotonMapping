@@ -28,7 +28,7 @@ namespace OpenEngine {
             
             PhotonRenderingView::PhotonRenderingView()
                 : RenderingView(), triangleMap(NULL),
-                  updateTree(false), rayTracerName("HAT!"),
+                  updateTree(false),
                   renderTree(false), raytrace(true){
             }
             
@@ -90,9 +90,9 @@ namespace OpenEngine {
 
                 triangleMap = new TriangleMap(arg.canvas.GetScene());
                 exhaustive = new BruteTracer(triangleMap->geom);
-                raytracer = restart = new RayTracer(triangleMap);
+                restart = new RayTracer(triangleMap);
                 shortstack = new ShortStack(triangleMap);
-                SetRayTracerName("exhaustive");
+                SetRayTracerType(KD_RESTART);
 
                 int size = arg.canvas.GetWidth() * arg.canvas.GetHeight();
                 pbo = IDataBlockPtr(new DataBlock<4, unsigned char>(size, NULL, PIXEL_UNPACK));
@@ -105,21 +105,20 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
             }
             
-            void PhotonRenderingView::SetRayTracerName(string name) { 
-                rayTracerName = name;
-                if (name.compare("exhaustive") == 0){
+            void PhotonRenderingView::SetRayTracerType(RayTracerType type) { 
+                tracerType = type;
+                if (type == EXHAUSTIVE){
                     logger.info << "Switching to exhaustive ray tracer" << logger.end;
                     raytracer = exhaustive;
-                }else if (name.compare("restart") == 0){
+                }else if (type == KD_RESTART){
                     logger.info << "Switching to kd-restart ray tracer" << logger.end;
                     raytracer = restart;
-                }else if (name.compare("shortstack") == 0){
+                }else if (type == SHORTSTACK){
                     logger.info << "Switching to short stack ray tracer" << logger.end;
                     raytracer = shortstack;
-                }else{
-                    logger.info << "Unknown ray tracer. Possible values are exhaustive, restart or shortstack" << logger.end;
                 }
             }
+            
 
             /*
             void PhotonRenderingView::RenderTree(RenderingEventArg arg){

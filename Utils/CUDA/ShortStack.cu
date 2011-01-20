@@ -146,7 +146,7 @@ namespace OpenEngine {
                     }
 
                     if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
-                    tHit.x = tNext;
+                    tHit.x = tNext + Math::EPS;
                         
                     if (!rayBoxIntersect || 
                         IRayTracer::RayBoxIntersection<true>(origin, make_float3(1.0f) / direction,

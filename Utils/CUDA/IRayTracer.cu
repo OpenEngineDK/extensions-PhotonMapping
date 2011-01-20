@@ -97,27 +97,6 @@ namespace OpenEngine {
                 CreateRays<<<blocks, threads>>>(origin->GetDeviceData(),
                                                 direction->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
-
-                /*
-                logger.info << "Camera positioned at " << camPos << logger.end;
-
-                float4 ori, dir;
-                cudaMemcpy(&ori, origin->GetDeviceData(), sizeof(float4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&dir, direction->GetDeviceData(), sizeof(float4), cudaMemcpyDeviceToHost);
-                logger.info << "lower left -> origin: " << Convert::ToString(ori) << ", direction: " << Convert::ToString(dir) << logger.end;
-
-                cudaMemcpy(&ori, origin->GetDeviceData() + width-1, sizeof(float4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&dir, direction->GetDeviceData() + width-1, sizeof(float4), cudaMemcpyDeviceToHost);
-                logger.info << "lower right -> origin: " << Convert::ToString(ori) << ", direction: " << Convert::ToString(dir) << logger.end;
-
-                cudaMemcpy(&ori, origin->GetDeviceData() + rays-1-width, sizeof(float4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&dir, direction->GetDeviceData() + rays-1-width, sizeof(float4), cudaMemcpyDeviceToHost);
-                logger.info << "upper left -> origin: " << Convert::ToString(ori) << ", direction: " << Convert::ToString(dir) << logger.end;
-
-                cudaMemcpy(&ori, origin->GetDeviceData() + rays-1, sizeof(float4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&dir, direction->GetDeviceData() + rays-1, sizeof(float4), cudaMemcpyDeviceToHost);
-                logger.info << "upper right -> origin: " << Convert::ToString(ori) << ", direction: " << Convert::ToString(dir) << logger.end;
-                */
             }
             
             __global__ void RenderRayDir(float4* dir, uchar4 *canvas){

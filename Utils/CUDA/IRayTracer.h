@@ -10,6 +10,7 @@
 #ifndef _I_RAY_TRACER_H_
 #define _I_RAY_TRACER_H_
 
+#include <Math/Math.h>
 #include <Resources/CUDA/CUDADataBlock.h>
 #include <Utils/CUDA/IntersectionTests.h>
 #include <Utils/CUDA/Utils.h>
@@ -85,13 +86,13 @@ namespace OpenEngine {
                     float3 hitCoords;
                     const float4 woop = FetchGlobalData(woop2, prim);
                     hitCoords.x = WoopLambda(origin, direction, woop);
-                    if (0.0f <= hitCoords.x && hitCoords.x < tHit.x){
+                    if (0.0f <= hitCoords.x && hitCoords.x <= tHit.x){
                         const float4 w0 = FetchGlobalData(woop0, prim);
                         hitCoords.y = WoopUV(origin, direction, hitCoords.x, w0);
                         const float4 w1 = FetchGlobalData(woop1, prim);
                         hitCoords.z = WoopUV(origin, direction, hitCoords.x, w1);
                         
-                        if (hitCoords.y >= 0.0f && hitCoords.z >= 0.0f && hitCoords.y + hitCoords.z <= 1.0f){
+                        if (hitCoords.y >= -0.0f && hitCoords.z >= -0.0f && hitCoords.y + hitCoords.z <= 1.0f){
                             primHit = prim;
                             tHit = hitCoords;
                         }

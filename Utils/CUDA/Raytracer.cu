@@ -100,7 +100,7 @@ namespace OpenEngine {
                     axis = FetchGlobalData(nodeInfo, node);
                 }
 
-                tMin = tNext;
+                tMin = tNext + Math::EPS;
 
                 CUDALogger("Found leaf: " << node << "\n");
             }

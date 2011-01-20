@@ -64,8 +64,6 @@ namespace OpenEngine {
                     logger.info << nodes->ToString(i) << logger.end;
                 */
                 //exit(0);
-
-                PrintTree();
             }
 
             void TriangleMap::Setup(){

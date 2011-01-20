@@ -12,7 +12,6 @@
 
 #include <Renderers/OpenGL/RenderingView.h>
 
-#include <string>
 #include <boost/shared_ptr.hpp>
 
 namespace OpenEngine {
@@ -36,13 +35,15 @@ namespace OpenEngine {
             using namespace Utils::CUDA;
 
             class PhotonRenderingView : public RenderingView {
+            public:
+                enum RayTracerType {EXHAUSTIVE, KD_RESTART, SHORTSTACK};
             protected:
                 TriangleMap* triangleMap;
                 IRayTracer *exhaustive, *restart, *shortstack;
                 IRayTracer* raytracer;
+                RayTracerType tracerType;
 
                 bool updateTree;
-                string rayTracerName;
 
                 IDataBlockPtr pbo;
                 
@@ -64,8 +65,8 @@ namespace OpenEngine {
                 void SetTreeUpdate(bool u) { updateTree = u; }
                 bool GetTreeUpdate() { return updateTree; }
 
-                void SetRayTracerName(string name);
-                string GetRayTracerName() { return rayTracerName; }
+                void SetRayTracerType(RayTracerType type);
+                RayTracerType GetRayTracerType() { return tracerType; }
                 //void RenderTree(RenderingEventArg arg);
             };
 
