@@ -37,6 +37,7 @@ namespace OpenEngine {
                     RenderingView::Handle(arg);
                     Initialize(arg);
                     UpdateGeometry();
+                    UpdateGeometry();
 
                 }else if (arg.renderer.GetCurrentStage() == IRenderer::RENDERER_PREPROCESS){
                     RenderingView::Handle(arg);
@@ -100,9 +101,7 @@ namespace OpenEngine {
             }
 
             void PhotonRenderingView::UpdateGeometry(){
-                logger.info << "Pew pew, triangles everywhere" << logger.end;
                 triangleMap->Create();
-                //triangleMap->Create();
                 CHECK_FOR_CUDA_ERROR();
             }
 

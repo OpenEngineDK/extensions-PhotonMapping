@@ -245,12 +245,12 @@ namespace OpenEngine {
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
+                if (printTiming) START_TIMER(timerID); 
                 KernelConf conf = KernelConf1D(rays, MAX_THREADS, 0, sizeof(Element) * SHORT_STACK_SIZE);
                 if (intersectionAlgorithm == WOOP){
                     float4 *woop0, *woop1, *woop2;
                     geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                    START_TIMER(timerID); 
                     ShortStackKernel<true, true, true><<<conf.blocks, conf.threads, conf.smem>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
@@ -263,10 +263,9 @@ namespace OpenEngine {
                          geom->GetColor0Data(),
                          canvasData,
                          width);
-                    PRINT_TIMER(timerID, "Short stack using Woop");
+                    if (printTiming) PRINT_TIMER(timerID, "Short stack using Woop");
 
                 }else{
-                    START_TIMER(timerID); 
                     ShortStackKernel<false, true, true><<<conf.blocks, conf.threads, conf.smem>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          nodes->GetInfoData(), nodes->GetSplitPositionData(),
@@ -279,7 +278,7 @@ namespace OpenEngine {
                          geom->GetColor0Data(),
                          canvasData,
                          width);
-                    PRINT_TIMER(timerID, "Short stack using Möller-Trumbore");
+                    if (printTiming) PRINT_TIMER(timerID, "Short stack using Möller-Trumbore");
                 }
                 CHECK_FOR_CUDA_ERROR();                                               
             }

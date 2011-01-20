@@ -66,11 +66,11 @@ namespace OpenEngine {
                 if (invDir) direction = make_float3(1.0f, 1.0f, 1.0f) / direction;
 
                 while((axis & 3) != KDNode::LEAF){
-                    // Trace
-                    CUDALogger("Tracing " << node << " with info " << (int)axis);
-                    
+                    // Trace                    
                     float splitValue = FetchGlobalData(splitPos, node);
                     int2 childPair = FetchGlobalData(children, node);
+
+                    CUDALogger("Tracing " << node << " with info " << (int)axis << " and splitPos " << splitValue);
                     
                     float ori, dir;
                     switch(axis){
@@ -293,11 +293,11 @@ namespace OpenEngine {
                 //HostTrace(320, 240, nodes);
 
                 KernelConf conf = KernelConf1D(rays, MAX_THREADS);
+                if (printTiming) START_TIMER(timerID);
                 if (this->intersectionAlgorithm == WOOP){
                     float4 *woop0, *woop1, *woop2;
                     geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                    START_TIMER(timerID);
                     if (leafSkipping){
                         KDRestartKernel<true, true, true><<<conf.blocks, conf.threads>>>
                             (origin->GetDeviceData(), direction->GetDeviceData(),
@@ -312,7 +312,7 @@ namespace OpenEngine {
                              geom->GetColor0Data(),
                              canvasData,
                              width);
-                        PRINT_TIMER(timerID, "KDRestart with Woop intersection and leaf skipping");
+                        if (printTiming) PRINT_TIMER(timerID, "KDRestart with Woop intersection and leaf skipping");
                     }else{
                         KDRestartKernel<true, true, false><<<conf.blocks, conf.threads>>>
                             (origin->GetDeviceData(), direction->GetDeviceData(),
@@ -327,11 +327,10 @@ namespace OpenEngine {
                              geom->GetColor0Data(),
                              canvasData,
                              width);
-                        PRINT_TIMER(timerID, "KDRestart with Woop intersection");
+                        if (printTiming) PRINT_TIMER(timerID, "KDRestart with Woop intersection");
                     }
 
                 }else{
-                    START_TIMER(timerID);
                     if (leafSkipping){
                         KDRestartKernel<false, true, true><<<conf.blocks, conf.threads>>>
                             (origin->GetDeviceData(), direction->GetDeviceData(),
@@ -346,7 +345,7 @@ namespace OpenEngine {
                              geom->GetColor0Data(),
                              canvasData,
                              width);
-                        PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore and leaf skipping");
+                        if (printTiming) PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore and leaf skipping");
                     }else{
                         KDRestartKernel<false, true, false><<<conf.blocks, conf.threads>>>
                             (origin->GetDeviceData(), direction->GetDeviceData(),
@@ -361,7 +360,7 @@ namespace OpenEngine {
                              geom->GetColor0Data(),
                              canvasData,
                              width);
-                        PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore");
+                        if (printTiming) PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore");
                     }
                 }
                 CHECK_FOR_CUDA_ERROR();

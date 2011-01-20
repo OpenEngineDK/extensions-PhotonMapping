@@ -32,6 +32,7 @@ namespace OpenEngine {
                 bool visualizeRays;
                 IntersectionAlgorithm intersectionAlgorithm;
                 bool leafSkipping;
+                bool printTiming;
                 
                 Resources::CUDA::CUDADataBlock<1, float4> *origin;
                 Resources::CUDA::CUDADataBlock<1, float4> *direction;
@@ -50,6 +51,8 @@ namespace OpenEngine {
                 IntersectionAlgorithm GetIntersectionAlgorithm() const { return intersectionAlgorithm; }
                 void SetLeafSkipping(const bool s) {leafSkipping = s;}
                 bool GetLeafSkipping() const { return leafSkipping; }
+                void PrintTiming(const bool p) { printTiming = p;}
+                bool GetPrintTiming() const { return printTiming; }
 
 #define PW 4
 #define PH 8
@@ -135,6 +138,8 @@ namespace OpenEngine {
                 static inline __device__ __host__ 
                 bool RayBoxIntersection(const float3 ori, const float3 dir,
                                         float3 boxMin, float3 boxMax){
+
+                    CUDALogger("RayBoxIntersection(" << ori << ", " << dir << ", " << boxMin << ", " << boxMax << ")");
                     
                     boxMin = invDir ? (boxMin - ori) * dir : (boxMin - ori) / dir;
                     boxMax = invDir ? (boxMax - ori) * dir : (boxMax - ori) / dir;
@@ -147,7 +152,9 @@ namespace OpenEngine {
                     farAlpha = min(farAlpha, max(boxMin.y, boxMax.y));
                     farAlpha = min(farAlpha, max(boxMin.z, boxMax.z));
 
-                    return nearAlpha < farAlpha;
+                    CUDALogger("RayBoxIntersection result: " << (nearAlpha <= farAlpha));
+
+                    return nearAlpha <= farAlpha;
                 }
                 
             protected:

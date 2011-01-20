@@ -117,7 +117,7 @@ namespace OpenEngine {
                     geom->GetWoopValues(&woop0, &woop1, &woop2);
 
                     KernelConf conf = KernelConf1D(rays, 64, 0, sizeof(float3) * 3);
-                    START_TIMER(timerID);
+                    if (printTiming) START_TIMER(timerID);
                     BruteTracing<true><<<conf.blocks, conf.threads, conf.smem>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          woop0, woop1, woop2,
@@ -125,11 +125,11 @@ namespace OpenEngine {
                          geom->GetColor0Data(),
                          canvasData,
                          geom->GetSize());
-                    PRINT_TIMER(timerID, "Brute tracing using Woop");
+                    if (printTiming) PRINT_TIMER(timerID, "Brute tracing using Woop");
 
                 }else{
                     KernelConf conf = KernelConf1D(rays, 64, 0, sizeof(float3) * 3);
-                    START_TIMER(timerID);
+                    if (printTiming) START_TIMER(timerID);
                     //logger.info << "BruteTracing<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
                     BruteTracing<false><<<conf.blocks, conf.threads, conf.smem>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
@@ -138,7 +138,7 @@ namespace OpenEngine {
                          geom->GetColor0Data(),
                          canvasData,
                          geom->GetSize());
-                    PRINT_TIMER(timerID, "Brute tracing using Möller-Trumbore");
+                    if (printTiming) PRINT_TIMER(timerID, "Brute tracing using Möller-Trumbore");
                 }
                 CHECK_FOR_CUDA_ERROR();
                 
