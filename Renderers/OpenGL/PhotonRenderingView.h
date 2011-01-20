@@ -38,6 +38,7 @@ namespace OpenEngine {
             class PhotonRenderingView : public RenderingView {
             protected:
                 TriangleMap* triangleMap;
+                IRayTracer *exhaustive, *restart, *shortstack;
                 IRayTracer* raytracer;
 
                 bool updateTree;
@@ -63,7 +64,7 @@ namespace OpenEngine {
                 void SetTreeUpdate(bool u) { updateTree = u; }
                 bool GetTreeUpdate() { return updateTree; }
 
-                void SetRayTracerName(string name) { rayTracerName = name; }
+                void SetRayTracerName(string name);
                 string GetRayTracerName() { return rayTracerName; }
                 //void RenderTree(RenderingEventArg arg);
             };

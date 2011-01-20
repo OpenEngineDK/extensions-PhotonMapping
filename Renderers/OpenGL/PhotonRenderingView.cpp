@@ -89,10 +89,10 @@ namespace OpenEngine {
                 INITIALIZE_CUDA();
 
                 triangleMap = new TriangleMap(arg.canvas.GetScene());
-                //raytracer = new BruteTracer(triangleMap->geom);
-                raytracer = new RayTracer(triangleMap);
-                //raytracer = new ShortStack(triangleMap);
-                //raytracer->SetVisualizeRays(true);
+                exhaustive = new BruteTracer(triangleMap->geom);
+                raytracer = restart = new RayTracer(triangleMap);
+                shortstack = new ShortStack(triangleMap);
+                SetRayTracerName("exhaustive");
 
                 int size = arg.canvas.GetWidth() * arg.canvas.GetHeight();
                 pbo = IDataBlockPtr(new DataBlock<4, unsigned char>(size, NULL, PIXEL_UNPACK));
@@ -103,6 +103,22 @@ namespace OpenEngine {
             void PhotonRenderingView::UpdateGeometry(){
                 triangleMap->Create();
                 CHECK_FOR_CUDA_ERROR();
+            }
+            
+            void PhotonRenderingView::SetRayTracerName(string name) { 
+                rayTracerName = name;
+                if (name.compare("exhaustive") == 0){
+                    logger.info << "Switching to exhaustive ray tracer" << logger.end;
+                    raytracer = exhaustive;
+                }else if (name.compare("restart") == 0){
+                    logger.info << "Switching to kd-restart ray tracer" << logger.end;
+                    raytracer = restart;
+                }else if (name.compare("shortstack") == 0){
+                    logger.info << "Switching to short stack ray tracer" << logger.end;
+                    raytracer = shortstack;
+                }else{
+                    logger.info << "Unknown ray tracer. Possible values are exhaustive, restart or shortstack" << logger.end;
+                }
             }
 
             /*
