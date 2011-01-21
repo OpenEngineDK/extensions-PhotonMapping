@@ -264,6 +264,47 @@ CalcSplit(int *upperLeafIDs,
     }
 }
 
+template <bool useIndices>
+__global__ void CreateChildren(int *upperLeafIDs,
+                               int *childSplit,
+                               int *childAddrs,
+                               KDNode::bitmap2 *childSets,
+                               int* primitiveIndex,
+                               KDNode::bitmap* primitiveBitmap,
+                               int2 *children, 
+                               int nodeSplits){
+
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+        
+    if (id < d_activeNodeRange){
+        int split = childSplit[id];
+
+        if (split){
+            KDNode::bitmap2 childrenSet = childSets[id];
+                
+            const int childOffset = childAddrs[id];
+
+            const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
+            int parentPrimIndex = primitiveIndex[parentID];
+                
+            const int leftChildID = useIndices 
+                ? d_activeNodeIndex + childOffset 
+                : d_activeNodeIndex + d_activeNodeRange + childOffset;
+            primitiveIndex[leftChildID] = parentPrimIndex;
+            primitiveBitmap[leftChildID] = childrenSet.x;
+                
+            const int rightChildID = leftChildID + nodeSplits;
+            primitiveIndex[rightChildID] = parentPrimIndex;
+            primitiveBitmap[rightChildID] = childrenSet.y;
+
+            children[parentID] = make_int2(leftChildID, rightChildID);
+        }
+    }        
+}
+
+
+// **** SURFACE AREA HEURISTIC *****
+
 __device__ void CalcAreaForSets(KDNode::bitmap4 splittingSets, char splitAxis, 
                                 int setIndex,
                                 KDNode::bitmap areaIndices, float* areas, 
@@ -409,42 +450,6 @@ __launch_bounds__(96)
 }
 
 template <bool useIndices>
-__global__ void CreateChildren(int *upperLeafIDs,
-                               int *childSplit,
-                               int *childAddrs,
-                               KDNode::bitmap2 *childSets,
-                               int* primitiveIndex,
-                               KDNode::bitmap* primitiveBitmap,
-                               int2 *children, 
-                               int nodeSplits){
-
-    const int id = blockDim.x * blockIdx.x + threadIdx.x;
-        
-    if (id < d_activeNodeRange){
-        int split = childSplit[id];
-
-        if (split){
-            KDNode::bitmap2 childrenSet = childSets[id];
-                
-            const int childOffset = childAddrs[id];
-
-            const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
-            int parentPrimIndex = primitiveIndex[parentID];
-                
-            const int leftChildID = d_activeNodeIndex + d_activeNodeRange + childOffset;
-            primitiveIndex[leftChildID] = parentPrimIndex;
-            primitiveBitmap[leftChildID] = childrenSet.x;
-                
-            const int rightChildID = leftChildID + nodeSplits;
-            primitiveIndex[rightChildID] = parentPrimIndex;
-            primitiveBitmap[rightChildID] = childrenSet.y;
-
-            children[parentID] = make_int2(leftChildID, rightChildID);
-        }
-    }        
-}
-
-template <bool useIndices>
 __global__ void CreateLowerSAHChildren(int *upperLeafIDs,
                                        int *childSplit,
                                        int *childAddrs,
@@ -472,7 +477,9 @@ __global__ void CreateLowerSAHChildren(int *upperLeafIDs,
             const int parentID = useIndices ? upperLeafIDs[id] : d_activeNodeIndex + id;
             int parentPrimIndex = primitiveIndex[parentID];
                 
-            const int leftChildID = d_activeNodeIndex + d_activeNodeRange + childOffset;
+            const int leftChildID = useIndices 
+                ? d_activeNodeIndex + childOffset 
+                : d_activeNodeIndex + d_activeNodeRange + childOffset;
             nodeArea[leftChildID] = childrenArea.x;
             primitiveIndex[leftChildID] = parentPrimIndex;
             primitiveBitmap[leftChildID] = childrenSet.x;
