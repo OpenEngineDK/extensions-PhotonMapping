@@ -121,23 +121,17 @@ namespace OpenEngine {
 
                 out <<  "Triangle #" << i << "\n";
 
-                float4 h_p0, h_p1, h_p2;
-                cudaMemcpy(&h_p0, p0->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&h_p1, p1->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&h_p2, p2->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                out << "Points: " << h_p0 << ", " << h_p1 << " & " << h_p2 << "\n";
+                out << "Points: " << FetchGlobalData(p0->GetDeviceData(), i) << ", " 
+                    << FetchGlobalData(p1->GetDeviceData(), i) << " & " 
+                    << FetchGlobalData(p2->GetDeviceData(), i) << "\n";
 
-                float4 h_n0, h_n1, h_n2;
-                cudaMemcpy(&h_n0, n0->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&h_n1, n1->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&h_n2, n2->GetDeviceData() + i, sizeof(float4), cudaMemcpyDeviceToHost);
-                out << "Normals: " << h_n0 << ", " << h_n1 << " & " << h_n2 << "\n";
+                out << "Normals: " << FetchGlobalData(n0->GetDeviceData(), i) << ", " 
+                    << FetchGlobalData(n1->GetDeviceData(), i) << " & " 
+                    << FetchGlobalData(n2->GetDeviceData(), i) << "\n";
 
-                uchar4 h_c0, h_c1, h_c2;
-                cudaMemcpy(&h_c0, c0->GetDeviceData() + i, sizeof(uchar4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&h_c1, c1->GetDeviceData() + i, sizeof(uchar4), cudaMemcpyDeviceToHost);
-                cudaMemcpy(&h_c2, c2->GetDeviceData() + i, sizeof(uchar4), cudaMemcpyDeviceToHost);
-                out << "Colors: " << h_c0 << ", " << h_c1 << " & " << h_c2 << "\n";
+                out << "Colors: " << FetchGlobalData(c0->GetDeviceData(), i) << ", " 
+                    << FetchGlobalData(c1->GetDeviceData(), i) << " & " 
+                    << FetchGlobalData(c2->GetDeviceData(), i) << "\n";
                 
                 return out.str();
             }
