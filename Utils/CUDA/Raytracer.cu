@@ -367,9 +367,8 @@ namespace OpenEngine {
             }
 
             void RayTracer::HostTrace(int x, int y, TriangleNode* nodes){
-
                 int id = x + y * screenWidth;
-                
+
                 //TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
@@ -432,7 +431,6 @@ namespace OpenEngine {
                 }
 
                 logger.info << "Final color: " << make_int4(color.x, color.y, color.z, color.w) << logger.end;
-                //exit(0);
             }
 
         }

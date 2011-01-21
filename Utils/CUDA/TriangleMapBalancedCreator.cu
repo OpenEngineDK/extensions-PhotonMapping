@@ -73,9 +73,7 @@ namespace OpenEngine {
                 int triangles = map->primMin->GetSize();
                 cudaMemcpyToSymbol(d_triangles, &triangles, sizeof(int));
 
-                //START_TIMER(timerID); 
                 PreprocessLowerNodes(activeIndex, activeRange, map, upperLeafIDs);
-                //PRINT_TIMER(timerID, "Preprocess lower nodes");
 
                 START_TIMER(timerID); 
                 ProcessLowerNodes(activeIndex, activeRange,
@@ -84,12 +82,24 @@ namespace OpenEngine {
                 activeIndex = map->nodes->GetSize() - childrenCreated;
                 activeRange = childrenCreated;
 
+                /*
+                for (int i = 0; i < upperLeafIDs->GetSize(); ++i){
+                    int id = FetchGlobalData(upperLeafIDs->GetDeviceData(), i);
+                    logger.info << map->GetNodes()->ToString(id) << logger.end;
+                    }*/
+
                 while (activeRange > 0){
                     ProcessLowerNodes(activeIndex, activeRange,
                                       map, NULL, childrenCreated);
+                    
+                    /*
+                    for (int i = 0; i < activeRange; ++i)
+                        logger.info << map->GetNodes()->ToString(i + activeRange) << logger.end;
+                    */
 
                     activeIndex = map->nodes->GetSize() - childrenCreated;
                     activeRange = childrenCreated;
+
                 }
                 PRINT_TIMER(timerID, "Process lower nodes into balanced subtrees");
             }
