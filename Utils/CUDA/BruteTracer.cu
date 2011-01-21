@@ -47,9 +47,12 @@ namespace OpenEngine {
             BruteTracer::~BruteTracer() {}
 
 #define MAX_PRIMS 512
+#define MAX_THREADS 128
+#define MIN_BLOCKS 2
             
             template <bool useWoop>
             __global__ void 
+            __launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
             BruteTracing(float4* origins, float4* directions,
                          float4 *v0s, float4 *v1s, float4 *v2s,
                          float4 *n0s, float4 *n1s, float4 *n2s,
@@ -112,13 +115,13 @@ namespace OpenEngine {
                     return;
                 }
 
+                START_TIMER(timerID);
                 if (intersectionAlgorithm == WOOP){
                     float4 *woop0, *woop1, *woop2;
                     geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                    KernelConf conf = KernelConf1D(rays, 64, 0, sizeof(float3) * 3);
-                    if (printTiming) START_TIMER(timerID);
-                    BruteTracing<true><<<conf.blocks, conf.threads, conf.smem>>>
+                    KernelConf conf = KernelConf1D(rays, MAX_THREADS);
+                    BruteTracing<true><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          woop0, woop1, woop2,
                          geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
@@ -128,10 +131,10 @@ namespace OpenEngine {
                     if (printTiming) PRINT_TIMER(timerID, "Brute tracing using Woop");
 
                 }else{
-                    KernelConf conf = KernelConf1D(rays, 64, 0, sizeof(float3) * 3);
+                    KernelConf conf = KernelConf1D(rays, 64);
                     if (printTiming) START_TIMER(timerID);
                     //logger.info << "BruteTracing<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
-                    BruteTracing<false><<<conf.blocks, conf.threads, conf.smem>>>
+                    BruteTracing<false><<<conf.blocks, conf.threads>>>
                         (origin->GetDeviceData(), direction->GetDeviceData(),
                          geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(), 
                          geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
@@ -140,8 +143,10 @@ namespace OpenEngine {
                          geom->GetSize());
                     if (printTiming) PRINT_TIMER(timerID, "Brute tracing using Möller-Trumbore");
                 }
+                cudaThreadSynchronize();
+                cutStopTimer(timerID);
+                renderTime = cutGetTimerValue(timerID);
                 CHECK_FOR_CUDA_ERROR();
-                
             }
 
             void BruteTracer::HostTrace(int x, int y, TriangleNode* nodes){

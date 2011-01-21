@@ -34,6 +34,7 @@ namespace OpenEngine {
                 IntersectionAlgorithm intersectionAlgorithm;
                 bool leafSkipping;
                 bool printTiming;
+                float renderTime;
                 
                 Resources::CUDA::CUDADataBlock<1, float4> *origin;
                 Resources::CUDA::CUDADataBlock<1, float4> *direction;
@@ -54,6 +55,8 @@ namespace OpenEngine {
                 bool GetLeafSkipping() const { return leafSkipping; }
                 void PrintTiming(const bool p) { printTiming = p;}
                 bool GetPrintTiming() const { return printTiming; }
+                void SetRenderTime(const float t) { renderTime = t; }
+                float GetRenderTime() const { return renderTime; }
 
 #define PW 4
 #define PH 8

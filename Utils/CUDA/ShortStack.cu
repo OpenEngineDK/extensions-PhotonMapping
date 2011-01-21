@@ -245,7 +245,7 @@ namespace OpenEngine {
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
-                if (printTiming) START_TIMER(timerID); 
+                START_TIMER(timerID); 
                 KernelConf conf = KernelConf1D(rays, MAX_THREADS, 0, sizeof(Element) * SHORT_STACK_SIZE);
                 if (intersectionAlgorithm == WOOP){
                     float4 *woop0, *woop1, *woop2;
@@ -280,6 +280,9 @@ namespace OpenEngine {
                          width);
                     if (printTiming) PRINT_TIMER(timerID, "Short stack using Möller-Trumbore");
                 }
+                cudaThreadSynchronize();
+                cutStopTimer(timerID);
+                renderTime = cutGetTimerValue(timerID);
                 CHECK_FOR_CUDA_ERROR();                                               
             }
             

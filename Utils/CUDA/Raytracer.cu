@@ -18,8 +18,8 @@
 
 #include <Utils/CUDA/LoggerExtensions.h>
 
-#define MAX_THREADS 64
-#define MIN_BLOCKS 4
+#define MAX_THREADS 128
+#define MIN_BLOCKS 2
 
 namespace OpenEngine {
     using namespace Display;
@@ -293,7 +293,7 @@ namespace OpenEngine {
                 //HostTrace(320, 240, nodes);
 
                 KernelConf conf = KernelConf1D(rays, MAX_THREADS);
-                if (printTiming) START_TIMER(timerID);
+                START_TIMER(timerID);
                 if (this->intersectionAlgorithm == WOOP){
                     float4 *woop0, *woop1, *woop2;
                     geom->GetWoopValues(&woop0, &woop1, &woop2);
@@ -363,6 +363,9 @@ namespace OpenEngine {
                         if (printTiming) PRINT_TIMER(timerID, "KDRestart with Möller-Trumbore");
                     }
                 }
+                cudaThreadSynchronize();
+                cutStopTimer(timerID);
+                renderTime = cutGetTimerValue(timerID);
                 CHECK_FOR_CUDA_ERROR();
             }
 
