@@ -168,8 +168,8 @@ namespace OpenEngine {
                                 IRayTracer::MoellerTrumbore(v0, v1, v2, prim,
                                                             origin, direction, primHit, tHit);
                             }
-                            
-                            triangles -= 1<<i;
+
+                            triangles -= KDNode::bitmap(1)<<i;                            
                         }
                         
                         CUDALogger("THit: " << tHit << "\n");
