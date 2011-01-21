@@ -150,7 +150,7 @@ namespace OpenEngine {
                                                        triangles);
                 CHECK_FOR_CUDA_ERROR();                
 
-                START_TIMER(timerID);
+                //START_TIMER(timerID);
                 while (activeRange > 0){
                     ProcessNodes(activeIndex, activeRange, 
                                  childrenCreated);
@@ -160,7 +160,7 @@ namespace OpenEngine {
 
                     //logger.info << "activeIndex = " << map->nodes->GetSize() << " - " << childrenCreated << " = " << activeIndex << logger.end;
                 }
-                PRINT_TIMER(timerID, "triangle upper map");
+                //PRINT_TIMER(timerID, "triangle upper map");
 
                 // Extract indices from primMin.
                 primIndices->Extend(primMin->GetSize(), false);

@@ -51,7 +51,7 @@ namespace OpenEngine {
             void TriangleMapBitmapCreator::Create(TriangleMap* map, 
                                                   CUDADataBlock<1, int>* upperLeafIDs){
 
-                logger.info << "=== Convert " << upperLeafIDs->GetSize() << " bitmaps ===" << logger.end;
+                //logger.info << "=== Convert " << upperLeafIDs->GetSize() << " bitmaps ===" << logger.end;
 
                 KernelConf conf = KernelConf1D(upperLeafIDs->GetSize());
                 PreprocessLeafNodes<<<conf.blocks, conf.threads>>>

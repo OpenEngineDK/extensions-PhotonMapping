@@ -28,6 +28,7 @@ namespace OpenEngine {
             class TriangleMap {
             public:
                 unsigned int timerID;
+                float constructionTime;
 
                 Scene::ISceneNode* scene;
                 GeometryList* geom;
@@ -48,6 +49,8 @@ namespace OpenEngine {
 
                 void Create();
                 void Setup();
+
+                float GetConstructionTime() const { return constructionTime; }
 
                 GeometryList* GetGeometry() const { return geom; }
                 Scene::TriangleNode* GetNodes() const { return nodes; }
