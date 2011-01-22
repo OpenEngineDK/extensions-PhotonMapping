@@ -16,6 +16,7 @@
 #include <Utils/CUDA/TriangleMapBitmapCreator.h>
 #include <Utils/CUDA/Utils.h>
 #include <Utils/CUDA/Convert.h>
+#include <Utils/CUDA/LoggerExtensions.h>
 
 using namespace OpenEngine::Scene;
 
@@ -86,16 +87,17 @@ namespace OpenEngine {
                 if (info == KDNode::LEAF){
                     int index = FetchGlobalData(nodes->GetPrimitiveIndexData(), node);
                     KDNode::bitmap bmp = FetchGlobalData(nodes->GetPrimitiveBitmapData(), node);
-                    logger.info << "leaf " << node << " with primitives ";
-                    
-                    while (bmp){
-                        int i = firstBitSet(bmp) - 1;
-                        bmp -= KDNode::bitmap(1)<<i;
-                      
-                        int prim = FetchGlobalData(primIndices->GetDeviceData(), index + i);
-                        logger.info << prim;
-                        if (bmp) logger.info << ", ";
-                    }
+                    logger.info << "leaf " << node << " with " << bitcount(bmp) << " primitives ";
+
+                    // logger.info << "leaf " << node << " with primitives ";
+                    // while (bmp){
+                    //     int i = firstBitSet(bmp) - 1;
+                    //     bmp -= KDNode::bitmap(1)<<i;
+                    //     int prim = FetchGlobalData(primIndices->GetDeviceData(), index + i);
+                    //     logger.info << prim;
+                    //     if (bmp) logger.info << ", ";
+                    // }
+
                     logger.info << logger.end;
                 }else{
                     logger.info << "node " << node << " splits along ";
@@ -110,7 +112,13 @@ namespace OpenEngine {
                         logger.info << "z:";
                         break;
                     }
-                    logger.info << FetchGlobalData(nodes->GetSplitPositionData(), node) << logger.end;
+                    logger.info << FetchGlobalData(nodes->GetSplitPositionData(), node);
+                    
+                    // float3 nodeMin = make_float3(FetchGlobalData(nodes->GetAabbMinData(), node));
+                    // float3 nodeMax = make_float3(FetchGlobalData(nodes->GetAabbMaxData(), node));
+                    // logger.info << " aabb: " << nodeMin << " -> " << nodeMax;
+
+                    logger.info << logger.end;
                     int2 children = FetchGlobalData(nodes->GetChildrenData(), node);
                     PrintNode(children.x, offset+1);
                     PrintNode(children.y, offset+1);

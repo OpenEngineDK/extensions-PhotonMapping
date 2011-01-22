@@ -114,6 +114,28 @@ namespace OpenEngine {
                 *m0 = woop0->GetDeviceData();
                 *m1 = woop1->GetDeviceData();
                 *m2 = woop2->GetDeviceData();
+
+                /*
+                int tri = 54;
+
+                logger.info << "Points: " << FetchGlobalData(p0->GetDeviceData(), tri) << ", " 
+                            << FetchGlobalData(p1->GetDeviceData(), tri) << " & " 
+                            << FetchGlobalData(p2->GetDeviceData(), tri) << logger.end;
+
+                float3 a = make_float3(FetchGlobalData(p0->GetDeviceData(), tri));
+                float3 b = make_float3(FetchGlobalData(p1->GetDeviceData(), tri));
+                float3 c = make_float3(FetchGlobalData(p2->GetDeviceData(), tri));
+                float4 w0, w1, w2;
+                WoopTransformationMatrix(b, c, a, w0, w1, w2);
+                
+                logger.info << "CPU Woop: " << w0 << ", " 
+                            << w1 << " & " 
+                            << w2 << logger.end;
+
+                logger.info << "GPU Woop: " << FetchGlobalData(woop0->GetDeviceData(), tri) << ", " 
+                            << FetchGlobalData(woop1->GetDeviceData(), tri) << " & " 
+                            << FetchGlobalData(woop2->GetDeviceData(), tri) << logger.end;
+                */
             }
 
             std::string GeometryList::ToString(unsigned int i) const {
