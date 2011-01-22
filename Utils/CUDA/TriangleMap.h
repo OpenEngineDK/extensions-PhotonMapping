@@ -24,9 +24,12 @@ namespace OpenEngine {
         namespace CUDA {
 
             class ITriangleMapCreator;
+            class TriangleMapUpperCreator;
 
             class TriangleMap {
             public:
+                enum LowerAlgorithm {BITMAP, BALANCED, SAH};
+            public: //protected:
                 unsigned int timerID;
                 float constructionTime;
 
@@ -35,8 +38,10 @@ namespace OpenEngine {
 
                 Scene::TriangleNode* nodes;
 
-                ITriangleMapCreator* upperCreator;
+                TriangleMapUpperCreator* upperCreator;
                 ITriangleMapCreator* lowerCreator;
+                ITriangleMapCreator *bitmap, *balanced, *sah;
+                LowerAlgorithm lowerAlgorithm;
                 
                 Resources::CUDA::CUDADataBlock<1, float4> *primMin;
                 Resources::CUDA::CUDADataBlock<1, float4> *primMax;
@@ -50,8 +55,12 @@ namespace OpenEngine {
                 void Create();
                 void Setup();
 
+                LowerAlgorithm GetLowerAlgorithm() const { return lowerAlgorithm; }
+                void SetLowerAlgorithm(const LowerAlgorithm l);
                 float GetConstructionTime() const { return constructionTime; }
-
+                void SplitEmptySpace(const bool s);
+                bool IsSplittingEmptySpace() const;
+                
                 GeometryList* GetGeometry() const { return geom; }
                 Scene::TriangleNode* GetNodes() const { return nodes; }
                 Resources::CUDA::CUDADataBlock<1, int>* GetPrimitiveIndices() const { return primIndices; }

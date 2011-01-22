@@ -40,9 +40,10 @@ namespace OpenEngine {
                 leafIDs = new CUDADataBlock<1, int>(1);
 
                 upperCreator = new TriangleMapUpperCreator();
-                //lowerCreator = new TriangleMapBalancedCreator();
-                //lowerCreator = new TriangleMapSAHCreator();
-                lowerCreator = new TriangleMapBitmapCreator();
+                balanced = new TriangleMapBalancedCreator();
+                sah = new TriangleMapSAHCreator();
+                bitmap = new TriangleMapBitmapCreator();
+                SetLowerAlgorithm(BITMAP);
             }
 
             void TriangleMap::Create(){
@@ -73,6 +74,25 @@ namespace OpenEngine {
 
             void TriangleMap::Setup(){
                 geom->CollectGeometry(scene);
+            }
+
+            void TriangleMap::SetLowerAlgorithm(const LowerAlgorithm l){
+                lowerAlgorithm = l;
+                switch(lowerAlgorithm){
+                case BITMAP:
+                    lowerCreator = bitmap; break;
+                case BALANCED:
+                    lowerCreator = balanced; break;
+                case SAH:
+                    lowerCreator = sah; break;
+                }
+            }
+
+            void TriangleMap::SplitEmptySpace(const bool s) { 
+                upperCreator->SplitEmptySpace(s); 
+            }
+            bool TriangleMap::IsSplittingEmptySpace() const { 
+                return upperCreator->IsSplittingEmptySpace(); 
             }
             
             void TriangleMap::PrintTree(){

@@ -87,6 +87,7 @@ namespace OpenEngine {
                 void ProcessNodes(int activeIndex, int activeRange, 
                                   int &childrenCreated);
 
+            protected:
                 void Segment(int activeIndex, int activeRange);
                 
                 void ReduceAabb(int &activeIndex, int activeRange);
