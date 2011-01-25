@@ -110,7 +110,7 @@ namespace OpenEngine {
                 
                 float3 origin = make_float3(FetchGlobalData(origins, id));
                 float3 direction = make_float3(FetchGlobalData(directions, id));
-
+                IRayTracer::AdjustRayDirection(direction);
 
                 CUDALogger("=== Ray:  " << origin << " -> " << direction << " ===\n");
                 
@@ -180,6 +180,7 @@ namespace OpenEngine {
                                                        c0s, primHit);
                             
                             color = BlendColor(color, newColor);
+                            IRayTracer::AdjustRayDirection(direction);
                             
                             // Invalidate the short stack as a new ray has been spawned.
                             ShortStack::Stack<SHORT_STACK_SIZE>::Erase(elms, nxt, cnt);

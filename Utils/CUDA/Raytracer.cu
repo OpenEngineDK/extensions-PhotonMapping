@@ -173,10 +173,11 @@ namespace OpenEngine {
                              float4 *v0, float4 *v1, float4 *v2,
                              float4 *n0s, float4 *n1s, float4 *n2s,
                              uchar4 *c0s){
-                    
+
                 float3 origin = make_float3(FetchGlobalData(origins, id));
                 float3 direction = make_float3(FetchGlobalData(directions, id));
-                
+                IRayTracer::AdjustRayDirection(direction);
+
                 CUDALogger("=== Ray:  " << origin << " -> " << direction << " ===\n");
 
                 float3 tHit;
@@ -233,6 +234,7 @@ namespace OpenEngine {
                             color = BlendColor(color, newColor);
                             
                             tHit.x = 0.0f;
+                            IRayTracer::AdjustRayDirection(direction);
                         }
                     }
 

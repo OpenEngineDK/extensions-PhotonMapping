@@ -57,6 +57,13 @@ namespace OpenEngine {
                 bool GetPrintTiming() const { return printTiming; }
                 float GetRenderTime() const { return renderTime; }
 
+                static inline __device__ __host__ void AdjustRayDirection(float3 &d){
+                    const float ooeps = exp2f(-80.0);
+                    d.x = fabsf(d.x) > ooeps ? d.x : copysignf(ooeps, d.x);
+                    d.y = fabsf(d.y) > ooeps ? d.y : copysignf(ooeps, d.y);
+                    d.z = fabsf(d.z) > ooeps ? d.z : copysignf(ooeps, d.z);
+                }
+
 #define PW 4
 #define PH 8
                 static inline __device__ __host__ int PacketIndex(int id, int screenWidth){
