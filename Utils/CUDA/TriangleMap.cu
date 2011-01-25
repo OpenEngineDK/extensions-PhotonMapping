@@ -94,6 +94,12 @@ namespace OpenEngine {
             bool TriangleMap::IsSplittingEmptySpace() const { 
                 return upperCreator->IsSplittingEmptySpace(); 
             }
+
+            void TriangleMap::SetSplitMethod(const SplitMethod s) { upperCreator->SetSplitMethod(s); }
+
+            TriangleMap::SplitMethod TriangleMap::GetSplitMethod() { 
+                return upperCreator->GetSplitMethod(); 
+            }
             
             void TriangleMap::PrintTree(){
                 PrintNode(0);

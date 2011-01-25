@@ -14,6 +14,7 @@
 
 #include <Scene/TriangleNode.h>
 #include <Utils/CUDA/Segments.h>
+#include <Utils/CUDA/TriangleMap.h>
 
 #include <cudpp/cudpp.h>
 
@@ -24,9 +25,6 @@ namespace OpenEngine {
         namespace CUDA {
 
             class TriangleMapUpperCreator : public ITriangleMapCreator {
-            public:
-                enum SplitAlgorithm {BOX, DIVIDE, SPLIT};
-
             protected:
                 unsigned int timerID;
 
@@ -38,7 +36,7 @@ namespace OpenEngine {
                 bool emptySpaceSplitting;
                 float emptySpaceThreshold;
 
-                SplitAlgorithm splitAlg;
+                TriangleMap::SplitMethod splitMethod;
 
                 // Primitive aabb values
                 Resources::CUDA::CUDADataBlock<1, float4> *aabbMin;
@@ -83,6 +81,8 @@ namespace OpenEngine {
 
                 inline void SplitEmptySpace(const bool s) { emptySpaceSplitting = s; }
                 inline bool IsSplittingEmptySpace() const { return emptySpaceSplitting; }
+                inline void SetSplitMethod(const TriangleMap::SplitMethod s) { splitMethod = s; }
+                inline TriangleMap::SplitMethod GetSplitMethod() const { return splitMethod; }
                 
                 void ProcessNodes(int activeIndex, int activeRange, 
                                   int &childrenCreated);

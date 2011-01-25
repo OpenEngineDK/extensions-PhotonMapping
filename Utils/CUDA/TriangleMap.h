@@ -29,6 +29,7 @@ namespace OpenEngine {
             class TriangleMap {
             public:
                 enum LowerAlgorithm {BITMAP, BALANCED, SAH};
+                enum SplitMethod {BOX, DIVIDE, SPLIT};
             public: //protected:
                 unsigned int timerID;
                 float constructionTime;
@@ -60,6 +61,8 @@ namespace OpenEngine {
                 float GetConstructionTime() const { return constructionTime; }
                 void SplitEmptySpace(const bool s);
                 bool IsSplittingEmptySpace() const;
+                void SetSplitMethod(const SplitMethod s);
+                SplitMethod GetSplitMethod();
                 
                 GeometryList* GetGeometry() const { return geom; }
                 Scene::TriangleNode* GetNodes() const { return nodes; }

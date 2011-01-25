@@ -27,7 +27,7 @@ namespace OpenEngine {
 
             TriangleMapUpperCreator::TriangleMapUpperCreator()
                 : ITriangleMapCreator(), emptySpaceSplitting(true),
-                  emptySpaceThreshold(0.25f), splitAlg(BOX) {
+                  emptySpaceThreshold(0.25f), splitMethod(TriangleMap::BOX) {
                 
                 cutCreateTimer(&timerID);
 
@@ -150,7 +150,6 @@ namespace OpenEngine {
                                                        triangles);
                 CHECK_FOR_CUDA_ERROR();                
 
-                //START_TIMER(timerID);
                 while (activeRange > 0){
                     ProcessNodes(activeIndex, activeRange, 
                                  childrenCreated);
@@ -160,7 +159,6 @@ namespace OpenEngine {
 
                     //logger.info << "activeIndex = " << map->nodes->GetSize() << " - " << childrenCreated << " = " << activeIndex << logger.end;
                 }
-                //PRINT_TIMER(timerID, "triangle upper map");
 
                 // Extract indices from primMin.
                 primIndices->Extend(primMin->GetSize(), false);
@@ -524,8 +522,8 @@ namespace OpenEngine {
                 int childStartAddr = nodes->GetSize();
                 nodes->Extend(nodes->GetSize() + activeRange * 2);
                 
-                switch(splitAlg){
-                case BOX:
+                switch(splitMethod){
+                case TriangleMap::BOX:
                     SetSplitSide<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                       segments.GetOwnerData(),
                                                       nodes->GetInfoData(),
@@ -534,7 +532,7 @@ namespace OpenEngine {
                                                       aabbMax->GetDeviceData(),
                                                       splitSide->GetDeviceData());
                     break;
-                case DIVIDE:
+                case TriangleMap::DIVIDE:
                     SetDivideSide<false><<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                               segments.GetOwnerData(),
                                                               nodes->GetInfoData(),
@@ -544,8 +542,9 @@ namespace OpenEngine {
                                                               map->GetGeometry()->GetP0Data(), map->GetGeometry()->GetP1Data(), map->GetGeometry()->GetP2Data(), 
                                                               splitSide->GetDeviceData());
                     break;
-                case SPLIT:
-                    break;
+                case TriangleMap::SPLIT:
+                    throw NotImplemented();
+                    //break;
                 }
                 CHECK_FOR_CUDA_ERROR();
 
