@@ -13,6 +13,7 @@
 #include <Resources/IDataBlock.h>
 #include <Meta/CUDA.h>
 #include <Core/Exceptions.h>
+#include <Utils/CUDA/LoggerExtensions.h>
 
 using namespace OpenEngine::Core;
 
@@ -106,7 +107,21 @@ namespace OpenEngine {
 
                 void Unload() {throw Exception("Not implemented");}
 
-                virtual std::string ToString() {throw Exception("Not implemented");}
+                std::string ToString() {
+                    std::ostringstream out;
+                    out << "[";
+                    T* data = GetData();
+                    for (unsigned int i = 0; i < size * N; ++i){
+                        if (i % N == 0) out << "[";
+                        out << data[i];
+                        if (((i+1) % N) == 0) 
+                            out << "]";
+                        if (i < size * N -1)
+                            out << ", ";
+                    }
+                    out << "]";          
+                    return out.str();
+                }
             };
             
         }
