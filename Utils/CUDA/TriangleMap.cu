@@ -49,27 +49,14 @@ namespace OpenEngine {
             void TriangleMap::Create(){
                 Setup();
 
-                //logger.info << "Start primitives: " << geom->GetSize() << logger.end;
-
                 START_TIMER(timerID);
                 upperCreator->Create(this, NULL);
 
                 lowerCreator->Create(this, leafIDs);
 
-                //PRINT_TIMER(timerID, "Total tree creation");
                 cudaThreadSynchronize();
                 cutStopTimer(timerID);
                 constructionTime = cutGetTimerValue(timerID);
-
-
-                //logger.info << "End primitives: " << primIndices->GetSize() << logger.end;
-                //logger.info << "Tree nodes: " << nodes->GetSize() << logger.end;
-
-                /*
-                for (int i = 0; i < nodes->GetSize(); ++i)
-                    logger.info << nodes->ToString(i) << logger.end;
-                */
-                //exit(0);
             }
 
             void TriangleMap::Setup(){
@@ -103,6 +90,10 @@ namespace OpenEngine {
             
             void TriangleMap::PrintTree(){
                 PrintNode(0);
+
+                logger.info << "Start primitives: " << geom->GetSize() << logger.end;
+                logger.info << "End primitives: " << primIndices->GetSize() << logger.end;
+                logger.info << "Tree nodes: " << nodes->GetSize() << logger.end;
             }
             
             void TriangleMap::PrintNode(int node, int offset){
