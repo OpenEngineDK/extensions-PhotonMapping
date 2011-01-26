@@ -18,28 +18,27 @@
 
 using namespace OpenEngine::Resources::CUDA;
 
+#define KDNODE_MAX_LOWER_SIZE 32
+
 namespace OpenEngine {
     namespace Scene {
 
         class KDNode {
         public: 
 
-#define KDNODE_MAX_LOWER_SIZE 32
             static const int MAX_LOWER_SIZE = KDNODE_MAX_LOWER_SIZE;
 
 #if KDNODE_MAX_LOWER_SIZE <= 32
             typedef int bitmap;
+            typedef int2 bitmap2;
+            typedef int4 bitmap4;
 #else KDNODE_MAX_LOWER_SIZE <= 64
             typedef long long int bitmap;
+            typedef longlong2 bitmap2;
+            typedef longlong4 bitmap4;
 #endif
 
-
             typedef bitmap amount;
-
-            struct bitmap2 {
-                bitmap x;
-                bitmap y;
-            };
 
             static __host__ __device__ bitmap2 make_bitmap2(bitmap x, bitmap y){
                 bitmap2 bmp2;
@@ -47,13 +46,6 @@ namespace OpenEngine {
                 bmp2.y = y;
                 return bmp2;
             }
-
-            struct bitmap4 {
-                bitmap x;
-                bitmap y;
-                bitmap z;
-                bitmap w;
-            };
 
             static __host__ __device__ bitmap4 make_bitmap4(bitmap x, bitmap y, bitmap z, bitmap w){
                 bitmap4 bmp;
