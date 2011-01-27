@@ -30,15 +30,15 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
 
             switch(axis){
             case KDNode::X:
-                splitSides[id] = aabbMins[id].x < splitPos;
+                splitSides[id] = aabbMins[id].x <= splitPos;
                 splitSides[id + d_triangles] = splitPos < aabbMaxs[id].x;
                 break;
             case KDNode::Y:
-                splitSides[id] = aabbMins[id].y < splitPos;
+                splitSides[id] = aabbMins[id].y <= splitPos;
                 splitSides[id + d_triangles] = splitPos < aabbMaxs[id].y;
                 break;
             case KDNode::Z:
-                splitSides[id] = aabbMins[id].z < splitPos;
+                splitSides[id] = aabbMins[id].z <= splitPos;
                 splitSides[id + d_triangles] = splitPos < aabbMaxs[id].z;
                 break;
             }
@@ -87,15 +87,15 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
             if (!useFast){
                 switch(axis){
                 case KDNode::X:
-                    splitLeft = primMins[id].x < splitPos;
+                    splitLeft = primMins[id].x <= splitPos;
                     splitRight = splitPos < primMaxs[id].x;
                     break;
                 case KDNode::Y:
-                    splitLeft = primMins[id].y < splitPos;
+                    splitLeft = primMins[id].y <= splitPos;
                     splitRight = splitPos < primMaxs[id].y;
                     break;
                 case KDNode::Z:
-                    splitLeft = primMins[id].z < splitPos;
+                    splitLeft = primMins[id].z <= splitPos;
                     splitRight = splitPos < primMaxs[id].z;
                     break;
                 }

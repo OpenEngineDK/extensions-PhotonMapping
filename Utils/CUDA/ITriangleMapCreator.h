@@ -26,6 +26,8 @@ namespace OpenEngine {
 
                 Resources::CUDA::CUDADataBlock<1, int>* leafIDs;
 
+                bool propagateAabbs;
+
             public:
                 ITriangleMapCreator() : primMin(NULL), primMax(NULL), primIndices(NULL), leafIDs(NULL) {}
                 virtual ~ITriangleMapCreator() { 
@@ -47,6 +49,9 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, float4>* GetPrimMax() { return primMax; }
                 Resources::CUDA::CUDADataBlock<1, int>* GetPrimIndices() { return primIndices; }
                 Resources::CUDA::CUDADataBlock<1, int>* GetLeafIDs() { return leafIDs; }
+
+                void SetPropagateBoundingBox(const bool p) {propagateAabbs = p; }
+                bool GetPropagateBoundingBox() const { return propagateAabbs; }
             };
 
         }

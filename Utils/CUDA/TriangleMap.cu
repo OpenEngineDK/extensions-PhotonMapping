@@ -25,7 +25,7 @@ namespace OpenEngine {
         namespace CUDA {
 
             TriangleMap::TriangleMap(ISceneNode* scene)
-                : scene(scene) {
+                : scene(scene){
 
                 // Initialized timer
                 cutCreateTimer(&timerID);
@@ -44,6 +44,7 @@ namespace OpenEngine {
                 sah = new TriangleMapSAHCreator();
                 bitmap = new TriangleMapBitmapCreator();
                 SetLowerAlgorithm(BITMAP);
+                SetPropagateBoundingBox(true);
             }
 
             void TriangleMap::Create(){
@@ -88,6 +89,14 @@ namespace OpenEngine {
                 return upperCreator->GetSplitMethod(); 
             }
             
+            void TriangleMap::SetPropagateBoundingBox(const bool p) {
+                propagateAabbs = p; 
+                upperCreator->SetPropagateBoundingBox(p);
+                bitmap->SetPropagateBoundingBox(p);
+                balanced->SetPropagateBoundingBox(p);
+                sah->SetPropagateBoundingBox(p);
+            }
+
             void TriangleMap::PrintTree(){
                 PrintNode(0);
 

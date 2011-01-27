@@ -36,13 +36,14 @@ namespace OpenEngine {
 
                 Scene::ISceneNode* scene;
                 GeometryList* geom;
-
                 Scene::TriangleNode* nodes;
 
                 TriangleMapUpperCreator* upperCreator;
                 ITriangleMapCreator* lowerCreator;
                 ITriangleMapCreator *bitmap, *balanced, *sah;
                 LowerAlgorithm lowerAlgorithm;
+
+                bool propagateAabbs;
                 
                 Resources::CUDA::CUDADataBlock<1, float4> *primMin;
                 Resources::CUDA::CUDADataBlock<1, float4> *primMax;
@@ -63,6 +64,8 @@ namespace OpenEngine {
                 bool IsSplittingEmptySpace() const;
                 void SetSplitMethod(const SplitMethod s);
                 SplitMethod GetSplitMethod();
+                void SetPropagateBoundingBox(const bool p);
+                bool GetPropagateBoundingBox() const { return propagateAabbs; }
                 
                 GeometryList* GetGeometry() const { return geom; }
                 Scene::TriangleNode* GetNodes() const { return nodes; }

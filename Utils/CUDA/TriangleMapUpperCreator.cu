@@ -258,59 +258,41 @@ namespace OpenEngine {
 #endif
 
                 if (emptySpaceSplitting){
+                    // Copy propagated aabb's into the temp array.
                     tempAabbMin->Resize(activeRange, false);
                     tempAabbMax->Resize(activeRange, false);
-                    
-                    Calc1DKernelDimensions(activeRange, blocks, threads);
-                    AabbMemset<<<blocks, threads>>>(tempAabbMin->GetDeviceData(),
-                                                    tempAabbMax->GetDeviceData());
-                    CHECK_FOR_CUDA_ERROR();
-                    
-                    Calc1DKernelDimensions(segments.GetSize(), blocks, threads);
-                    for (int i = 0; i < blocks; ++i){
-                        int segs = segments.GetSize() - i * threads;
-                        cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
-                        FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData() + i * threads,
-                                                             segments.GetAabbMaxData() + i * threads,
-                                                             segments.GetOwnerData() + i * threads,
-                                                             tempAabbMin->GetDeviceData(),
-                                                             tempAabbMax->GetDeviceData());
-                    }
-                    int segs = segments.GetSize();
-                    cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
-                    CHECK_FOR_CUDA_ERROR();
-                    
-                    // Calculate empty space splitting planes before copying aabbs to nodes.
-                    CreateEmptySplits(activeIndex, activeRange);
-                    
-                    cudaMemcpy(map->nodes->GetAabbMinData() + activeIndex, 
-                               tempAabbMin->GetDeviceData(), 
-                               activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
-                    cudaMemcpy(map->nodes->GetAabbMaxData() + activeIndex, 
-                               tempAabbMax->GetDeviceData(), 
-                               activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
 
+                    cudaMemcpy(tempAabbMin->GetDeviceData(), 
+                               map->nodes->GetAabbMinData() + activeIndex, 
+                               activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
+                    cudaMemcpy(tempAabbMax->GetDeviceData(), 
+                               map->nodes->GetAabbMaxData() + activeIndex, 
+                               activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
                 }else{
                     Calc1DKernelDimensions(activeRange, blocks, threads);
                     AabbMemset<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
                                                     map->nodes->GetAabbMaxData() + activeIndex);
                     CHECK_FOR_CUDA_ERROR();
-
-                    Calc1DKernelDimensions(segments.GetSize(), blocks, threads);
-                    for (int i = 0; i < blocks; ++i){
-                        int segs = segments.GetSize() - i * threads;
-                        cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
-                        FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData() + i * threads,
-                                                             segments.GetAabbMaxData() + i * threads,
-                                                             segments.GetOwnerData() + i * threads,
-                                                             map->nodes->GetAabbMinData() + activeIndex,
-                                                             map->nodes->GetAabbMaxData() + activeIndex);
-                    }
-                    int segs = segments.GetSize();
-                    cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
-                    CHECK_FOR_CUDA_ERROR();
                 }
 
+                Calc1DKernelDimensions(segments.GetSize(), blocks, threads);
+                for (int i = 0; i < blocks; ++i){
+                    int segs = segments.GetSize() - i * threads;
+                    cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
+                    FinalSegmentedReduce<<<1, threads>>>(segments.GetAabbMinData() + i * threads,
+                                                         segments.GetAabbMaxData() + i * threads,
+                                                         segments.GetOwnerData() + i * threads,
+                                                         map->nodes->GetAabbMinData() + activeIndex,
+                                                         map->nodes->GetAabbMaxData() + activeIndex);
+                }
+                int segs = segments.GetSize();
+                cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
+                CHECK_FOR_CUDA_ERROR();
+                
+                if (emptySpaceSplitting)                
+                    // Calculate empty space splitting planes before copying aabbs to nodes.
+                    CreateEmptySplits(activeIndex, activeRange);
+                
 #if CPU_VERIFY
                 CheckFinalReduction(activeIndex, activeRange, map->nodes, 
                                     finalMin, finalMax);
@@ -333,10 +315,10 @@ namespace OpenEngine {
                 
                 unsigned int blocks, threads;
                 Calc1DKernelDimensions(activeRange, blocks, threads);
-                CalcEmptySpaceSplits<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
-                                                          map->nodes->GetAabbMaxData() + activeIndex,
-                                                          tempAabbMin->GetDeviceData(), 
+                CalcEmptySpaceSplits<<<blocks, threads>>>(tempAabbMin->GetDeviceData(), 
                                                           tempAabbMax->GetDeviceData(), 
+                                                          map->nodes->GetAabbMinData() + activeIndex,
+                                                          map->nodes->GetAabbMaxData() + activeIndex,
                                                           emptySpacePlanes->GetDeviceData(),
                                                           emptySpaceNodes->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
@@ -356,15 +338,15 @@ namespace OpenEngine {
                     //logger.info << "Empty space " << emptyNodes << " and nodesize " << map->nodes->GetSize() <<  logger.end;
 
                     EmptySpaceSplitting2<<<blocks, threads>>>(map->nodes->GetInfoData(), 
-                                                             map->nodes->GetSplitPositionData(),
-                                                             map->nodes->GetPrimitiveAmountData(), 
-                                                             map->nodes->GetParentData(), 
-                                                             map->nodes->GetChildrenData(),
-                                                             emptySpacePlanes->GetDeviceData(),
-                                                             emptySpaceAddrs->GetDeviceData(),
-                                                             tempAabbMin->GetDeviceData(),
-                                                             tempAabbMax->GetDeviceData(),
-                                                             emptyNodes);
+                                                              map->nodes->GetSplitPositionData(),
+                                                              map->nodes->GetPrimitiveAmountData(), 
+                                                              map->nodes->GetParentData(), 
+                                                              map->nodes->GetChildrenData(),
+                                                              emptySpacePlanes->GetDeviceData(),
+                                                              emptySpaceAddrs->GetDeviceData(),
+                                                              map->nodes->GetAabbMinData() + activeIndex,
+                                                              map->nodes->GetAabbMaxData() + activeIndex,
+                                                              emptyNodes);
                     CHECK_FOR_CUDA_ERROR();
 
                     /*
