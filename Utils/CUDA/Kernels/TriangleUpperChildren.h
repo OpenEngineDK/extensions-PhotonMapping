@@ -119,6 +119,13 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
                                                                            axis == KDNode::Z ? splitPos : nodeMin.z),
                                                                nodeMax);
                 }
+                
+                // @TODO Temporary fix! If the triangles are
+                // wrongfully rejected on each side then enable both.
+                if (splitLeft == splitRight){
+                    splitLeft = splitRight = 1;
+                }
+                
             }else{
 
                 const int primID = primMins[id].w;
