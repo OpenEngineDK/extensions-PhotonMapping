@@ -268,12 +268,13 @@ namespace OpenEngine {
                     cudaMemcpy(tempAabbMax->GetDeviceData(), 
                                map->nodes->GetAabbMaxData() + activeIndex, 
                                activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
-                }else{
+                }
+                //else{
                     Calc1DKernelDimensions(activeRange, blocks, threads);
                     AabbMemset<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
                                                     map->nodes->GetAabbMaxData() + activeIndex);
                     CHECK_FOR_CUDA_ERROR();
-                }
+                    //}
 
                 Calc1DKernelDimensions(segments.GetSize(), blocks, threads);
                 for (int i = 0; i < blocks; ++i){
@@ -313,14 +314,14 @@ namespace OpenEngine {
                 emptySpacePlanes->Resize(activeRange, false);
                 emptySpaceNodes->Resize(activeRange+1, false);
                 
-                unsigned int blocks, threads;
-                Calc1DKernelDimensions(activeRange, blocks, threads);
-                CalcEmptySpaceSplits<<<blocks, threads>>>(tempAabbMin->GetDeviceData(), 
-                                                          tempAabbMax->GetDeviceData(), 
-                                                          map->nodes->GetAabbMinData() + activeIndex,
-                                                          map->nodes->GetAabbMaxData() + activeIndex,
-                                                          emptySpacePlanes->GetDeviceData(),
-                                                          emptySpaceNodes->GetDeviceData());
+                KernelConf conf = KernelConf1D(activeRange);
+                CalcEmptySpaceSplits<<<conf.blocks, conf.threads>>>
+                    (tempAabbMin->GetDeviceData(), 
+                     tempAabbMax->GetDeviceData(), 
+                     map->nodes->GetAabbMinData() + activeIndex,
+                     map->nodes->GetAabbMaxData() + activeIndex,
+                     emptySpacePlanes->GetDeviceData(),
+                     emptySpaceNodes->GetDeviceData());
                 CHECK_FOR_CUDA_ERROR();
 
                 cudaMemcpyFromSymbol(&createdEmptySplits, d_createdEmptySplits, sizeof(bool));
@@ -337,16 +338,17 @@ namespace OpenEngine {
 
                     //logger.info << "Empty space " << emptyNodes << " and nodesize " << map->nodes->GetSize() <<  logger.end;
 
-                    EmptySpaceSplitting2<<<blocks, threads>>>(map->nodes->GetInfoData(), 
-                                                              map->nodes->GetSplitPositionData(),
-                                                              map->nodes->GetPrimitiveAmountData(), 
-                                                              map->nodes->GetParentData(), 
-                                                              map->nodes->GetChildrenData(),
-                                                              emptySpacePlanes->GetDeviceData(),
-                                                              emptySpaceAddrs->GetDeviceData(),
-                                                              map->nodes->GetAabbMinData() + activeIndex,
-                                                              map->nodes->GetAabbMaxData() + activeIndex,
-                                                              emptyNodes);
+                    EmptySpaceSplitting2<<<conf.blocks, conf.threads>>>
+                        (map->nodes->GetInfoData(), 
+                         map->nodes->GetSplitPositionData(),
+                         map->nodes->GetPrimitiveAmountData(), 
+                         map->nodes->GetParentData(), 
+                         map->nodes->GetChildrenData(),
+                         emptySpacePlanes->GetDeviceData(),
+                         emptySpaceAddrs->GetDeviceData(),
+                         map->nodes->GetAabbMinData() + activeIndex,
+                         map->nodes->GetAabbMaxData() + activeIndex,
+                         emptyNodes);
                     CHECK_FOR_CUDA_ERROR();
 
                     /*
