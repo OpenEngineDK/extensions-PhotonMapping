@@ -121,9 +121,7 @@ namespace OpenEngine {
 
                 cudaMemcpyToSymbol(d_emptySpaceThreshold, &emptySpaceThreshold, sizeof(float));
 
-                primMin->Extend(0);
-                primMax->Extend(0);
-                leafIDs->Extend(0);
+                primMin->Extend(0); primMax->Extend(0); leafIDs->Extend(0);
 
                 // Setup root node!
                 int i = 0; KDNode::amount tris = triangles;
@@ -170,7 +168,7 @@ namespace OpenEngine {
 
                 // If empty space splitting doesn't propagate the
                 // aabbs, then we need to do it here.
-                if (!emptySpaceSplitting){
+                if (!emptySpaceSplitting && propagateAabbs){
                     KernelConf conf = KernelConf1D(leafIDs->GetSize(), 128);
                     PropagateParentAabb<true><<<conf.blocks, conf.threads>>>
                         (leafIDs->GetDeviceData(),
@@ -268,8 +266,7 @@ namespace OpenEngine {
                     cudaMemcpy(tempAabbMax->GetDeviceData(), 
                                map->nodes->GetAabbMaxData() + activeIndex, 
                                activeRange * sizeof(float4), cudaMemcpyDeviceToDevice);
-                }
-                //else{
+                }//else{
                     Calc1DKernelDimensions(activeRange, blocks, threads);
                     AabbMemset<<<blocks, threads>>>(map->nodes->GetAabbMinData() + activeIndex,
                                                     map->nodes->GetAabbMaxData() + activeIndex);
@@ -290,7 +287,7 @@ namespace OpenEngine {
                 cudaMemcpyToSymbol(d_segments, &segs, sizeof(int));
                 CHECK_FOR_CUDA_ERROR();
                 
-                if (emptySpaceSplitting)                
+                if (emptySpaceSplitting && activeIndex != 0)                
                     // Calculate empty space splitting planes before copying aabbs to nodes.
                     CreateEmptySplits(activeIndex, activeRange);
                 
@@ -350,40 +347,6 @@ namespace OpenEngine {
                          map->nodes->GetAabbMaxData() + activeIndex,
                          emptyNodes);
                     CHECK_FOR_CUDA_ERROR();
-
-                    /*
-                    for (int i = 0; i < emptyNodes; ++i)
-                        logger.info << map->nodes->ToString(i + activeIndex + activeRange) << logger.end;
-                    // Move nodes to make room for empty space nodes.
-                    // That means moving primitiveInfo, using childSize as temp storage
-                    // And moving parents, using splitSide as temp storage
-
-                    splitSide->Resize(activeRange);
-                    tempNodeAmount->Resize(activeRange);
-                    
-                    cudaMemcpy(splitSide->GetDeviceData(), map->nodes->GetPrimitiveIndexData() + activeIndex, activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
-                    cudaMemcpy(tempNodeAmount->GetDeviceData(), map->nodes->GetPrimitiveAmountData() + activeIndex, activeRange * sizeof(KDNode::amount), cudaMemcpyDeviceToDevice);
-
-                    activeIndex += emptyNodes;
-                    cudaMemcpyToSymbol(d_activeNodeIndex, &activeIndex, sizeof(int));
-
-                    cudaMemcpy(map->nodes->GetPrimitiveIndexData() + activeIndex, splitSide->GetDeviceData(), activeRange * sizeof(int), cudaMemcpyDeviceToDevice);
-                    cudaMemcpy(map->nodes->GetPrimitiveAmountData() + activeIndex, tempNodeAmount->GetDeviceData(), activeRange * sizeof(KDNode::amount), cudaMemcpyDeviceToDevice);
-                    segments.IncreaseNodeIDs(emptyNodes);
-
-                    // Create the empty space nodes
-                    EmptySpaceSplitting<<<blocks, threads>>>(map->nodes->GetInfoData(), 
-                                                             map->nodes->GetSplitPositionData(),
-                                                             map->nodes->GetPrimitiveAmountData(), 
-                                                             map->nodes->GetParentData() + activeIndex - emptyNodes, 
-                                                             map->nodes->GetChildrenData(),
-                                                             emptySpacePlanes->GetDeviceData(),
-                                                             emptySpaceAddrs->GetDeviceData(),
-                                                             tempAabbMin->GetDeviceData(),
-                                                             tempAabbMax->GetDeviceData(),
-                                                             emptyNodes);
-                    CHECK_FOR_CUDA_ERROR();
-                    */
 
                     /*
                     for (int i = 0; i < emptyNodes; ++i)

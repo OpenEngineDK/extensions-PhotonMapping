@@ -29,7 +29,7 @@ namespace OpenEngine {
                 bool propagateAabbs;
 
             public:
-                ITriangleMapCreator() : primMin(NULL), primMax(NULL), primIndices(NULL), leafIDs(NULL) {}
+                ITriangleMapCreator() : primMin(NULL), primMax(NULL), primIndices(NULL), leafIDs(NULL), propagateAabbs(true) {}
                 virtual ~ITriangleMapCreator() { 
                     if (primMin) delete primMin;
                     if (primMax) delete primMax;

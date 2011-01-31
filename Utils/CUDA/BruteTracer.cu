@@ -47,7 +47,7 @@ namespace OpenEngine {
 
             BruteTracer::~BruteTracer() {}
 
-#define MAX_PRIMS 512
+#define MAX_PRIMS 2048
 #define MAX_THREADS 128
 #define MIN_BLOCKS 2
             
