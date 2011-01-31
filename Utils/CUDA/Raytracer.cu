@@ -292,7 +292,7 @@ namespace OpenEngine {
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
                 
-                //HostTrace(320, 240, nodes);
+                if (map->GetPropagateBoundingBox() == false) leafSkipping = false;
 
                 KernelConf conf = KernelConf1D(rays, MAX_THREADS);
                 START_TIMER(timerID);
@@ -376,6 +376,8 @@ namespace OpenEngine {
 
                 //TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
+
+                if (map->GetPropagateBoundingBox() == false) leafSkipping = false;
 
                 uchar4 color;
                 if (this->intersectionAlgorithm == WOOP){                

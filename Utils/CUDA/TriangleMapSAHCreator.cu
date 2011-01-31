@@ -72,6 +72,8 @@ namespace OpenEngine {
                 primMin = map->primMin;
                 primMax = map->primMax;
 
+                SetPropagateBoundingBox(map->GetPropagateBoundingBox());
+
                 int activeIndex = map->nodes->GetSize(); int activeRange = upperLeafIDs->GetSize();
                 int childrenCreated;
 
@@ -235,6 +237,23 @@ namespace OpenEngine {
                 CHECK_FOR_CUDA_ERROR();
 
                 childrenCreated = splits * 2;
+                
+                if (propagateAabbs && childrenCreated > 0){
+                    
+                    // @TODO propagate downwards or upwards? Test
+                    // which is fastest (for non trivial splits
+                    // sherlock
+                    if (upperLeafIDs){
+                        PropagateAabbToChildren<true><<<blocks, threads>>>(upperLeafIDs->GetDeviceData(), 
+                                                                           nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                                                                           nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                                                                           nodes->GetChildrenData());
+                    }else
+                        PropagateAabbToChildren<false><<<blocks, threads>>>(NULL, nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                                                                            nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                                                                            nodes->GetChildrenData());
+                    CHECK_FOR_CUDA_ERROR();
+                }
             }
 
             void TriangleMapSAHCreator::CheckPreprocess(int activeIndex, int activeRange, 

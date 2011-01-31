@@ -246,40 +246,73 @@ namespace OpenEngine {
                 TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
+                if (map->GetPropagateBoundingBox() == false) leafSkipping = false;
+
                 START_TIMER(timerID); 
                 KernelConf conf = KernelConf1D(rays, MAX_THREADS, 0, sizeof(Element) * SHORT_STACK_SIZE);
                 if (intersectionAlgorithm == WOOP){
                     float4 *woop0, *woop1, *woop2;
                     geom->GetWoopValues(&woop0, &woop1, &woop2);
 
-                    ShortStackKernel<true, true, true><<<conf.blocks, conf.threads, conf.smem>>>
-                        (origin->GetDeviceData(), direction->GetDeviceData(),
-                         nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                         nodes->GetChildrenData(),
-                         nodes->GetPrimitiveIndexData(), nodes->GetPrimitiveBitmapData(),
-                         nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
-                         map->GetPrimitiveIndices()->GetDeviceData(),
-                         woop0, woop1, woop2,
-                         geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
-                         geom->GetColor0Data(),
-                         canvasData,
-                         width);
-                    if (printTiming) PRINT_TIMER(timerID, "Short stack using Woop");
-
+                    if (leafSkipping){
+                        ShortStackKernel<true, true, true><<<conf.blocks, conf.threads, conf.smem>>>
+                            (origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(), nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             woop0, woop1, woop2,
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data(),
+                             canvasData,
+                             width);
+                        if (printTiming) PRINT_TIMER(timerID, "Short stack using Woop");
+                    }else{
+                        ShortStackKernel<true, true, false><<<conf.blocks, conf.threads, conf.smem>>>
+                            (origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(), nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             woop0, woop1, woop2,
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data(),
+                             canvasData,
+                             width);
+                        if (printTiming) PRINT_TIMER(timerID, "Short stack using Woop");
+                    }
                 }else{
-                    ShortStackKernel<false, true, true><<<conf.blocks, conf.threads, conf.smem>>>
-                        (origin->GetDeviceData(), direction->GetDeviceData(),
-                         nodes->GetInfoData(), nodes->GetSplitPositionData(),
-                         nodes->GetChildrenData(),
-                         nodes->GetPrimitiveIndexData(), nodes->GetPrimitiveBitmapData(),
-                         nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
-                         map->GetPrimitiveIndices()->GetDeviceData(),
-                         geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
-                         geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
-                         geom->GetColor0Data(),
-                         canvasData,
-                         width);
-                    if (printTiming) PRINT_TIMER(timerID, "Short stack using Möller-Trumbore");
+                    if (leafSkipping){
+                        ShortStackKernel<false, true, true><<<conf.blocks, conf.threads, conf.smem>>>
+                            (origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(), nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data(),
+                             canvasData,
+                             width);
+                        if (printTiming) PRINT_TIMER(timerID, "Short stack using Möller-Trumbore");
+                    }else{
+                        ShortStackKernel<false, true, false><<<conf.blocks, conf.threads, conf.smem>>>
+                            (origin->GetDeviceData(), direction->GetDeviceData(),
+                             nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                             nodes->GetChildrenData(),
+                             nodes->GetPrimitiveIndexData(), nodes->GetPrimitiveBitmapData(),
+                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             geom->GetP0Data(), geom->GetP1Data(), geom->GetP2Data(),
+                             geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
+                             geom->GetColor0Data(),
+                             canvasData,
+                             width);
+                        if (printTiming) PRINT_TIMER(timerID, "Short stack using Möller-Trumbore");
+                    }
                 }
                 cudaThreadSynchronize();
                 cutStopTimer(timerID);
@@ -294,6 +327,8 @@ namespace OpenEngine {
                 //TriangleNode* nodes = map->GetNodes();
                 GeometryList* geom = map->GetGeometry();
 
+                if (map->GetPropagateBoundingBox() == false) leafSkipping = false;
+                
                 float4 *woop0, *woop1, *woop2;
                 geom->GetWoopValues(&woop0, &woop1, &woop2);
 

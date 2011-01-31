@@ -32,7 +32,7 @@ namespace OpenEngine {
             using namespace TriangleMapBalancedKernels;
 
             TriangleMapBalancedCreator::TriangleMapBalancedCreator()
-                : ITriangleMapCreator(), removeFalsePrimitives(true) {
+                : ITriangleMapCreator(), removeFalsePrimitives(false) {
 
                 cutCreateTimer(&timerID);
 
@@ -66,6 +66,8 @@ namespace OpenEngine {
 
                 primMin = map->primMin;
                 primMax = map->primMax;
+
+                SetPropagateBoundingBox(map->GetPropagateBoundingBox());
 
                 int activeIndex = map->nodes->GetSize(); int activeRange = upperLeafIDs->GetSize();
                 int childrenCreated;
@@ -208,7 +210,7 @@ namespace OpenEngine {
 
                 childrenCreated = splits * 2;
 
-                if (removeFalsePrimitives && childrenCreated > 0){
+                if ((propagateAabbs || removeFalsePrimitives) && childrenCreated > 0){
                     
                     // @TODO propagate downwards or upwards? Test
                     // which is fastest (for non trivial splits
@@ -223,17 +225,19 @@ namespace OpenEngine {
                                                                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
                                                                             nodes->GetChildrenData());
                     CHECK_FOR_CUDA_ERROR();
-
-                    KernelConf conf = KernelConf1D(childrenCreated, 128, 39);
-                    TrimChildBitmaps<<<conf.blocks, conf.threads>>>
-                        (nodes->GetPrimitiveIndexData() + activeIndex + activeRange,
-                         nodes->GetPrimitiveBitmapData() + activeIndex + activeRange,
-                         nodes->GetAabbMinData() + activeIndex + activeRange,
-                         nodes->GetAabbMaxData() + activeIndex + activeRange,
-                         map->GetPrimitiveIndices()->GetDeviceData(),
-                         map->GetGeometry()->GetP0Data(), map->GetGeometry()->GetP1Data(), map->GetGeometry()->GetP2Data(),
-                         childrenCreated);
-                    CHECK_FOR_CUDA_ERROR();
+                    
+                    if (removeFalsePrimitives){
+                        KernelConf conf = KernelConf1D(childrenCreated, 128, 39);
+                        TrimChildBitmaps<<<conf.blocks, conf.threads>>>
+                            (nodes->GetPrimitiveIndexData() + activeIndex + activeRange,
+                             nodes->GetPrimitiveBitmapData() + activeIndex + activeRange,
+                             nodes->GetAabbMinData() + activeIndex + activeRange,
+                             nodes->GetAabbMaxData() + activeIndex + activeRange,
+                             map->GetPrimitiveIndices()->GetDeviceData(),
+                             map->GetGeometry()->GetP0Data(), map->GetGeometry()->GetP1Data(), map->GetGeometry()->GetP2Data(),
+                             childrenCreated);
+                        CHECK_FOR_CUDA_ERROR();
+                    }
                 }
             }
 

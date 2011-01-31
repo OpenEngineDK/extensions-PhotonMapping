@@ -92,9 +92,9 @@ namespace OpenEngine {
             void TriangleMap::SetPropagateBoundingBox(const bool p) {
                 propagateAabbs = p; 
                 upperCreator->SetPropagateBoundingBox(p);
-                bitmap->SetPropagateBoundingBox(p);
-                balanced->SetPropagateBoundingBox(p);
-                sah->SetPropagateBoundingBox(p);
+                //bitmap->SetPropagateBoundingBox(p);
+                //balanced->SetPropagateBoundingBox(p);
+                //sah->SetPropagateBoundingBox(p);
             }
 
             void TriangleMap::PrintTree(){

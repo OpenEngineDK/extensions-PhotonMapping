@@ -53,6 +53,8 @@ namespace OpenEngine {
 
                 //logger.info << "=== Convert " << upperLeafIDs->GetSize() << " bitmaps ===" << logger.end;
 
+                SetPropagateBoundingBox(map->GetPropagateBoundingBox());
+
                 KernelConf conf = KernelConf1D(upperLeafIDs->GetSize());
                 PreprocessLeafNodes<<<conf.blocks, conf.threads>>>
                     (upperLeafIDs->GetDeviceData(), 
