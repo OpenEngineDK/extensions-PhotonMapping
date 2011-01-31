@@ -242,13 +242,13 @@ namespace OpenEngine {
                 // Reduce aabb pr segment
                 unsigned int blocks = segments.size;
                 unsigned int threads = Segments::SEGMENT_SIZE/2;
-                unsigned int smemSize = 2 * 3 * sizeof(float) * segments.SEGMENT_SIZE/2;
+                //unsigned int smemSize = 2 * 3 * sizeof(float) * segments.SEGMENT_SIZE/2;
 
                 //logger.info << "ReduceSegmentsShared<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
 
-                ReduceSegmentsShared<<<blocks, threads, smemSize>>>(segments.GetPrimitiveInfoData(),
-                                                                   aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
-                                                                   segments.GetAabbMinData(), segments.GetAabbMaxData());
+                ReduceSegmentsShared<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                          aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
+                                                          segments.GetAabbMinData(), segments.GetAabbMaxData());
                 CHECK_FOR_CUDA_ERROR();
 
 #if CPU_VERIFY
