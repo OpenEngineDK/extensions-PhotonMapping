@@ -61,9 +61,9 @@ namespace OpenEngine {
                  * @return T* pointer to loaded data.
                  */
                 inline T* GetData(){
-                    if (!hostData)
-                        hostData = new T[this->size * N];
+                    if (!hostData) hostData = new T[this->size * N];
                     cudaMemcpy(hostData, this->data, this->size * N * sizeof(T), cudaMemcpyDeviceToHost);
+                    CHECK_FOR_CUDA_ERROR();
                     return hostData;
                 }
                 inline T* GetDeviceData() const{
@@ -74,8 +74,10 @@ namespace OpenEngine {
 
                 void Resize(unsigned int i, bool dataPersistent = true){
                     if (maxSize < i){
-                        if (hostData)
+                        if (hostData){
                             delete [] hostData;
+                            hostData = NULL;
+                        }
                         
                         if (dataPersistent){
                             T *temp;
