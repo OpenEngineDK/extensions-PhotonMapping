@@ -22,7 +22,7 @@ __global__ void CalcPrimitiveAabb(float4* v0s, float4* v1s, float4* v2s,
         maxCorner = max(maxCorner, vertex);
         
         vertex = make_float3(v2s[id]);
-        primAabbMin[id] = make_float4(min(minCorner, vertex), id);
+        primAabbMin[id] = make_float4(min(minCorner, vertex), __int_as_float(id));
         primAabbMax[id] = make_float4(max(maxCorner, vertex), 0.0f);
     }
 }
@@ -34,7 +34,7 @@ __global__ void AddIndexToAabb(float4 *aabbIn,
         
     if (id < size){
         float4 aabb = aabbIn[id];
-        aabb.w = id;
+        aabb.w = __int_as_float(id);
         aabbOut[id] = aabb;
     }
 
@@ -46,7 +46,7 @@ __global__ void ExtractIndexFromAabb(float4 *aabbIn,
         
     if (id < size){
         float4 aabb = aabbIn[id];
-        out[id] = aabb.w;
+        out[id] = __float_as_int(aabb.w);
     }
 
 }

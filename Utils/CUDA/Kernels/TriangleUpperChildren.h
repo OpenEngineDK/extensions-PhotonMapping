@@ -103,7 +103,7 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
                 if (splitLeft && splitRight){
                     const float3 nodeMin = make_float3(nodeAabbMins[nodeID]);
                     const float3 nodeMax = make_float3(nodeAabbMaxs[nodeID]);
-                    const int primID = primMins[id].w;
+                    const int primID = __float_as_int(primMins[id].w);
                     const float3 v0 = make_float3(v0s[primID]);
                     const float3 v1 = make_float3(v1s[primID]);
                     const float3 v2 = make_float3(v2s[primID]);
@@ -121,7 +121,7 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
                 }
             }else{
 
-                const int primID = primMins[id].w;
+                const int primID = __float_as_int(primMins[id].w);
                 const float3 v0 = make_float3(v0s[primID]);
                 const float3 v1 = make_float3(v1s[primID]);
                 const float3 v2 = make_float3(v2s[primID]);            
