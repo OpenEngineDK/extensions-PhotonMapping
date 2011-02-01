@@ -109,9 +109,9 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
                     const float3 v2 = make_float3(v2s[primID]);
                     
                     splitLeft = TriangleAabbIntersectionStep3(v0, v1, v2, nodeMin,
-                                                          make_float3(axis == KDNode::X ? splitPos : nodeMax.x,
-                                                                      axis == KDNode::Y ? splitPos : nodeMax.y,
-                                                                      axis == KDNode::Z ? splitPos : nodeMax.z));
+                                                              make_float3(axis == KDNode::X ? splitPos : nodeMax.x,
+                                                                          axis == KDNode::Y ? splitPos : nodeMax.y,
+                                                                          axis == KDNode::Z ? splitPos : nodeMax.z));
                     
                     splitRight = TriangleAabbIntersectionStep3(v0, v1, v2,
                                                                make_float3(axis == KDNode::X ? splitPos : nodeMin.x,
@@ -119,13 +119,6 @@ __launch_bounds__(Segments::SEGMENT_SIZE)
                                                                            axis == KDNode::Z ? splitPos : nodeMin.z),
                                                                nodeMax);
                 }
-                
-                // @TODO Temporary fix! If the triangles are
-                // wrongfully rejected on each side then enable both.
-                if (splitLeft == splitRight){
-                    splitLeft = splitRight = 1;
-                }
-                
             }else{
 
                 const int primID = primMins[id].w;
