@@ -480,6 +480,7 @@ namespace OpenEngine {
                                                       splitSide->GetDeviceData());
                     break;
                 case TriangleMap::DIVIDE:
+                    {
                     SetDivideSide<false><<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
                                                               segments.GetOwnerData(),
                                                               nodes->GetInfoData(),
@@ -488,6 +489,52 @@ namespace OpenEngine {
                                                               nodes->GetAabbMinData(), nodes->GetAabbMaxData(),
                                                               map->GetGeometry()->GetP0Data(), map->GetGeometry()->GetP1Data(), map->GetGeometry()->GetP2Data(), 
                                                               splitSide->GetDeviceData());
+
+                    /*
+                    int* sides = splitSide->GetData();
+                    int* addrs = splitAddr->GetData();
+                    for (int i = 0; i < triangles; ++i){
+                        if (sides[i] + sides[triangles + i] == 0){
+                            int segmentID = ceil(i / float(Segments::SEGMENT_SIZE)) + 8;
+                            logger.info << "Segment ID: " << segmentID << logger.end;
+                            
+                            int2 primInfo = FetchGlobalData(segments.GetPrimitiveInfoData(), segmentID);
+                            logger.info << "primInfo: " << primInfo << logger.end;
+                            
+                            int nodeID = FetchGlobalData(segments.GetOwnerData(), segmentID);
+                            char axis = FetchGlobalData(nodes->GetInfoData(), nodeID);
+                            float splitPos = FetchGlobalData(nodes->GetSplitPositionData(), nodeID);
+                            logger.info << "Node " << nodeID << " splits at " << splitPos << " along " << (int) axis << logger.end;
+
+                            float3 nodeMin = make_float3(FetchGlobalData(nodes->GetAabbMinData(), nodeID));
+                            float3 nodeMax = make_float3(FetchGlobalData(nodes->GetAabbMaxData(), nodeID));
+                            logger.info << "node aabb: " << nodeMin << " -> " << nodeMax << logger.end;                            
+                            
+                            float4 primMin = FetchGlobalData(aabbMin->GetDeviceData(), i);
+                            //float4 primMax = FetchGlobalData(aabbMax->GetDeviceData(), i);
+                            //logger.info << "prim aabb: " << primMin << " -> " << primMax << logger.end;
+
+                            int primId = primMin.w;
+                            float3 v0 = make_float3(FetchGlobalData(map->GetGeometry()->GetP0Data(), primId));
+                            float3 v1 = make_float3(FetchGlobalData(map->GetGeometry()->GetP1Data(), primId));
+                            float3 v2 = make_float3(FetchGlobalData(map->GetGeometry()->GetP2Data(), primId));
+                            logger.info << "v0: " << v0 << logger.end;
+                            logger.info << "v1: " << v1 << logger.end;
+                            logger.info << "v2: " << v2 << logger.end;
+
+                            int splitLeft = TriangleAabbIntersectionStep3(v0, v1, v2, nodeMin,
+                                                                          make_float3(axis == KDNode::X ? splitPos : nodeMax.x,
+                                                                                      axis == KDNode::Y ? splitPos : nodeMax.y,
+                                                                                      axis == KDNode::Z ? splitPos : nodeMax.z));
+                            logger.info << "splitLeft: " << splitLeft << logger.end;
+                            
+                            throw Exception("Bounding box " + Utils::Convert::ToString(i) +
+                                            " was neither left nor right.");
+                        }
+                    }
+                    */
+                    }
+                    
                     break;
                 case TriangleMap::SPLIT:
                     throw NotImplemented();
