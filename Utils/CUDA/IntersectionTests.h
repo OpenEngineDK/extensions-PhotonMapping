@@ -17,7 +17,8 @@
 using namespace OpenEngine::Scene;
 using namespace OpenEngine::Utils;
 
-#define EPSILON 0.00001f
+#define GAMMA 0.00001f
+#define EPSILON 1.0001f
 
 inline __host__ __device__
 void a0XTests(const float v0X, const float v0Y, const float v0Z, 
@@ -29,33 +30,29 @@ void a0XTests(const float v0X, const float v0Y, const float v0Z,
     // a00
     float p0 = v0Z * v1Y - v0Y * v1Z;
     float p1 = (v1Y - v0Y) * v2Z - (v1Z - v0Z) * v2Y;
-    float r = halfSizeZ * fabsf(v1Y - v0Y) + halfSizeY * fabsf(v1Z - v0Z) + EPSILON;
+    float r = halfSizeZ * fabsf(v1Y - v0Y) + halfSizeY * fabsf(v1Z - v0Z) + GAMMA;
+    r *= EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
-#ifndef __CUDA_ARCH__
-    logger.info << "a00: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
-#endif
+    CUDALogger("a00: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret);
 
     // a01
     p0 = v1Z * v2Y - v1Y * v2Z;
     p1 = (v2Y - v1Y) * v0Z - (v2Z - v1Z) * v0Y;
-    r = halfSizeZ * fabsf(v2Y - v1Y) + halfSizeY * fabsf(v2Z - v1Z) + EPSILON;
+    r = halfSizeZ * fabsf(v2Y - v1Y) + halfSizeY * fabsf(v2Z - v1Z) + GAMMA;
+    r *= EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
-#ifndef __CUDA_ARCH__
-    logger.info << "a01: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
-#endif
+    CUDALogger("a01: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret);
 
     // a02
     p0 = v2Z * v0Y - v2Y * v0Z;
     p1 = (v0Y - v2Y) * v1Z - (v0Z - v2Z) * v1Y;
-    r = halfSizeZ * fabsf(v0Y - v2Y) + halfSizeY * fabsf(v0Z - v2Z) + EPSILON;
+    r = halfSizeZ * fabsf(v0Y - v2Y) + halfSizeY * fabsf(v0Z - v2Z) + GAMMA;
+    r *= EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
-#ifndef __CUDA_ARCH__
-    logger.info << "a02: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
-#endif
-
+    CUDALogger("a02: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret);
 }
 
 inline __host__ __device__
@@ -77,32 +74,29 @@ void a1XTests(const float v0X, const float v0Y, const float v0Z,
     // a10
     float p0 = v0X * v1Z - v0Z * v1X;
     float p1 = (v1Z - v0Z) * v2X - (v1X - v0X) * v2Z;
-    float r = halfSizeX * fabsf(v1Z - v0Z) + halfSizeZ * fabsf(v1X - v0X) + EPSILON;
+    float r = halfSizeX * fabsf(v1Z - v0Z) + halfSizeZ * fabsf(v1X - v0X) + GAMMA;
+    r *= EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
-#ifndef __CUDA_ARCH__
-    logger.info << "a10: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
-#endif
+    CUDALogger("a10: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret);
     
     // a11
     p0 = v1X * v2Z - v1Z * v2X;
     p1 = (v2Z - v1Z) * v0X - (v2X - v1X) * v0Z;
-    r = halfSizeX * fabsf(v2Z - v1Z) + halfSizeZ * fabsf(v2X - v1X) + EPSILON;
+    r = halfSizeX * fabsf(v2Z - v1Z) + halfSizeZ * fabsf(v2X - v1X) + GAMMA;
+    r *= EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
-#ifndef __CUDA_ARCH__
-    logger.info << "a11: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
-#endif
+    CUDALogger("a11: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret);
     
     // a12
     p0 = v2X * v0Z - v2Z * v0X;
     p1 = (v0Z - v2Z) * v1X - (v0X - v2X) * v1Z;
-    r = halfSizeX * fabsf(v0Z - v2Z) + halfSizeZ * fabsf(v0X - v2X) + EPSILON;
+    r = halfSizeX * fabsf(v0Z - v2Z) + halfSizeZ * fabsf(v0X - v2X) + GAMMA;
+    r *= EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
-#ifndef __CUDA_ARCH__
-    logger.info << "a12: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
-#endif
+    CUDALogger("a12: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret);
 }
 inline __host__ __device__
 void a1XTests(const float3 v0, const float3 v1, const float3 v2, 
@@ -123,32 +117,29 @@ void a2XTests(const float v0X, const float v0Y, const float v0Z,
     // a20
     float p0 = v0Y * v1X - v0X * v1Y;
     float p1 = (v1X - v0X) * v2Y - (v1Y - v0Y) * v2X;
-    float r =  halfSizeY * fabsf(v1X - v0X) + halfSizeX * fabsf(v1Y - v0Y) + EPSILON;
+    float r =  halfSizeY * fabsf(v1X - v0X) + halfSizeX * fabsf(v1Y - v0Y) + GAMMA;
+    r *= EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
-#ifndef __CUDA_ARCH__
-    logger.info << "a20: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
-#endif
+    CUDALogger("a20: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret);
     
     // a21
     p0 = v1Y * v2X - v1X * v2Y;
     p1 = (v2X - v1X) * v0Y - (v2Y - v1Y) * v0X;
-    r = halfSizeY * fabsf(v2X - v1X) + halfSizeX * fabsf(v2Y - v1Y) + EPSILON;
+    r = halfSizeY * fabsf(v2X - v1X) + halfSizeX * fabsf(v2Y - v1Y) + GAMMA;
+    r *= EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
-#ifndef __CUDA_ARCH__
-    logger.info << "a21: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
-#endif
+    CUDALogger("a21: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret);
                     
     // a22
     p0 = v2Y * v0X - v2X * v0Y;
     p1 = (v0X - v2X) * v1Y - (v0Y - v2Y) * v1X;
-    r = halfSizeY * fabsf(v0X - v2X) + halfSizeX * fabsf(v0Y - v2Y) + EPSILON;
+    r = halfSizeY * fabsf(v0X - v2X) + halfSizeX * fabsf(v0Y - v2Y) + GAMMA;
+    r *= EPSILON;
     ret &= !((p0 > r && p1 > r) || (p0 < -r && p1 < -r));
 
-#ifndef __CUDA_ARCH__
-    logger.info << "a22: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret << logger.end;
-#endif
+    CUDALogger("a22: p0: " << p0 << ", p1: " << p1 << ", r: " << r << ", ret: " << ret);
 }
 inline __host__ __device__
 void a2XTests(const float3 v0, const float3 v1, const float3 v2, 
