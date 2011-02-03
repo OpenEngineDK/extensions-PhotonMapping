@@ -13,8 +13,7 @@ using namespace OpenEngine::Scene;
 using namespace OpenEngine::Utils::CUDA::Kernels;
 */
 
-#define traverselCost 32.0f
-#define minLeafTriangles 32
+#define traverselCost 16.0f
 
 // @TODO use the reduced bounding box and actual bounding box'es
 // diagonals to estimate the sub triangles surface area.  Or the
@@ -242,10 +241,9 @@ CalcSplit(int *upperLeafIDs,
             triangles -= KDNode::bitmap(1)<<i;
         }
 
-        // Weird stuff, how about stopping if largestSetSize ==
-        // nodeSize or nodeSize < minLeafTriangles?
-
-        bool split = minLeafTriangles < largestSetSize * relation;
+        //bool split = minLeafTriangles < largestSetSize * relation;
+        bool split = ((largestSetSize * relation + largestSetSize) / 2.0f + traverselCost) < bitcount(primBmp)
+            && largestSetSize < bitcount(primBmp);
         if (split){
             // Dump stuff and move on
             childSets[id] = KDNode::make_bitmap2(leftSet, rightSet);

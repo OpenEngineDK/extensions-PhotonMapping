@@ -36,8 +36,6 @@ namespace OpenEngine {
 
                 cutCreateTimer(&timerID);
 
-                logger.info << "Create balanced lower tree creator" << logger.end;
-
                 splitTriangleSet = new CUDADataBlock<1, KDNode::bitmap4>(1);
                 childSets = new CUDADataBlock<1, KDNode::bitmap2>(1);
                 splitSide = new CUDADataBlock<1, int>(1);

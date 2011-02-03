@@ -68,10 +68,13 @@ namespace OpenEngine {
                 lowerAlgorithm = l;
                 switch(lowerAlgorithm){
                 case BITMAP:
+                    logger.info << "Switching to bitmap converter lower creator" << logger.end;
                     lowerCreator = bitmap; break;
                 case BALANCED:
+                    logger.info << "Switching to balanced lower creator" << logger.end;
                     lowerCreator = balanced; break;
                 case SAH:
+                    logger.info << "Switching to SAH lower creator" << logger.end;
                     lowerCreator = sah; break;
                 }
             }

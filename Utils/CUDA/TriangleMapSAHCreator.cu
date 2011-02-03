@@ -37,8 +37,6 @@ namespace OpenEngine {
 
                 cutCreateTimer(&timerID);
 
-                logger.info << "Create SAH Creator" << logger.end;
-
                 splitTriangleSet =  new CUDADataBlock<1, KDNode::bitmap4>(1);
                 primAreas = new CUDADataBlock<1, float>(1);
                 childAreas = new CUDADataBlock<1, float2>(1);
