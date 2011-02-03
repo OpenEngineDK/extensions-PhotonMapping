@@ -235,6 +235,24 @@ namespace OpenEngine {
                             
                             tHit.x = 0.0f;
                             IRayTracer::AdjustRayDirection(direction);
+
+                            // Fake cubemap hack
+                            /*
+                            if (direction.x < 0.0f)
+                                tHit.x = (-4.9f - origin.x) / direction.x;
+                            else
+                                tHit.x = (4.9f - origin.x) / direction.x;
+
+                            if (direction.y < 0.0f)
+                                tHit.x = min(tHit.x, (-4.9f - origin.y) / direction.y);
+                            else
+                                tHit.x = min(tHit.x, (4.9f - origin.y) / direction.y);
+
+                            if (direction.z < 0.0f)
+                                tHit.x = min(tHit.x, (-4.9f - origin.z) / direction.z);
+                            else
+                                tHit.x = min(tHit.x, (4.9f - origin.z) / direction.z);
+                            */
                         }
                     }
 
