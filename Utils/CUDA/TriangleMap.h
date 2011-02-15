@@ -25,6 +25,8 @@ namespace OpenEngine {
 
             class ITriangleMapCreator;
             class TriangleMapUpperCreator;
+            class TriangleMapBalancedCreator;            
+            class TriangleMapSAHCreator;            
 
             class TriangleMap {
             public:
@@ -40,10 +42,13 @@ namespace OpenEngine {
 
                 TriangleMapUpperCreator* upperCreator;
                 ITriangleMapCreator* lowerCreator;
-                ITriangleMapCreator *bitmap, *balanced, *sah;
+                ITriangleMapCreator *bitmap;
+                TriangleMapBalancedCreator *balanced;
+                TriangleMapSAHCreator *sah;
                 LowerAlgorithm lowerAlgorithm;
 
                 bool propagateAabbs;
+                float traversalCost;
                 
                 Resources::CUDA::CUDADataBlock<1, float4> *primMin;
                 Resources::CUDA::CUDADataBlock<1, float4> *primMax;
@@ -66,6 +71,8 @@ namespace OpenEngine {
                 SplitMethod GetSplitMethod();
                 void SetPropagateBoundingBox(const bool p);
                 bool GetPropagateBoundingBox() const { return propagateAabbs; }
+                void SetTraversalCost(const float t);
+                float GetTraversalCost() const { return traversalCost; }
                 
                 GeometryList* GetGeometry() const { return geom; }
                 Scene::TriangleNode* GetNodes() const { return nodes; }

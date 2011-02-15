@@ -25,6 +25,7 @@ namespace OpenEngine {
                 unsigned int timerID;
 
                 bool removeFalsePrimitives;
+                float traversalCost;
 
                 Resources::CUDA::CUDADataBlock<1, Scene::KDNode::bitmap4> *splitTriangleSet;
 
@@ -49,6 +50,8 @@ namespace OpenEngine {
                 void ProcessLowerNodes(int activeIndex, int activeRange, 
                                        TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs,
                                        int &childrenCreated);
+
+                void SetTraversalCost(const float t) { traversalCost = t; }
 
             };
             

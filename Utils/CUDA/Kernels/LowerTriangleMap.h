@@ -13,8 +13,6 @@ using namespace OpenEngine::Scene;
 using namespace OpenEngine::Utils::CUDA::Kernels;
 */
 
-#define traversalCost 24.0f
-
 // @TODO use the reduced bounding box and actual bounding box'es
 // diagonals to estimate the sub triangles surface area.  Or the
 // amount of aabb reduction in each dimension multiplied? How will
@@ -197,7 +195,8 @@ CalcSplit(int *upperLeafIDs,
           float4 *aabbMin, float4 *aabbMax,
           KDNode::bitmap4 *splitTriangleSet,
           KDNode::bitmap2 *childSets,
-          int *splitSides){
+          int *splitSides,
+          float traversalCost = 24.0f){
     
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
@@ -364,7 +363,8 @@ __launch_bounds__(96)
             KDNode::bitmap4 *splitTriangleSet,
             float2 *childAreas,
             KDNode::bitmap2 *childSets,
-            int *splitSides){
+            int *splitSides,
+            float traversalCost = 24.0f){
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
         
     if (id < d_activeNodeRange){

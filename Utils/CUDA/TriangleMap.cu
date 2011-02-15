@@ -45,6 +45,7 @@ namespace OpenEngine {
                 bitmap = new TriangleMapBitmapCreator();
                 SetLowerAlgorithm(BITMAP);
                 SetPropagateBoundingBox(true);
+                SetTraversalCost(24.0f);
             }
 
             void TriangleMap::Create(){
@@ -71,7 +72,7 @@ namespace OpenEngine {
                     logger.info << "Switching to bitmap converter lower creator" << logger.end;
                     lowerCreator = bitmap; break;
                 case BALANCED:
-                    logger.info << "Switching to balanced lower creator" << logger.end;
+                    logger.info << "Switching to SSAH lower creator" << logger.end;
                     lowerCreator = balanced; break;
                 case SAH:
                     logger.info << "Switching to SAH lower creator" << logger.end;
@@ -100,8 +101,14 @@ namespace OpenEngine {
                 //sah->SetPropagateBoundingBox(p);
             }
 
+            void TriangleMap::SetTraversalCost(const float t){
+                traversalCost = t;
+                balanced->SetTraversalCost(t);
+                sah->SetTraversalCost(t);
+            }
+
             void TriangleMap::PrintTree(){
-                PrintNode(0);
+                //PrintNode(0);
 
                 logger.info << "Start primitives: " << geom->GetSize() << logger.end;
                 logger.info << "End primitives: " << primIndices->GetSize() << logger.end;

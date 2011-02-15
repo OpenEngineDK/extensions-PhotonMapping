@@ -26,6 +26,8 @@ namespace OpenEngine {
             protected:
                 unsigned int timerID;
 
+                float traversalCost;
+
                 Resources::CUDA::CUDADataBlock<1, Scene::KDNode::bitmap4> *splitTriangleSet;
 
                 Resources::CUDA::CUDADataBlock<1, float> *primAreas;
@@ -56,6 +58,7 @@ namespace OpenEngine {
                 void CheckPreprocess(int activeIndex, int activeRange, 
                                      TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* leafIDs);
 
+                void SetTraversalCost(const float t) { traversalCost = t; }
             };
 
         }

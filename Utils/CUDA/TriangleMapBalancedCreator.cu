@@ -32,7 +32,7 @@ namespace OpenEngine {
             using namespace TriangleMapBalancedKernels;
 
             TriangleMapBalancedCreator::TriangleMapBalancedCreator()
-                : ITriangleMapCreator(), removeFalsePrimitives(false) {
+                : ITriangleMapCreator(), removeFalsePrimitives(false), traversalCost(16.0f) {
 
                 cutCreateTimer(&timerID);
 
@@ -75,7 +75,7 @@ namespace OpenEngine {
 
                 PreprocessLowerNodes(activeIndex, activeRange, map, upperLeafIDs);
 
-                START_TIMER(timerID); 
+                //START_TIMER(timerID); 
                 ProcessLowerNodes(activeIndex, activeRange,
                                   map, upperLeafIDs, childrenCreated);
                 
@@ -101,13 +101,13 @@ namespace OpenEngine {
                     activeRange = childrenCreated;
 
                 }
-                PRINT_TIMER(timerID, "Process lower nodes into balanced subtrees");
+                //PRINT_TIMER(timerID, "Process lower nodes into balanced subtrees");
             }
             
             void TriangleMapBalancedCreator::PreprocessLowerNodes(int activeIndex, int activeRange, 
                                                                   TriangleMap* map, CUDADataBlock<1, int>* upperLeafIDs){
                 int triangles = primMin->GetSize();
-                logger.info << "=== Preprocess " << activeRange << " Lower Nodes Starting at " << activeIndex << " === with " << triangles << " indices" << logger.end;
+                //logger.info << "=== Preprocess " << activeRange << " Lower Nodes Starting at " << activeIndex << " === with " << triangles << " indices" << logger.end;
                 
                 TriangleNode* nodes = map->nodes;
 
@@ -136,10 +136,12 @@ namespace OpenEngine {
             void TriangleMapBalancedCreator::ProcessLowerNodes(int activeIndex, int activeRange, 
                                                                TriangleMap* map, CUDADataBlock<1, int>* upperLeafIDs,
                                                                int &childrenCreated){
+                /*
                 if (upperLeafIDs)
-                    logger.info << "=== Process " << activeRange << " Lower Nodes from Indices ===" << logger.end;
+                    .info << "=== Process " << activeRange << " Lower Nodes from Indices ===" << logger.end;
                 else
                     logger.info << "=== Process " << activeRange << " Lower Nodes Starting at " << activeIndex << " ===" << logger.end;
+                */
 
                 TriangleNode* nodes = map->nodes;
 
@@ -165,7 +167,8 @@ namespace OpenEngine {
                                                          primMax->GetDeviceData(),
                                                          splitTriangleSet->GetDeviceData(),
                                                          childSets->GetDeviceData(),
-                                                         splitSide->GetDeviceData());
+                                                         splitSide->GetDeviceData(),
+                                                         traversalCost);
                 else
                     CalcSplit<false><<<blocks, threads>>>(NULL, nodes->GetInfoData(),
                                                           nodes->GetSplitPositionData(),
@@ -175,7 +178,8 @@ namespace OpenEngine {
                                                           primMax->GetDeviceData(),
                                                           splitTriangleSet->GetDeviceData(),
                                                           childSets->GetDeviceData(),
-                                                          splitSide->GetDeviceData());
+                                                          splitSide->GetDeviceData(),
+                                                          traversalCost);
                 CHECK_FOR_CUDA_ERROR();
 
                 cudppScan(scanHandle, splitAddr->GetDeviceData(), splitSide->GetDeviceData(), activeRange+1);

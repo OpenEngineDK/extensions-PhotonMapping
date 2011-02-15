@@ -34,7 +34,7 @@ namespace OpenEngine {
                 Resources::CUDA::CUDADataBlock<1, int> *nodeSegments;
 
                 bool emptySpaceSplitting;
-                float emptySpaceThreshold;
+                static float emptySpaceThreshold;
 
                 TriangleMap::SplitMethod splitMethod;
 
@@ -83,6 +83,8 @@ namespace OpenEngine {
                 inline bool IsSplittingEmptySpace() const { return emptySpaceSplitting; }
                 inline void SetSplitMethod(const TriangleMap::SplitMethod s) { splitMethod = s; }
                 inline TriangleMap::SplitMethod GetSplitMethod() const { return splitMethod; }
+                static void SetEmptySpaceThreshold(const float t) { emptySpaceThreshold = t; }
+                static float GetEmptySpaceThreshold() { return emptySpaceThreshold; }
                 
                 void ProcessNodes(int activeIndex, int activeRange, 
                                   int &childrenCreated);
