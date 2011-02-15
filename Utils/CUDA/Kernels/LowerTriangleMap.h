@@ -13,7 +13,7 @@ using namespace OpenEngine::Scene;
 using namespace OpenEngine::Utils::CUDA::Kernels;
 */
 
-#define traverselCost 16.0f
+#define traversalCost 24.0f
 
 // @TODO use the reduced bounding box and actual bounding box'es
 // diagonals to estimate the sub triangles surface area.  Or the
@@ -151,8 +151,7 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
 
 __device__ __host__ void CalcRelationForSets(KDNode::bitmap4 splittingSet, KDNode::bitmap nodeSet,
                                              char splitAxis, int setIndex, 
-                                             float &optimalRelation,
-                                             int &largestSize,
+                                             int &weightedArea,
                                              KDNode::bitmap &leftSet, KDNode::bitmap &rightSet,
                                              char &optimalAxis,
                                              int &splitIndex){
@@ -164,11 +163,10 @@ __device__ __host__ void CalcRelationForSets(KDNode::bitmap4 splittingSet, KDNod
 
     int small = min(bitcount(splittingSet.x), bitcount(splittingSet.y));
     int large = max(bitcount(splittingSet.x), bitcount(splittingSet.y));
-    float rel = small / float(large);
+    int area = small * small + large * large;
     
-    if (large < largestSize || (large == largestSize && rel < optimalRelation)){
-        optimalRelation = rel;
-        largestSize = large;
+    if (area < weightedArea){
+        weightedArea = area;
         leftSet = splittingSet.x; rightSet = splittingSet.y;
         optimalAxis = splitAxis;
         splitIndex = setIndex;
@@ -176,11 +174,10 @@ __device__ __host__ void CalcRelationForSets(KDNode::bitmap4 splittingSet, KDNod
 
     small = min(bitcount(splittingSet.z), bitcount(splittingSet.w));
     large = max(bitcount(splittingSet.z), bitcount(splittingSet.w));
-    rel = small / float(large);
+    area = small * small + large * large;
     
-    if (large < largestSize || (large == largestSize && rel < optimalRelation)){
-        optimalRelation = rel;
-        largestSize = large;
+    if (area < weightedArea){
+        weightedArea = area;
         leftSet = splittingSet.z; rightSet = splittingSet.w;
         optimalAxis = splitAxis;
         splitIndex = setIndex | (1<<31);
@@ -210,8 +207,7 @@ CalcSplit(int *upperLeafIDs,
         const int primIndex = primitiveIndex[parentID];
         const KDNode::bitmap primBmp = primitiveBitmap[parentID];
 
-        float relation = 0.0f;
-        int largestSetSize = TriangleNode::MAX_LOWER_SIZE;
+        int weightedArea = TriangleNode::MAX_LOWER_SIZE * TriangleNode::MAX_LOWER_SIZE;
         KDNode::bitmap leftSet, rightSet;
         char axis;
         int splitIndex;
@@ -222,28 +218,29 @@ CalcSplit(int *upperLeafIDs,
             
             CalcRelationForSets(splitTriangleSet[primIndex + i], primBmp,
                                 KDNode::X, primIndex + i,
-                                relation, largestSetSize,
+                                weightedArea,
                                 leftSet, rightSet,
                                 axis, splitIndex);
             
             CalcRelationForSets(splitTriangleSet[d_triangles + primIndex + i], primBmp,
                                 KDNode::Y, primIndex + i,
-                                relation, largestSetSize,
+                                weightedArea,
                                 leftSet, rightSet,
                                 axis, splitIndex);
             
             CalcRelationForSets(splitTriangleSet[2 * d_triangles + primIndex + i], primBmp,
                                 KDNode::Z, primIndex + i,
-                                relation, largestSetSize,
+                                weightedArea,
                                 leftSet, rightSet,
                                 axis, splitIndex);
             
             triangles -= KDNode::bitmap(1)<<i;
         }
+        
+        float SSAH = float(traversalCost + weightedArea) / float(bitcount(primBmp));
+        float leafCost = float(bitcount(primBmp));
 
-        //bool split = minLeafTriangles < largestSetSize * relation;
-        bool split = ((largestSetSize * relation + largestSetSize) / 2.0f + traverselCost) < bitcount(primBmp)
-            && largestSetSize < bitcount(primBmp);
+        bool split = SSAH < leafCost;
         if (split){
             // Dump stuff and move on
             childSets[id] = KDNode::make_bitmap2(leftSet, rightSet);
@@ -427,7 +424,7 @@ __launch_bounds__(96)
         }
             
         float nodeArea = nodeSurface[parentID];
-        bool split = optimalArea < (bitcount(primBmp) - traverselCost) * nodeArea;
+        bool split = optimalArea < (bitcount(primBmp) - traversalCost) * nodeArea;
         if (split){
             // Dump stuff and move on.
             childAreas[id] = make_float2(leftArea, rightArea);
