@@ -92,7 +92,7 @@ namespace OpenEngine {
                 exhaustive = new BruteTracer(triangleMap->geom);
                 restart = new RayTracer(triangleMap);
                 shortstack = new ShortStack(triangleMap);
-                SetRayTracerType(KD_RESTART);
+                SetRayTracerType(SHORTSTACK);
 
                 int size = arg.canvas.GetWidth() * arg.canvas.GetHeight();
                 pbo = IDataBlockPtr(new DataBlock<4, unsigned char>(size, NULL, PIXEL_UNPACK));

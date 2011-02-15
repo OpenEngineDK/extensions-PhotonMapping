@@ -18,6 +18,9 @@ using namespace OpenEngine::Utils::CUDA::Kernels;
 // amount of aabb reduction in each dimension multiplied? How will
 // that handle 0 sized sides?
 
+#define MAX_THREADS 128
+#define MIN_BLOCKS 2
+
 __global__ void CalcSurfaceArea(int *indices, 
                                 float4 *v0s, float4 *v1s, float4 *v2s,
                                 float *areas,
@@ -77,11 +80,14 @@ __global__ void PreprocesLowerNodes(int *upperLeafIDs,
     }
 }
 
-__global__ void CreateSplittingPlanes(int *upperLeafIDs,
-                                      int *primitiveIndex, KDNode::bitmap *primBitmap,
-                                      float4* aabbMins, float4* aabbMaxs,
-                                      KDNode::bitmap4 *splitTriangleSet,
-                                      int activeRange){
+
+__global__ void 
+__launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
+    CreateSplittingPlanes(int *upperLeafIDs,
+                          int *primitiveIndex, KDNode::bitmap *primBitmap,
+                          float4* aabbMins, float4* aabbMaxs,
+                          KDNode::bitmap4 *splitTriangleSet,
+                          int activeRange){
 
     const int id = blockDim.x * blockIdx.x + threadIdx.x;
     int nodeID = id / KDNode::MAX_LOWER_SIZE;
@@ -109,7 +115,8 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
             __syncthreads();
 
         KDNode::bitmap4 splitX = KDNode::make_bitmap4(0, 0, 0, 0); // {lowLeft, lowRight, highLeft, highRight}
-        KDNode::bitmap4 splitY = KDNode::make_bitmap4(0, 0, 0, 0); KDNode::bitmap4 splitZ = KDNode::make_bitmap4(0, 0, 0, 0);
+        KDNode::bitmap4 splitY = KDNode::make_bitmap4(0, 0, 0, 0); 
+        KDNode::bitmap4 splitZ = KDNode::make_bitmap4(0, 0, 0, 0);
 
         int sharedOffset = threadIdx.x - primID;
 
@@ -146,6 +153,109 @@ __global__ void CreateSplittingPlanes(int *upperLeafIDs,
             
     }
 }
+
+__global__ void 
+__launch_bounds__(MAX_THREADS, MIN_BLOCKS) 
+    CreateSplittingPlanes2(int *upperLeafIDs,
+                           int *primitiveIndex, KDNode::bitmap *primBitmap,
+                           float4* aabbMins, float4* aabbMaxs,
+                           KDNode::bitmap4 *splitTriangleSet,
+                           int activeRange){
+
+    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+    int nodeID = id / KDNode::MAX_LOWER_SIZE;
+
+    if (nodeID < activeRange){
+    
+        nodeID = upperLeafIDs[nodeID];
+        
+        const int primID = id % KDNode::MAX_LOWER_SIZE;
+        const int primIndex = primitiveIndex[nodeID] + primID;
+        const KDNode::bitmap primBmp = primBitmap[nodeID];
+
+        // Copy aabbs to shared mem.
+        float3* aabbMin = SharedMemory<float3>();
+        float3* aabbMax = aabbMin + blockDim.x;
+
+        const float3 lowSplitPlane = aabbMin[threadIdx.x] = 
+            primBmp & KDNode::bitmap(1)<<primID ? make_float3(aabbMins[primIndex]) : make_float3(0.0f);
+        const float3 highSplitPlane = aabbMax[threadIdx.x] = 
+            primBmp & KDNode::bitmap(1)<<primID ? make_float3(aabbMaxs[primIndex]) : make_float3(0.0f);
+
+        // Is automatically optimized away by the compiler. nvcc
+        // actually works sometimes.
+        if (KDNode::MAX_LOWER_SIZE > warpSize)
+            __syncthreads();
+
+        int sharedOffset = threadIdx.x - primID;
+
+        KDNode::bitmap4 splitX = KDNode::make_bitmap4(0, 0, 0, 0); // {lowLeft, lowRight, highLeft, highRight}
+
+        KDNode::bitmap triangles = primBmp;
+        while(triangles){
+            int i = firstBitSet(triangles) - 1;
+
+            float3 minCorner = aabbMin[sharedOffset + i];
+            float3 maxCorner = aabbMax[sharedOffset + i];
+
+            splitX.x |= minCorner.x <= lowSplitPlane.x ? KDNode::bitmap(1)<<i : 0;
+            splitX.y |= lowSplitPlane.x < maxCorner.x ? KDNode::bitmap(1)<<i : 0;
+            splitX.z |= minCorner.x <= highSplitPlane.x ? KDNode::bitmap(1)<<i : 0;
+            splitX.w |= highSplitPlane.x < maxCorner.x ? KDNode::bitmap(1)<<i : 0;
+                
+            triangles -= KDNode::bitmap(1)<<i;
+        }
+
+        if (primBmp & 1<<primID){
+            splitTriangleSet[primIndex] = splitX;
+        }
+
+        KDNode::bitmap4 splitY = KDNode::make_bitmap4(0, 0, 0, 0); 
+
+        triangles = primBmp;
+        while(triangles){
+            int i = firstBitSet(triangles) - 1;
+
+            float3 minCorner = aabbMin[sharedOffset + i];
+            float3 maxCorner = aabbMax[sharedOffset + i];
+
+            splitY.x |= minCorner.y <= lowSplitPlane.y ? KDNode::bitmap(1)<<i : 0;
+            splitY.y |= lowSplitPlane.y < maxCorner.y ? KDNode::bitmap(1)<<i : 0;
+            splitY.z |= minCorner.y <= highSplitPlane.y ? KDNode::bitmap(1)<<i : 0;
+            splitY.w |= highSplitPlane.y < maxCorner.y ? KDNode::bitmap(1)<<i : 0;
+
+            triangles -= KDNode::bitmap(1)<<i;
+        }
+
+        if (primBmp & 1<<primID){
+            splitTriangleSet[d_triangles + primIndex] = splitY;
+        }
+
+        KDNode::bitmap4 splitZ = KDNode::make_bitmap4(0, 0, 0, 0);
+
+        triangles = primBmp;
+        while(triangles){
+            int i = firstBitSet(triangles) - 1;
+
+            float3 minCorner = aabbMin[sharedOffset + i];
+            float3 maxCorner = aabbMax[sharedOffset + i];
+
+            splitZ.x |= minCorner.z <= lowSplitPlane.z ? KDNode::bitmap(1)<<i : 0;
+            splitZ.y |= lowSplitPlane.z < maxCorner.z ? KDNode::bitmap(1)<<i : 0;
+            splitZ.z |= minCorner.z <= highSplitPlane.z ? KDNode::bitmap(1)<<i : 0;
+            splitZ.w |= highSplitPlane.z < maxCorner.z ? KDNode::bitmap(1)<<i : 0;
+                
+            triangles -= KDNode::bitmap(1)<<i;
+        }
+
+        if (primBmp & 1<<primID){
+            splitTriangleSet[2 * d_triangles + primIndex] = splitZ;
+        }
+            
+    }
+}
+
+
 
 __device__ __host__ void CalcRelationForSets(KDNode::bitmap4 splittingSet, KDNode::bitmap nodeSet,
                                              char splitAxis, int setIndex, 
@@ -376,7 +486,7 @@ __launch_bounds__(96)
         // @OPT. Perhaps the threads can fill the area array coalesced?
         float* area = SharedMemory<float>();
         area += TriangleNode::MAX_LOWER_SIZE * threadIdx.x;
-        //float area[32];
+        //float area[TriangleNode::MAX_LOWER_SIZE];
 
         KDNode::bitmap bitmap = primBmp;
         while(bitmap){

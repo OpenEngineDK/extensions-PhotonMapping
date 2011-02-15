@@ -47,7 +47,7 @@ namespace OpenEngine {
 
             BruteTracer::~BruteTracer() {}
 
-#define MAX_PRIMS 2048
+#define MAX_PRIMS 4096
 #define MAX_THREADS 128
 #define MIN_BLOCKS 2
             
@@ -103,13 +103,14 @@ namespace OpenEngine {
                                  float4 *n0s, float4 *n1s, float4 *n2s,
                                  uchar4 *c0s,
                                  uchar4 *canvas,
-                                 int prims){
+                                 int prims,
+                                 int screenWidth){
 
                 int id = blockDim.x * blockIdx.x + threadIdx.x;
                 
                 if (id < d_rays){
                     
-                    //id = IRayTracer::PacketIndex(id, screenWidth);
+                    id = IRayTracer::PacketIndex(id, screenWidth);
 
                     uchar4 color = Exhaustive<useWoop>
                         (id, origins, directions, 
@@ -146,7 +147,8 @@ namespace OpenEngine {
                          geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                          geom->GetColor0Data(),
                          canvasData,
-                         geom->GetSize());
+                         geom->GetSize(),
+                         width);
                     if (printTiming) PRINT_TIMER(timerID, "Brute tracing using Woop");
 
                 }else{
@@ -159,7 +161,8 @@ namespace OpenEngine {
                          geom->GetNormal0Data(), geom->GetNormal1Data(), geom->GetNormal2Data(),
                          geom->GetColor0Data(),
                          canvasData,
-                         geom->GetSize());
+                         geom->GetSize(),
+                         width);
                     if (printTiming) PRINT_TIMER(timerID, "Brute tracing using Möller-Trumbore");
                 }
                 cudaThreadSynchronize();

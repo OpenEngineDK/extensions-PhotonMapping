@@ -25,11 +25,11 @@ namespace OpenEngine {
 
             using namespace Kernels;
 
-            float TriangleMapUpperCreator::emptySpaceThreshold = 0.25f;
+            float TriangleMapUpperCreator::emptySpaceThreshold = 0.35f;
 
             TriangleMapUpperCreator::TriangleMapUpperCreator()
                 : ITriangleMapCreator(), emptySpaceSplitting(true),
-                  splitMethod(TriangleMap::BOX) {
+                  splitMethod(TriangleMap::DIVIDE) {
                 
                 cutCreateTimer(&timerID);
 

@@ -134,7 +134,7 @@ namespace OpenEngine {
 
                 unsigned int smemPrThread = sizeof(float3) + sizeof(float3);
                 Calc1DKernelDimensionsWithSmem(activeRange * TriangleNode::MAX_LOWER_SIZE, smemPrThread, 
-                                               blocks, threads, smemSize, 256);
+                                               blocks, threads, smemSize, 128);
                 CreateSplittingPlanes<<<blocks, threads, smemSize>>>
                     (upperLeafIDs->GetDeviceData(),
                      nodes->GetPrimitiveIndexData(),
