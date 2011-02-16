@@ -170,13 +170,12 @@ namespace OpenEngine {
                 splitSide->Extend(activeRange+1);
                 splitAddr->Extend(activeRange+1);
 
-                unsigned int blocks, threads, smemSize;
                 unsigned int smemPrThread = TriangleNode::MAX_LOWER_SIZE * sizeof(float);
-                Calc1DKernelDimensionsWithSmem(activeRange, smemPrThread, 
-                                               blocks, threads, smemSize, 96);
-                //logger.info << "<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
+                unsigned int maxThreadsPrBlock = TriangleNode::MAX_LOWER_SIZE <= 32 ? 96 : 32;
+                KernelConf conf = KernelConf1D(activeRange, maxThreadsPrBlock, 0, smemPrThread);
+                //logger.info << "<<<" << conf.blocks << ", " << conf.threads << ", " << conf.smem << ">>>" << logger.end;
                 if (upperLeafIDs)
-                    CalcSAH<true><<<blocks, threads, smemSize>>>(upperLeafIDs->GetDeviceData(), 
+                    CalcSAH<true><<<conf.blocks, conf.threads, conf.smem>>>(upperLeafIDs->GetDeviceData(), 
                                                                  nodes->GetInfoData(),
                                                                  nodes->GetSplitPositionData(),
                                                                  nodes->GetPrimitiveIndexData(),
@@ -191,7 +190,7 @@ namespace OpenEngine {
                                                                  splitSide->GetDeviceData(),
                                                                  traversalCost);
                 else
-                    CalcSAH<false><<<blocks, threads, smemSize>>>(NULL, 
+                    CalcSAH<false><<<conf.blocks, conf.threads, conf.smem>>>(NULL, 
                                                                   nodes->GetInfoData(),
                                                                   nodes->GetSplitPositionData(),
                                                                   nodes->GetPrimitiveIndexData(),
@@ -214,28 +213,30 @@ namespace OpenEngine {
                 cudaMemcpy(&splits, splitAddr->GetDeviceData() + activeRange, sizeof(int), cudaMemcpyDeviceToHost);
                 nodes->Extend(nodes->GetSize() + 2 * splits);
 
-                Calc1DKernelDimensions(activeRange, blocks, threads);
+                conf = KernelConf1D(activeRange);
                 if (upperLeafIDs)
-                    CreateLowerSAHChildren<true><<<blocks, threads>>>(upperLeafIDs->GetDeviceData(), 
-                                                                      splitSide->GetDeviceData(),
-                                                                      splitAddr->GetDeviceData(),
-                                                                      childAreas->GetDeviceData(),
-                                                                      childSets->GetDeviceData(),
-                                                                      nodes->GetSurfaceAreaData(),
-                                                                      nodes->GetPrimitiveIndexData(),
-                                                                      nodes->GetPrimitiveAmountData(),
-                                                                      nodes->GetChildrenData(),
-                                                                      splits);
+                    CreateLowerSAHChildren<true><<<conf.blocks, conf.threads>>>
+                        (upperLeafIDs->GetDeviceData(), 
+                         splitSide->GetDeviceData(),
+                         splitAddr->GetDeviceData(),
+                         childAreas->GetDeviceData(),
+                         childSets->GetDeviceData(),
+                         nodes->GetSurfaceAreaData(),
+                         nodes->GetPrimitiveIndexData(),
+                         nodes->GetPrimitiveAmountData(),
+                         nodes->GetChildrenData(),
+                         splits);
                 else
-                    CreateLowerSAHChildren<false><<<blocks, threads>>>(NULL, splitSide->GetDeviceData(),
-                                                                       splitAddr->GetDeviceData(),
-                                                                       childAreas->GetDeviceData(),
-                                                                       childSets->GetDeviceData(),
-                                                                       nodes->GetSurfaceAreaData(),
-                                                                       nodes->GetPrimitiveIndexData(),
-                                                                       nodes->GetPrimitiveAmountData(),
-                                                                       nodes->GetChildrenData(),
-                                                                       splits);
+                    CreateLowerSAHChildren<false><<<conf.blocks, conf.threads>>>
+                        (NULL, splitSide->GetDeviceData(),
+                         splitAddr->GetDeviceData(),
+                         childAreas->GetDeviceData(),
+                         childSets->GetDeviceData(),
+                         nodes->GetSurfaceAreaData(),
+                         nodes->GetPrimitiveIndexData(),
+                         nodes->GetPrimitiveAmountData(),
+                         nodes->GetChildrenData(),
+                         splits);
                 CHECK_FOR_CUDA_ERROR();
 
                 childrenCreated = splits * 2;
@@ -246,12 +247,12 @@ namespace OpenEngine {
                     // which is fastest (for non trivial splits
                     // sherlock
                     if (upperLeafIDs){
-                        PropagateAabbToChildren<true><<<blocks, threads>>>(upperLeafIDs->GetDeviceData(), 
+                        PropagateAabbToChildren<true><<<conf.blocks, conf.threads>>>(upperLeafIDs->GetDeviceData(), 
                                                                            nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                                            nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
                                                                            nodes->GetChildrenData());
                     }else
-                        PropagateAabbToChildren<false><<<blocks, threads>>>(NULL, nodes->GetInfoData(), nodes->GetSplitPositionData(),
+                        PropagateAabbToChildren<false><<<conf.blocks, conf.threads>>>(NULL, nodes->GetInfoData(), nodes->GetSplitPositionData(),
                                                                             nodes->GetAabbMinData(), nodes->GetAabbMaxData(), 
                                                                             nodes->GetChildrenData());
                     CHECK_FOR_CUDA_ERROR();
