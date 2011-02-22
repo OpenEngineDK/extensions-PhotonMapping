@@ -15,7 +15,7 @@
 #include <Utils/CUDA/Utils.h>
 #include <Utils/CUDA/IntersectionTests.h>
 
-#include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
+#include <Utils/CUDA/Kernels/DeviceVars.h>
 
 #include <Logging/Logger.h>
 

@@ -16,7 +16,7 @@
 #include <Utils/CUDA/IntersectionTests.h>
 #include <Logging/Logger.h>
 
-#include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
+#include <Utils/CUDA/Kernels/DeviceVars.h>
 
 namespace OpenEngine {    
     using namespace Resources::CUDA;

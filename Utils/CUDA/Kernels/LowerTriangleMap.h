@@ -7,7 +7,7 @@
 /*
  * Dependencies
 #include <Scene/TriangleNode.h>
-#include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
+#include <Utils/CUDA/Kernels/DeviceVars.h>
 
 using namespace OpenEngine::Scene;
 using namespace OpenEngine::Utils::CUDA::Kernels;

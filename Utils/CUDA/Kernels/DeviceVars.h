@@ -18,7 +18,6 @@ namespace Utils {
 namespace CUDA {
 namespace Kernels {
 
-    __constant__ int d_photonNodes;
     __constant__ int d_triangles;
 
     __constant__ int d_segments;
@@ -26,8 +25,6 @@ namespace Kernels {
     __constant__ int d_activeNodeRange;
     __constant__ int d_childIndex;
 
-    __constant__ int d_nonLeafPhotons;
-    __constant__ int d_photonsMovedLeft;
     __constant__ int d_leafNodes;
 
     __device__ bool d_createdLeafs;
@@ -36,12 +33,6 @@ namespace Kernels {
     __device__ bool d_createdEmptySplits;
 
     __constant__ float d_emptySpaceThreshold;
-
-    // Upper node info
-    __constant__ int2* d_upperPhotonInfo;
-
-    // Lower node info
-    __constant__ int2* d_lowerPhotonInfo;
 }
 }
 }

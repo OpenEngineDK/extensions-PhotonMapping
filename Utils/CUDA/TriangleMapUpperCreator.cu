@@ -16,7 +16,7 @@
 #include <Utils/CUDA/Utils.h>
 #include <Utils/CUDA/IntersectionTests.h>
 
-#include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
+#include <Utils/CUDA/Kernels/DeviceVars.h>
 
 namespace OpenEngine {    
     using namespace Scene;
@@ -29,7 +29,7 @@ namespace OpenEngine {
 
             TriangleMapUpperCreator::TriangleMapUpperCreator()
                 : ITriangleMapCreator(), emptySpaceSplitting(true),
-                  splitMethod(TriangleMap::DIVIDE) {
+                  splitMethod(TriangleMap::BOX) {
                 
                 cutCreateTimer(&timerID);
 

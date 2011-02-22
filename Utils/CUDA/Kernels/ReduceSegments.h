@@ -9,7 +9,7 @@
 
 /*
 #include <Meta/CUDA.h>
-#include <Utils/CUDA/Kernels/PhotonMapDeviceVars.h>
+#include <Utils/CUDA/Kernels/DeviceVars.h>
 #include <Utils/CUDA/Segments.h>
 #include <Scene/KDNode.h>
 
