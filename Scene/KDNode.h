@@ -32,7 +32,7 @@ namespace OpenEngine {
             typedef int bitmap;
             typedef int2 bitmap2;
             typedef int4 bitmap4;
-#else KDNODE_MAX_LOWER_SIZE <= 64
+#elif KDNODE_MAX_LOWER_SIZE <= 64
             typedef long long int bitmap;
             typedef longlong2 bitmap2;
             typedef longlong4 bitmap4;

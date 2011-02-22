@@ -12,7 +12,6 @@
 #include <Meta/OpenGL.h>
 #include <Geometry/GeometrySet.h>
 #include <Resources/DataBlock.h>
-#include <Scene/PhotonNode.h>
 #include <Utils/CUDA/TriangleMap.h>
 #include <Utils/CUDA/Utils.h>
 
