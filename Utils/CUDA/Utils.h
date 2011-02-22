@@ -81,7 +81,8 @@ void DumpGlobalData(const T d, T* a, const int i){
 #endif
 }
 
-inline unsigned int NextPow2(unsigned int x) {
+inline __host__ __device__ 
+unsigned int NextPow2(unsigned int x) {
     --x;
     x |= x >> 1;
     x |= x >> 2;

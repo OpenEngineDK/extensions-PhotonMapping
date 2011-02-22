@@ -87,6 +87,7 @@ __device__ void fmaxf3(volatile float *v, volatile float *u, volatile float *ret
     ret[2] = max(v[2], u[2]);
 }
 
+
 __device__ void reduceFminf3(volatile float *v, volatile float *u, volatile float *ret){
     ret[0] = v[0] = min(v[0], u[0]);
     ret[1] = v[1] = min(v[1], u[1]);
@@ -99,6 +100,177 @@ __device__ void reduceFmaxf3(volatile float *v, volatile float *u, volatile floa
     ret[2] = v[2] = max(v[2], u[2]);
 }
 
+
+__global__ void
+__launch_bounds__(Segments::SEGMENT_SIZE) 
+    ReduceSegmentsNaive(int2 *primInfo,
+                        float4 *aabbMin, float4 *aabbMax,
+                        float4 *minResult, float4 *maxResult){
+    
+    const int segmentID = blockIdx.x;
+        
+    if (segmentID < d_segments){
+        const int2 primitiveInfo = primInfo[segmentID];
+        
+        // Reduce!
+        int offset = 1;
+        while (threadIdx.x + offset < primitiveInfo.y){
+            if (threadIdx.x % offset*2 == 0){
+                float4 newV = aabbMin[threadIdx.x + primitiveInfo.x + offset];
+                aabbMin[threadIdx.x + primitiveInfo.x] = min(aabbMin[threadIdx.x + primitiveInfo.x], newV);
+                newV = aabbMax[threadIdx.x + primitiveInfo.x + offset];
+                aabbMax[threadIdx.x + primitiveInfo.x] = max(aabbMax[threadIdx.x + primitiveInfo.x], newV);
+            }else
+                return;
+            offset *= 2;
+            __syncthreads();
+        }
+
+        if (threadIdx.x == 0){
+            minResult[segmentID] = aabbMin[primitiveInfo.x];
+            maxResult[segmentID] = aabbMax[primitiveInfo.x];
+        }
+    }
+}    
+
+
+__global__ void
+__launch_bounds__(Segments::SEGMENT_SIZE) 
+    ReduceSegmentsCoalesced(int2 *primInfo,
+                            float4 *aabbMin, float4 *aabbMax,
+                            float4 *minResult, float4 *maxResult){
+    
+    const int segmentID = blockIdx.x;
+        
+    if (segmentID < d_segments){
+        const int2 primitiveInfo = primInfo[segmentID];
+        
+        // Reduce!
+        for (int offset = NextPow2(primitiveInfo.y)/2; offset > 0; offset /= 2){
+            if (threadIdx.x < offset){
+                float4 newV = threadIdx.x + offset < primitiveInfo.y ? aabbMin[threadIdx.x + primitiveInfo.x + offset] : make_float4(fInfinity);
+                aabbMin[threadIdx.x + primitiveInfo.x] = min(aabbMin[threadIdx.x + primitiveInfo.x], newV);
+                newV = threadIdx.x + offset < primitiveInfo.y ? aabbMax[threadIdx.x + primitiveInfo.x + offset] : make_float4(-1.0f * fInfinity);
+                aabbMax[threadIdx.x + primitiveInfo.x] = max(aabbMax[threadIdx.x + primitiveInfo.x], newV);
+            }else
+                return;
+            __syncthreads();
+        }
+
+        if (threadIdx.x == 0){
+            minResult[segmentID] = aabbMin[primitiveInfo.x];
+            maxResult[segmentID] = aabbMax[primitiveInfo.x];
+        }
+    }
+}    
+
+
+__global__ void
+__launch_bounds__(Segments::SEGMENT_SIZE) 
+    ReduceSegmentsShared(int2 *primInfo,
+                         float4 *aabbMin, float4 *aabbMax,
+                         float4 *minResult, float4 *maxResult){
+    
+    const int segmentID = blockIdx.x;
+        
+    if (segmentID < d_segments){
+        const int2 primitiveInfo = primInfo[segmentID];
+        
+        volatile __shared__ float sharedMin[3 * Segments::SEGMENT_SIZE];
+        volatile __shared__ float sharedMax[3 * Segments::SEGMENT_SIZE];
+
+        float3 global = threadIdx.x < primitiveInfo.y ? make_float3(aabbMin[threadIdx.x + primitiveInfo.x]) : make_float3(fInfinity);
+        sharedMin[threadIdx.x * 3] = global.x;
+        sharedMin[threadIdx.x * 3 + 1] = global.y;
+        sharedMin[threadIdx.x * 3 + 2] = global.z;
+
+        global = threadIdx.x < primitiveInfo.y ? make_float3(aabbMax[threadIdx.x + primitiveInfo.x]) : make_float3(-1.0f * fInfinity);
+        sharedMax[threadIdx.x * 3] = global.x;
+        sharedMax[threadIdx.x * 3 + 1] = global.y;
+        sharedMax[threadIdx.x * 3 + 2] = global.z;
+
+        __syncthreads();
+
+        // Reduce!
+        for (int offset = Segments::SEGMENT_SIZE/2; offset > 0; offset /= 2){
+            if (threadIdx.x < offset){
+                fminf3(sharedMin + threadIdx.x * 3, sharedMin + (threadIdx.x + offset) * 3, sharedMin + threadIdx.x * 3);
+                fmaxf3(sharedMax + threadIdx.x * 3, sharedMax + (threadIdx.x + offset) * 3, sharedMax + threadIdx.x * 3);
+            }else
+                return;
+            __syncthreads();
+        }
+
+        if (threadIdx.x == 0){
+            float4 res;
+            res.x = sharedMin[0];
+            res.y = sharedMin[1];
+            res.z = sharedMin[2];
+            minResult[segmentID] = res;
+
+            res.x = sharedMax[0];
+            res.y = sharedMax[1];
+            res.z = sharedMax[2];
+            maxResult[segmentID] = res;
+        }
+    }
+}    
+
+
+__global__ void
+__launch_bounds__(Segments::SEGMENT_SIZE) 
+    ReduceSegmentsRegisters(int2 *primInfo,
+                            float4 *aabbMin, float4 *aabbMax,
+                            float4 *minResult, float4 *maxResult){
+    
+    const int segmentID = blockIdx.x;
+        
+    if (segmentID < d_segments){
+        const int2 primitiveInfo = primInfo[segmentID];
+
+        volatile __shared__ float sharedMin[3 * Segments::SEGMENT_SIZE];
+        volatile __shared__ float sharedMax[3 * Segments::SEGMENT_SIZE];
+
+        /* volatile */ float localMin[3];
+        float3 global = threadIdx.x < primitiveInfo.y ? make_float3(aabbMin[threadIdx.x + primitiveInfo.x]) : make_float3(fInfinity);
+        localMin[0] = sharedMin[threadIdx.x * 3] = global.x;
+        localMin[1] = sharedMin[threadIdx.x * 3 + 1] = global.y;
+        localMin[2] = sharedMin[threadIdx.x * 3 + 2] = global.z;
+
+        /* volatile */ float localMax[3];
+        global = threadIdx.x < primitiveInfo.y ? make_float3(aabbMax[threadIdx.x + primitiveInfo.x]) : make_float3(-1.0f * fInfinity);
+        localMax[0] = sharedMax[threadIdx.x * 3] = global.x;
+        localMax[1] = sharedMax[threadIdx.x * 3 + 1] = global.y;
+        localMax[2] = sharedMax[threadIdx.x * 3 + 2] = global.z;
+
+        __syncthreads();
+
+        // Reduce!
+        for (int offset = Segments::SEGMENT_SIZE/2; offset > 0; offset /= 2){
+            if (threadIdx.x < offset){
+                reduceFminf3(localMin, sharedMin + (threadIdx.x + offset) * 3, sharedMin + threadIdx.x * 3);
+                reduceFmaxf3(localMax, sharedMax + (threadIdx.x + offset) * 3, sharedMax + threadIdx.x * 3);
+            }else
+                return;
+            __syncthreads();
+        }
+
+        if (threadIdx.x == 0){
+            float4 res;
+            res.x = localMin[0];
+            res.y = localMin[1];
+            res.z = localMin[2];
+            minResult[segmentID] = res;
+
+            res.x = localMax[0];
+            res.y = localMax[1];
+            res.z = localMax[2];
+            maxResult[segmentID] = res;
+        }
+    }
+}    
+
+
 /**
  * Switch to 3 floats, last one is useless.
  * Bank conflics? None as far as I can see in the profiler
@@ -107,9 +279,9 @@ __device__ void reduceFmaxf3(volatile float *v, volatile float *u, volatile floa
  */    
 __global__ void
 __launch_bounds__(Segments::SEGMENT_SIZE) 
-    ReduceSegmentsShared(int2 *primInfo,
-                         float4 *aabbMin, float4 *aabbMax,
-                         float4 *minResult, float4 *maxResult){
+    ReduceSegmentsUnrolled(int2 *primInfo,
+                           float4 *aabbMin, float4 *aabbMax,
+                           float4 *minResult, float4 *maxResult){
         
     const int segmentID = blockIdx.x;
         

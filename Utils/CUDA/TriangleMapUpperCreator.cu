@@ -241,14 +241,24 @@ namespace OpenEngine {
             void TriangleMapUpperCreator::ReduceAabb(int &activeIndex, int activeRange){
                 // Reduce aabb pr segment
                 unsigned int blocks = segments.size;
-                unsigned int threads = Segments::SEGMENT_SIZE/2;
-                //unsigned int smemSize = 2 * 3 * sizeof(float) * segments.SEGMENT_SIZE/2;
+                //unsigned int threads = Segments::SEGMENT_SIZE; // For non unrolled versions
+                unsigned int threads = Segments::SEGMENT_SIZE/2; // For unrolled version
 
-                //logger.info << "ReduceSegmentsShared<<<" << blocks << ", " << threads << ", " << smemSize << ">>>" << logger.end;
+                //logger.info << "ReduceSegmentsShared<<<" << blocks << ", " << threads << ">>>" << logger.end;
 
-                ReduceSegmentsShared<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
-                                                          aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
-                                                          segments.GetAabbMinData(), segments.GetAabbMaxData());
+                /*
+                 * Use a temp array for global reductions
+                CUDADataBlock<1, float4> aabbMinimum = CUDADataBlock<1, float4>(aabbMin->GetSize());
+                cudaMemcpy(aabbMinimum.GetDeviceData(), aabbMin->GetDeviceData(), aabbMin->GetSize() * sizeof(float4), cudaMemcpyDeviceToDevice);
+                CUDADataBlock<1, float4> aabbMaximum = CUDADataBlock<1, float4>(aabbMax->GetSize());
+                cudaMemcpy(aabbMaximum.GetDeviceData(), aabbMax->GetDeviceData(), aabbMax->GetSize() * sizeof(float4), cudaMemcpyDeviceToDevice);
+                CHECK_FOR_CUDA_ERROR();
+                */
+
+                ReduceSegmentsUnrolled<<<blocks, threads>>>(segments.GetPrimitiveInfoData(),
+                                                             aabbMin->GetDeviceData(), aabbMax->GetDeviceData(),
+                                                             //aabbMinimum.GetDeviceData(), aabbMaximum.GetDeviceData(),
+                                                             segments.GetAabbMinData(), segments.GetAabbMaxData());
                 CHECK_FOR_CUDA_ERROR();
 
 #if CPU_VERIFY
