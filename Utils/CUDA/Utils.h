@@ -24,7 +24,7 @@
 #endif
 
 // easy timer defs
-#define START_TIMER(timerID) cutResetTimer(timerID);cutStartTimer(timerID);
+#define START_TIMER(timerID) cudaThreadSynchronize();cutResetTimer(timerID);cutStartTimer(timerID);
 #define PRINT_TIMER(timerID, name)                                      \
     do{                                                                 \
         cudaThreadSynchronize();                                        \
