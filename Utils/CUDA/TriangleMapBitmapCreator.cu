@@ -49,7 +49,7 @@ namespace OpenEngine {
             }
 
             void TriangleMapBitmapCreator::Create(TriangleMap* map, 
-                                                  CUDADataBlock<1, int>* upperLeafIDs){
+                                                  CUDADataBlock<int>* upperLeafIDs){
 
                 //logger.info << "=== Convert " << upperLeafIDs->GetSize() << " bitmaps ===" << logger.end;
 

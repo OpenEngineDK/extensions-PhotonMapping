@@ -20,11 +20,11 @@ namespace OpenEngine {
 
             class ITriangleMapCreator {
             protected:
-                Resources::CUDA::CUDADataBlock<1, float4>* primMin;
-                Resources::CUDA::CUDADataBlock<1, float4>* primMax;
-                Resources::CUDA::CUDADataBlock<1, int>* primIndices;
+                Resources::CUDA::CUDADataBlock<float4>* primMin;
+                Resources::CUDA::CUDADataBlock<float4>* primMax;
+                Resources::CUDA::CUDADataBlock<int>* primIndices;
 
-                Resources::CUDA::CUDADataBlock<1, int>* leafIDs;
+                Resources::CUDA::CUDADataBlock<int>* leafIDs;
 
                 bool propagateAabbs;
 
@@ -43,12 +43,12 @@ namespace OpenEngine {
                  * Is responsible for updating the triangle map's datablocks afterwards.
                  */
                 virtual void Create(TriangleMap* map,
-                                    Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs) = 0;
+                                    Resources::CUDA::CUDADataBlock<int>* upperLeafIDs) = 0;
                 
-                Resources::CUDA::CUDADataBlock<1, float4>* GetPrimMin() { return primMin; }
-                Resources::CUDA::CUDADataBlock<1, float4>* GetPrimMax() { return primMax; }
-                Resources::CUDA::CUDADataBlock<1, int>* GetPrimIndices() { return primIndices; }
-                Resources::CUDA::CUDADataBlock<1, int>* GetLeafIDs() { return leafIDs; }
+                Resources::CUDA::CUDADataBlock<float4>* GetPrimMin() { return primMin; }
+                Resources::CUDA::CUDADataBlock<float4>* GetPrimMax() { return primMax; }
+                Resources::CUDA::CUDADataBlock<int>* GetPrimIndices() { return primIndices; }
+                Resources::CUDA::CUDADataBlock<int>* GetLeafIDs() { return leafIDs; }
 
                 void SetPropagateBoundingBox(const bool p) {propagateAabbs = p; }
                 bool GetPropagateBoundingBox() const { return propagateAabbs; }

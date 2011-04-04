@@ -37,12 +37,12 @@ namespace OpenEngine {
 
                 cutCreateTimer(&timerID);
 
-                splitTriangleSet =  new CUDADataBlock<1, KDNode::bitmap4>(1);
-                primAreas = new CUDADataBlock<1, float>(1);
-                childAreas = new CUDADataBlock<1, float2>(1);
-                childSets = new CUDADataBlock<1, KDNode::bitmap2>(1);
-                splitSide = new CUDADataBlock<1, int>(1);
-                splitAddr = new CUDADataBlock<1, int>(1);
+                splitTriangleSet =  new CUDADataBlock<KDNode::bitmap4>(1);
+                primAreas = new CUDADataBlock<float>(1);
+                childAreas = new CUDADataBlock<float2>(1);
+                childSets = new CUDADataBlock<KDNode::bitmap2>(1);
+                splitSide = new CUDADataBlock<int>(1);
+                splitAddr = new CUDADataBlock<int>(1);
 
                 scanConfig.algorithm = CUDPP_SCAN;
                 scanConfig.op = CUDPP_ADD;
@@ -65,7 +65,7 @@ namespace OpenEngine {
             }
 
             void TriangleMapSAHCreator::Create(TriangleMap* map,
-                                               CUDADataBlock<1, int>* upperLeafIDs){
+                                               CUDADataBlock<int>* upperLeafIDs){
                 
                 primMin = map->primMin;
                 primMax = map->primMax;
@@ -100,7 +100,7 @@ namespace OpenEngine {
             }
 
             void TriangleMapSAHCreator::PreprocessLowerNodes(int activeIndex, int activeRange, 
-                                      TriangleMap* map, CUDADataBlock<1, int>* upperLeafIDs) {
+                                      TriangleMap* map, CUDADataBlock<int>* upperLeafIDs) {
                 int triangles = primMin->GetSize();
                 //logger.info << "=== Preprocess " << activeRange << " Lower Nodes Starting at " << activeIndex << " === with " << triangles << " indices" << logger.end;
                 
@@ -151,7 +151,7 @@ namespace OpenEngine {
             }
                 
             void TriangleMapSAHCreator::ProcessLowerNodes(int activeIndex, int activeRange, 
-                                                          TriangleMap* map, CUDADataBlock<1, int>* upperLeafIDs, 
+                                                          TriangleMap* map, CUDADataBlock<int>* upperLeafIDs, 
                                                           int &childrenCreated) {
                 /*
                 if (upperLeafIDs)
@@ -260,7 +260,7 @@ namespace OpenEngine {
             }
 
             void TriangleMapSAHCreator::CheckPreprocess(int activeIndex, int activeRange, 
-                                 TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* leafIDs) {
+                                 TriangleMap* map, Resources::CUDA::CUDADataBlock<int>* leafIDs) {
 
                 throw Exception("CheckPreprocess was broken by removing PROXY");
 

@@ -17,8 +17,8 @@ namespace OpenEngine {
 
         class TriangleNode : public KDNode {
         public:
-            CUDADataBlock<1, float> *surfaceArea;
-            CUDADataBlock<1, int> *parent;
+            CUDADataBlock<float> *surfaceArea;
+            CUDADataBlock<int> *parent;
             
         public:
             TriangleNode();

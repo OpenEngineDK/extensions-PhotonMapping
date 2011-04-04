@@ -36,8 +36,8 @@ namespace OpenEngine {
                 bool printTiming;
                 float renderTime;
                 
-                Resources::CUDA::CUDADataBlock<1, float4> *origin;
-                Resources::CUDA::CUDADataBlock<1, float4> *direction;
+                Resources::CUDA::CUDADataBlock<float4> *origin;
+                Resources::CUDA::CUDADataBlock<float4> *direction;
                 int screenWidth;
                 
             public:

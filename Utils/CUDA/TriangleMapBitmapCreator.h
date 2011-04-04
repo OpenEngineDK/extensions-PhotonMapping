@@ -24,7 +24,7 @@ namespace OpenEngine {
                 virtual ~TriangleMapBitmapCreator();
 
                 virtual void Create(TriangleMap* map, 
-                                    Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
+                                    Resources::CUDA::CUDADataBlock<int>* upperLeafIDs);
             };
         }
     }

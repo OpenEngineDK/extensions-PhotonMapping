@@ -27,11 +27,11 @@ namespace OpenEngine {
                 bool removeFalsePrimitives;
                 float traversalCost;
 
-                Resources::CUDA::CUDADataBlock<1, Scene::KDNode::bitmap4> *splitTriangleSet;
+                Resources::CUDA::CUDADataBlock<Scene::KDNode::bitmap4> *splitTriangleSet;
 
-                Resources::CUDA::CUDADataBlock<1, Scene::KDNode::bitmap2>* childSets;
-                Resources::CUDA::CUDADataBlock<1, int>* splitSide;
-                Resources::CUDA::CUDADataBlock<1, int>* splitAddr;
+                Resources::CUDA::CUDADataBlock<Scene::KDNode::bitmap2>* childSets;
+                Resources::CUDA::CUDADataBlock<int>* splitSide;
+                Resources::CUDA::CUDADataBlock<int>* splitAddr;
 
                 CUDPPConfiguration scanConfig;
                 CUDPPHandle scanHandle;
@@ -42,13 +42,13 @@ namespace OpenEngine {
                 virtual ~TriangleMapBalancedCreator();
 
                 virtual void Create(TriangleMap* map, 
-                                    Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
+                                    Resources::CUDA::CUDADataBlock<int>* upperLeafIDs);
                 
                 void PreprocessLowerNodes(int activeIndex, int activeRange, 
-                                          TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
+                                          TriangleMap* map, Resources::CUDA::CUDADataBlock<int>* upperLeafIDs);
                 
                 void ProcessLowerNodes(int activeIndex, int activeRange, 
-                                       TriangleMap* map, Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs,
+                                       TriangleMap* map, Resources::CUDA::CUDADataBlock<int>* upperLeafIDs,
                                        int &childrenCreated);
 
                 void SetTraversalCost(const float t) { traversalCost = t; }

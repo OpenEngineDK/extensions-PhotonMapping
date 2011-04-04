@@ -33,24 +33,24 @@ namespace OpenEngine {
                 
                 cutCreateTimer(&timerID);
 
-                aabbMin = new CUDADataBlock<1, float4>(1);
-                aabbMax = new CUDADataBlock<1, float4>(1);
-                tempAabbMin = new CUDADataBlock<1, float4>(1);
-                tempAabbMax = new CUDADataBlock<1, float4>(1);
+                aabbMin = new CUDADataBlock<float4>(1);
+                aabbMax = new CUDADataBlock<float4>(1);
+                tempAabbMin = new CUDADataBlock<float4>(1);
+                tempAabbMax = new CUDADataBlock<float4>(1);
 
                 segments = Segments(1);
-                nodeSegments = new CUDADataBlock<1, int>(1);
+                nodeSegments = new CUDADataBlock<int>(1);
 
-                splitSide = new CUDADataBlock<1, int>(1);
-                splitAddr = new CUDADataBlock<1, int>(1);
-                leafSide = new CUDADataBlock<1, int>(1);
-                leafAddr = new CUDADataBlock<1, int>(1);
-                emptySpacePlanes = new CUDADataBlock<1, char>(1);
-                emptySpaceNodes = new CUDADataBlock<1, int>(1);
-                emptySpaceAddrs = new CUDADataBlock<1, int>(1);
-                nodeIndices = new CUDADataBlock<1, int>(1);
-                childSize = new CUDADataBlock<1, int2>(1);
-                tempNodeAmount = new CUDADataBlock<1, KDNode::amount>(1);
+                splitSide = new CUDADataBlock<int>(1);
+                splitAddr = new CUDADataBlock<int>(1);
+                leafSide = new CUDADataBlock<int>(1);
+                leafAddr = new CUDADataBlock<int>(1);
+                emptySpacePlanes = new CUDADataBlock<char>(1);
+                emptySpaceNodes = new CUDADataBlock<int>(1);
+                emptySpaceAddrs = new CUDADataBlock<int>(1);
+                nodeIndices = new CUDADataBlock<int>(1);
+                childSize = new CUDADataBlock<int2>(1);
+                tempNodeAmount = new CUDADataBlock<KDNode::amount>(1);
 
                 // CUDPP doesn't handle removing handles well, so we
                 // define them to accept some arbitrary high number of
@@ -108,7 +108,7 @@ namespace OpenEngine {
             using namespace KernelsHat;
 
             void TriangleMapUpperCreator::Create(TriangleMap* map, 
-                                                 CUDADataBlock<1, int>* upperLeafIDs){
+                                                 CUDADataBlock<int>* upperLeafIDs){
 
                 this->map = map;
 
@@ -248,9 +248,9 @@ namespace OpenEngine {
 
                 /*
                  * Use a temp array for global reductions
-                CUDADataBlock<1, float4> aabbMinimum = CUDADataBlock<1, float4>(aabbMin->GetSize());
+                CUDADataBlock<float4> aabbMinimum = CUDADataBlock<float4>(aabbMin->GetSize());
                 cudaMemcpy(aabbMinimum.GetDeviceData(), aabbMin->GetDeviceData(), aabbMin->GetSize() * sizeof(float4), cudaMemcpyDeviceToDevice);
-                CUDADataBlock<1, float4> aabbMaximum = CUDADataBlock<1, float4>(aabbMax->GetSize());
+                CUDADataBlock<float4> aabbMaximum = CUDADataBlock<float4>(aabbMax->GetSize());
                 cudaMemcpy(aabbMaximum.GetDeviceData(), aabbMax->GetDeviceData(), aabbMax->GetSize() * sizeof(float4), cudaMemcpyDeviceToDevice);
                 CHECK_FOR_CUDA_ERROR();
                 */
@@ -758,8 +758,8 @@ namespace OpenEngine {
 #endif
             }
             
-            void TriangleMapUpperCreator::CheckPrimAabb(CUDADataBlock<1, float4> *aabbMin, 
-                                                        CUDADataBlock<1, float4> *aabbMax){
+            void TriangleMapUpperCreator::CheckPrimAabb(CUDADataBlock<float4> *aabbMin, 
+                                                        CUDADataBlock<float4> *aabbMax){
                 int triangles = aabbMax->GetSize();
                 GeometryList* geom = map->GetGeometry();
 

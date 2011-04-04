@@ -33,11 +33,11 @@ namespace OpenEngine {
                 geom = new GeometryList(1);
                 nodes = new TriangleNode(1);
                 
-                primMin = new CUDADataBlock<1, float4>(1);
-                primMax = new CUDADataBlock<1, float4>(1);
-                primIndices = new CUDADataBlock<1, int>(1);
+                primMin = new CUDADataBlock<float4>(1);
+                primMax = new CUDADataBlock<float4>(1);
+                primIndices = new CUDADataBlock<int>(1);
 
-                leafIDs = new CUDADataBlock<1, int>(1);
+                leafIDs = new CUDADataBlock<int>(1);
 
                 upperCreator = new TriangleMapUpperCreator();
                 balanced = new TriangleMapBalancedCreator();

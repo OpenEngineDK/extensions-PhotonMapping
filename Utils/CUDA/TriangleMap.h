@@ -50,11 +50,11 @@ namespace OpenEngine {
                 bool propagateAabbs;
                 float traversalCost;
                 
-                Resources::CUDA::CUDADataBlock<1, float4> *primMin;
-                Resources::CUDA::CUDADataBlock<1, float4> *primMax;
-                Resources::CUDA::CUDADataBlock<1, int> *primIndices;
+                Resources::CUDA::CUDADataBlock<float4> *primMin;
+                Resources::CUDA::CUDADataBlock<float4> *primMax;
+                Resources::CUDA::CUDADataBlock<int> *primIndices;
 
-                Resources::CUDA::CUDADataBlock<1, int> *leafIDs;
+                Resources::CUDA::CUDADataBlock<int> *leafIDs;
                 
             public:
                 TriangleMap(Scene::ISceneNode* scene);
@@ -76,7 +76,7 @@ namespace OpenEngine {
                 
                 GeometryList* GetGeometry() const { return geom; }
                 Scene::TriangleNode* GetNodes() const { return nodes; }
-                Resources::CUDA::CUDADataBlock<1, int>* GetPrimitiveIndices() const { return primIndices; }
+                Resources::CUDA::CUDADataBlock<int>* GetPrimitiveIndices() const { return primIndices; }
 
                 void PrintTree();
                 void PrintNode(int node, int offset = 0);

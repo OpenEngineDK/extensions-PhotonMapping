@@ -27,7 +27,7 @@ namespace OpenEngine {
             
             PhotonRenderingView::PhotonRenderingView()
                 : RenderingView(), triangleMap(NULL),
-                  updateTree(false),
+                  updateTree(true),
                   renderTree(false), raytrace(true){
             }
             

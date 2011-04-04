@@ -62,15 +62,15 @@ namespace OpenEngine {
             static const char Z = 3;
 
         protected:
-            CUDADataBlock<1, char>* info; // 0 = LEAF,1 = X, 2 = Y, 3 = Z. 6 bits left for stuff
-            CUDADataBlock<1, float>* splitPos;
-            CUDADataBlock<1, point> *aabbMin, *aabbMax;
-            CUDADataBlock<1, int> *primitiveIndex;
-            CUDADataBlock<1, bitmap> *primitiveBitmap;
+            CUDADataBlock<char>* info; // 0 = LEAF,1 = X, 2 = Y, 3 = Z. 6 bits left for stuff
+            CUDADataBlock<float>* splitPos;
+            CUDADataBlock<point> *aabbMin, *aabbMax;
+            CUDADataBlock<int> *primitiveIndex;
+            CUDADataBlock<bitmap> *primitiveBitmap;
 
             // if it is a leaf node then both nodes
             // point to it's lower node.
-            CUDADataBlock<1, int2> *children;
+            CUDADataBlock<int2> *children;
             
             int maxSize;
             int size;

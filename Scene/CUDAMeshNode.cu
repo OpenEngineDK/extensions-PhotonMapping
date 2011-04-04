@@ -85,7 +85,7 @@ namespace OpenEngine {
             float3 *hat;
             cudaMalloc(&hat, size * sizeof(float3));
 
-            vertices = new CUDADataBlock<1, float4>(size);
+            vertices = new CUDADataBlock<float4>(size);
             if (v->GetDimension() == 3){
                 cudaMemcpy(hat, v->GetVoidDataPtr(), size * sizeof(float3), cudaMemcpyHostToDevice);
                 CHECK_FOR_CUDA_ERROR();
@@ -97,7 +97,7 @@ namespace OpenEngine {
             }else
                 throw Exception("Deux the fuck");
 
-            normals = new CUDADataBlock<1, float4>(size);
+            normals = new CUDADataBlock<float4>(size);
             if (n->GetDimension() == 3){
                 cudaMemcpy(hat, n->GetVoidDataPtr(), size * sizeof(float3), cudaMemcpyHostToDevice);
                 CHECK_FOR_CUDA_ERROR();
@@ -107,7 +107,7 @@ namespace OpenEngine {
                 throw Exception("Quad the fuck");
             cudaFree(hat);
 
-            colors = new CUDADataBlock<1, uchar4>(size);
+            colors = new CUDADataBlock<uchar4>(size);
             if (c != NULL){
                 if (c->GetDimension() == 3){
                     float3 *hat;
@@ -133,7 +133,7 @@ namespace OpenEngine {
             }else
                 SetColor<<<blocks, threads>>>(make_uchar4(180, 180, 180, 255), colors->GetDeviceData(), size);
             
-            indices = new CUDADataBlock<1, unsigned int>(i->GetSize());
+            indices = new CUDADataBlock<unsigned int>(i->GetSize());
             cudaMemcpy(indices->GetDeviceData(), i->GetData(), i->GetSize() * sizeof(unsigned int), cudaMemcpyHostToDevice);
             CHECK_FOR_CUDA_ERROR();
         }

@@ -31,7 +31,7 @@ namespace OpenEngine {
                 TriangleMap* map;
 
                 Segments segments;
-                Resources::CUDA::CUDADataBlock<1, int> *nodeSegments;
+                Resources::CUDA::CUDADataBlock<int> *nodeSegments;
 
                 bool emptySpaceSplitting;
                 static float emptySpaceThreshold;
@@ -39,28 +39,28 @@ namespace OpenEngine {
                 TriangleMap::SplitMethod splitMethod;
 
                 // Primitive aabb values
-                Resources::CUDA::CUDADataBlock<1, float4> *aabbMin;
-                Resources::CUDA::CUDADataBlock<1, float4> *aabbMax;
+                Resources::CUDA::CUDADataBlock<float4> *aabbMin;
+                Resources::CUDA::CUDADataBlock<float4> *aabbMax;
 
                 // Arrays for holding reduced aabb values
-                Resources::CUDA::CUDADataBlock<1, float4> *tempAabbMin;
-                Resources::CUDA::CUDADataBlock<1, float4> *tempAabbMax;
+                Resources::CUDA::CUDADataBlock<float4> *tempAabbMin;
+                Resources::CUDA::CUDADataBlock<float4> *tempAabbMax;
 
                 // @OPT Perhaps use an indice array ie nextList,
                 // instead of rearranging all the nodes? Should save
                 // on cudpp scan invokations
 
                 // Split variables
-                Resources::CUDA::CUDADataBlock<1, int> *splitSide;
-                Resources::CUDA::CUDADataBlock<1, int> *splitAddr;
-                Resources::CUDA::CUDADataBlock<1, int> *leafSide;
-                Resources::CUDA::CUDADataBlock<1, int> *leafAddr;
-                Resources::CUDA::CUDADataBlock<1, char> *emptySpacePlanes;
-                Resources::CUDA::CUDADataBlock<1, int> *emptySpaceNodes; // Can be replaced by splitSide? Probably
-                Resources::CUDA::CUDADataBlock<1, int> *emptySpaceAddrs;
-                Resources::CUDA::CUDADataBlock<1, int> *nodeIndices;
-                Resources::CUDA::CUDADataBlock<1, int2> *childSize;
-                Resources::CUDA::CUDADataBlock<1, Scene::KDNode::amount> *tempNodeAmount;
+                Resources::CUDA::CUDADataBlock<int> *splitSide;
+                Resources::CUDA::CUDADataBlock<int> *splitAddr;
+                Resources::CUDA::CUDADataBlock<int> *leafSide;
+                Resources::CUDA::CUDADataBlock<int> *leafAddr;
+                Resources::CUDA::CUDADataBlock<char> *emptySpacePlanes;
+                Resources::CUDA::CUDADataBlock<int> *emptySpaceNodes; // Can be replaced by splitSide? Probably
+                Resources::CUDA::CUDADataBlock<int> *emptySpaceAddrs;
+                Resources::CUDA::CUDADataBlock<int> *nodeIndices;
+                Resources::CUDA::CUDADataBlock<int2> *childSize;
+                Resources::CUDA::CUDADataBlock<Scene::KDNode::amount> *tempNodeAmount;
 
                 int upperLeafPrimitives;
 
@@ -77,7 +77,7 @@ namespace OpenEngine {
                 virtual ~TriangleMapUpperCreator();
 
                 virtual void Create(TriangleMap* map, 
-                                    Resources::CUDA::CUDADataBlock<1, int>* upperLeafIDs);
+                                    Resources::CUDA::CUDADataBlock<int>* upperLeafIDs);
 
                 inline void SplitEmptySpace(const bool s) { emptySpaceSplitting = s; }
                 inline bool IsSplittingEmptySpace() const { return emptySpaceSplitting; }
@@ -109,8 +109,8 @@ namespace OpenEngine {
                                          float4 *finalMin, 
                                          float4 *finalMax);
 
-                void CheckPrimAabb(Resources::CUDA::CUDADataBlock<1, float4> *aabbMin, 
-                                   Resources::CUDA::CUDADataBlock<1, float4> *aabbMax);
+                void CheckPrimAabb(Resources::CUDA::CUDADataBlock<float4> *aabbMin, 
+                                   Resources::CUDA::CUDADataBlock<float4> *aabbMax);
                 void CheckUpperNode(int index, float4 aabbMin, float4 aabbMax, int activeRange = 0);
                 void CheckUpperLeaf(int index, float4 aabbMin, float4 aabbMax);
                 void CheckSplits();

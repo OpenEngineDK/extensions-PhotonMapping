@@ -24,11 +24,11 @@ namespace OpenEngine {
             Segments::Segments(int i)
                 : maxSize(i){
                 
-                nodeIDs = new CUDADataBlock<1, int>(i);
-                primitiveInfo = new CUDADataBlock<1, int2>(i);
-                aabbMin = new CUDADataBlock<1, point>(i);
-                aabbMax = new CUDADataBlock<1, point>(i);
-                prefixSum = new CUDADataBlock<1, int>(i);
+                nodeIDs = new CUDADataBlock<int>(i);
+                primitiveInfo = new CUDADataBlock<int2>(i);
+                aabbMin = new CUDADataBlock<point>(i);
+                aabbMax = new CUDADataBlock<point>(i);
+                prefixSum = new CUDADataBlock<int>(i);
             }
 
             __global__ void IncreaseIDs(int *nodeIDs, const int step, const int range){

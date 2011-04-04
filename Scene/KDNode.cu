@@ -25,14 +25,14 @@ namespace OpenEngine {
 
             logger.info << "Bit mask size: " << sizeof(bitmap) * 8 << "bits" << logger.end;
             
-            info = new CUDADataBlock<1, char>(maxSize);
-            splitPos = new CUDADataBlock<1, float>(maxSize);
-            aabbMin = new CUDADataBlock<1, point>(maxSize);
-            aabbMax = new CUDADataBlock<1, point>(maxSize);
-            primitiveIndex = new CUDADataBlock<1, int>(maxSize);
-            primitiveBitmap = new CUDADataBlock<1, bitmap>(maxSize);
+            info = new CUDADataBlock<char>(maxSize);
+            splitPos = new CUDADataBlock<float>(maxSize);
+            aabbMin = new CUDADataBlock<point>(maxSize);
+            aabbMax = new CUDADataBlock<point>(maxSize);
+            primitiveIndex = new CUDADataBlock<int>(maxSize);
+            primitiveBitmap = new CUDADataBlock<bitmap>(maxSize);
 
-            children = new CUDADataBlock<1, int2>(maxSize);
+            children = new CUDADataBlock<int2>(maxSize);
 
             CHECK_FOR_CUDA_ERROR();
         }

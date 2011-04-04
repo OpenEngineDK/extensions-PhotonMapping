@@ -45,21 +45,21 @@ namespace OpenEngine {
 
                 cutCreateTimer(&timerID);
 
-                p0 = new CUDADataBlock<1, float4>(maxSize);
-                p1 = new CUDADataBlock<1, float4>(maxSize);
-                p2 = new CUDADataBlock<1, float4>(maxSize);
+                p0 = new CUDADataBlock<float4>(maxSize);
+                p1 = new CUDADataBlock<float4>(maxSize);
+                p2 = new CUDADataBlock<float4>(maxSize);
 
-                n0 = new CUDADataBlock<1, float4>(maxSize);
-                n1 = new CUDADataBlock<1, float4>(maxSize);
-                n2 = new CUDADataBlock<1, float4>(maxSize);
+                n0 = new CUDADataBlock<float4>(maxSize);
+                n1 = new CUDADataBlock<float4>(maxSize);
+                n2 = new CUDADataBlock<float4>(maxSize);
 
-                c0 = new CUDADataBlock<1, uchar4>(maxSize);
-                c1 = new CUDADataBlock<1, uchar4>(maxSize);
-                c2 = new CUDADataBlock<1, uchar4>(maxSize);
+                c0 = new CUDADataBlock<uchar4>(maxSize);
+                c1 = new CUDADataBlock<uchar4>(maxSize);
+                c2 = new CUDADataBlock<uchar4>(maxSize);
 
-                woop0 = new CUDADataBlock<1, float4>(maxSize);
-                woop1 = new CUDADataBlock<1, float4>(maxSize);
-                woop2 = new CUDADataBlock<1, float4>(maxSize);
+                woop0 = new CUDADataBlock<float4>(maxSize);
+                woop1 = new CUDADataBlock<float4>(maxSize);
+                woop2 = new CUDADataBlock<float4>(maxSize);
             }
 
             void GeometryList::Resize(int i){

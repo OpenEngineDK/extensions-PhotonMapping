@@ -19,8 +19,8 @@ namespace OpenEngine {
 
         TriangleNode::TriangleNode(int size)
             : KDNode(size) {
-            surfaceArea = new CUDADataBlock<1, float>(maxSize);
-            parent = new CUDADataBlock<1, int>(maxSize);
+            surfaceArea = new CUDADataBlock<float>(maxSize);
+            parent = new CUDADataBlock<int>(maxSize);
         }
 
         void TriangleNode::Resize(int i){

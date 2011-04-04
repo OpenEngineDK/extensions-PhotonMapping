@@ -27,11 +27,11 @@ namespace OpenEngine {
 #define _D_SEGMENT_SIZE 256
                 static const int SEGMENT_SIZE = _D_SEGMENT_SIZE;
 
-                CUDADataBlock<1, int> *nodeIDs;
-                CUDADataBlock<1, int2> *primitiveInfo;
+                CUDADataBlock<int> *nodeIDs;
+                CUDADataBlock<int2> *primitiveInfo;
                 // Variables for holding the intermediate min/max values
-                CUDADataBlock<1, float4> *aabbMin, *aabbMax;
-                CUDADataBlock<1, int> *prefixSum; // prefix sum.
+                CUDADataBlock<float4> *aabbMin, *aabbMax;
+                CUDADataBlock<int> *prefixSum; // prefix sum.
 
                 int maxSize, size;
 

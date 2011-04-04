@@ -33,8 +33,8 @@ namespace OpenEngine {
                 : visualizeRays(false), intersectionAlgorithm(MOELLER), 
                   leafSkipping(true), printTiming(false) {
 
-                origin = new CUDADataBlock<1, float4>(1);
-                direction = new CUDADataBlock<1, float4>(1);
+                origin = new CUDADataBlock<float4>(1);
+                direction = new CUDADataBlock<float4>(1);
             }
             
             IRayTracer::~IRayTracer() {

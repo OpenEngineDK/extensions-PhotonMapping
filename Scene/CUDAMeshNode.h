@@ -20,10 +20,10 @@ namespace OpenEngine {
         class CUDAMeshNode : public ISceneNode {
             OE_SCENE_NODE(CUDAMeshNode, ISceneNode)
         protected:
-            Resources::CUDA::CUDADataBlock<1, float4> *vertices;
-            Resources::CUDA::CUDADataBlock<1, float4> *normals;
-            Resources::CUDA::CUDADataBlock<1, uchar4> *colors;
-            Resources::CUDA::CUDADataBlock<1, unsigned int> *indices;
+            Resources::CUDA::CUDADataBlock<float4> *vertices;
+            Resources::CUDA::CUDADataBlock<float4> *normals;
+            Resources::CUDA::CUDADataBlock<uchar4> *colors;
+            Resources::CUDA::CUDADataBlock<unsigned int> *indices;
 
         public:
             CUDAMeshNode() {}
