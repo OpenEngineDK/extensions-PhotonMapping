@@ -83,6 +83,7 @@ namespace OpenEngine {
                 void VisitTransformationNode(Scene::TransformationNode* node);
                 void VisitMeshNode(Scene::MeshNode* node);
                 void VisitCUDAMeshNode(Scene::CUDAMeshNode* node);
+                void VisitOscCUDAMeshNode(Scene::OscCUDAMeshNode* node);
                 
             };
             

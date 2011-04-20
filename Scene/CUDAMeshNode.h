@@ -36,6 +36,8 @@ namespace OpenEngine {
             unsigned int* GetIndexData() const { return indices->GetDeviceData(); }
             
             unsigned int GetSize() const { return indices->GetSize(); }
+
+            virtual const std::string ToString() const;
         };
             
     }

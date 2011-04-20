@@ -137,6 +137,13 @@ namespace OpenEngine {
             cudaMemcpy(indices->GetDeviceData(), i->GetData(), i->GetSize() * sizeof(unsigned int), cudaMemcpyHostToDevice);
             CHECK_FOR_CUDA_ERROR();
         }
-            
+        
+        const std::string CUDAMeshNode::ToString() const {
+            return "Vertices: " + vertices->ToString() + 
+                "\nNormals: " + normals->ToString() +
+                "\nColors: " + colors->ToString() + 
+                "\nIndices: " + indices->ToString();
+        }
+        
     }
 }

@@ -6,6 +6,7 @@ CUDA_ADD_LIBRARY( "CUDA_KERNELS"
   Scene/KDNode.cu
   Scene/TriangleNode.cu
   Scene/CUDAMeshNode.cu
+  Scene/OscCUDAMeshNode.cu
   Utils/CUDA/Segments.cu
   Utils/CUDA/SplittingPlanes.cu
   Utils/CUDA/GeometryList.cu

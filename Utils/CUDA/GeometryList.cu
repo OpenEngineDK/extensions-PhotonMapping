@@ -15,6 +15,7 @@
 #include <Scene/ISceneNode.h>
 #include <Scene/MeshNode.h>
 #include <Scene/CUDAMeshNode.h>
+#include <Scene/OscCUDAMeshNode.h>
 #include <Scene/RenderStateNode.h>
 #include <Scene/TransformationNode.h>
 #include <Utils/CUDA/Utils.h>
@@ -386,6 +387,18 @@ namespace OpenEngine {
             void GeometryList::VisitCUDAMeshNode(CUDAMeshNode* node){
                 AddMesh(node, currentModelMat);
 
+                node->VisitSubNodes(*this);
+            }
+
+            void GeometryList::VisitOscCUDAMeshNode(OscCUDAMeshNode* node){
+                //logger.info << "Visit OscCUDAMeshNode" << logger.end;
+
+                node->Init();
+
+                //logger.info << node->ToString() << logger.end;
+
+                AddMesh(node, currentModelMat);
+                
                 node->VisitSubNodes(*this);
             }
 
