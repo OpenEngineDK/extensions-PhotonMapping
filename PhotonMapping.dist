@@ -1,7 +1,7 @@
 # Photon mapping dependencies
 
-darcs /extensions/PhotonMapping			http://openengine.dk/code/extensions/PhotonMapping
+git /extensions/PhotonMapping			https://github.com/OpenEngineDK/extensions-PhotonMapping.git
 git-dev /extensions/PhotonMapping		git@github.com:OpenEngineDK/extensions-PhotonMapping.git
 
-darcs /extensions/CUDA				http://openengine.dk/code/extensions/CUDA
+git /extensions/CUDA				https://github.com/OpenEngineDK/extensions-CUDA.git
 git-dev /extensions/CUDA			git@github.com:OpenEngineDK/extensions-CUDA.git
